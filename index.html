@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#091324" />
+    <title>TennisRank AI</title>
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <div class="brand-mark"><span class="brand-dot"></span>TennisRank <span class="brand-ai">AI</span></div>
+        <div class="topbar-actions">
+          <span class="live-pill"><span class="pulse"></span> LIVE</span>
+          <button class="icon-button" id="openSettings" aria-label="Open data settings">⚙</button>
+        </div>
+      </header>
+
+      <main>
+        <section class="hero-section">
+          <div>
+            <p class="eyebrow">TEAM PERFORMANCE CENTER</p>
+            <h1>Practice results,<br /><span>ranked automatically.</span></h1>
+            <p class="hero-copy">Track boys’ and girls’ singles and doubles from one simple spreadsheet.</p>
+          </div>
+          <div class="hero-ball" aria-hidden="true"><span>✦</span></div>
+        </section>
+
+        <section class="summary-grid" id="summaryGrid"></section>
+
+        <section class="section-heading">
+          <div>
+            <p class="eyebrow">CURRENT LEADERBOARD</p>
+            <h2>Top rankings</h2>
+          </div>
+          <div class="last-updated" id="lastUpdated">Sample data</div>
+        </section>
+
+        <section class="filter-bar" aria-label="Ranking filters">
+          <button class="filter-chip active" data-gender="all">All teams</button>
+          <button class="filter-chip" data-gender="boys">Boys</button>
+          <button class="filter-chip" data-gender="girls">Girls</button>
+          <span class="filter-divider"></span>
+          <button class="filter-chip active" data-division="all">Singles + doubles</button>
+          <button class="filter-chip" data-division="singles">Singles</button>
+          <button class="filter-chip" data-division="doubles">Doubles</button>
+        </section>
+
+        <section class="rankings-grid" id="rankingsGrid"></section>
+
+        <section class="section-heading table-heading">
+          <div>
+            <p class="eyebrow">FULL BREAKDOWN</p>
+            <h2>All ranked players</h2>
+          </div>
+          <span class="record-note">Sorted by record differential</span>
+        </section>
+        <section class="table-card">
+          <div class="table-scroll">
+            <table>
+              <thead>
+                <tr><th>#</th><th>Player / team</th><th>Team</th><th>Type</th><th>Record</th><th>Diff</th><th>Win rate</th></tr>
+              </thead>
+              <tbody id="rankingTable"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="section-heading recent-heading">
+          <div>
+            <p class="eyebrow">LATEST INPUT</p>
+            <h2>Recent matches</h2>
+          </div>
+        </section>
+        <section class="matches-card" id="matchesList"></section>
+
+        <section class="data-panel" id="settingsPanel">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">DATA CONNECTION</p>
+              <h2>Connect your spreadsheet</h2>
+            </div>
+            <button class="close-button" id="closeSettings" aria-label="Close settings">×</button>
+          </div>
+          <p class="panel-copy">Use a public Google Sheet, upload a CSV export, or paste CSV text while testing. The app recalculates whenever the data refreshes.</p>
+
+          <div class="source-tabs">
+            <button class="source-tab active" data-source="sheet">Google Sheet URL</button>
+            <button class="source-tab" data-source="csv">CSV / file</button>
+          </div>
+          <div class="source-view active" id="sheetSource">
+            <label for="sheetUrl">Published or shareable Google Sheet link</label>
+            <div class="input-row">
+              <input id="sheetUrl" type="url" placeholder="https://docs.google.com/spreadsheets/d/..." />
+              <button class="primary-button" id="connectSheet">Connect</button>
+            </div>
+            <p class="helper-text">Set sharing to “Anyone with the link — Viewer.” The app converts the link to a CSV feed automatically.</p>
+          </div>
+          <div class="source-view" id="csvSource">
+            <label for="csvFile">Upload a CSV export</label>
+            <input id="csvFile" type="file" accept=".csv,text/csv" />
+            <label for="csvText">Or paste spreadsheet data</label>
+            <textarea id="csvText" rows="5" placeholder="Name,Gender,Division,Player 1,Player 2,Winner,Loser,Score,Date"></textarea>
+            <button class="secondary-button" id="useCsv">Use pasted CSV</button>
+          </div>
+
+          <div class="refresh-controls">
+            <div>
+              <label for="refreshRate">Automatic refresh</label>
+              <select id="refreshRate">
+                <option value="0">Off</option>
+                <option value="15">Every 15 seconds</option>
+                <option value="30">Every 30 seconds</option>
+                <option value="60" selected>Every minute</option>
+                <option value="300">Every 5 minutes</option>
+              </select>
+            </div>
+            <button class="secondary-button" id="refreshNow">Refresh now</button>
+          </div>
+
+          <div class="backend-row">
+            <div>
+              <label>Persistent database</label>
+              <p id="backendStatus">Checking backend connection…</p>
+            </div>
+            <button class="secondary-button" id="saveBackend">Save current data</button>
+          </div>
+          <label for="backendToken">Backend write token <span class="optional-label">(only needed if configured in Vercel)</span></label>
+          <input id="backendToken" type="password" placeholder="Enter coach/admin token to save data" autocomplete="off" />
+
+          <div class="format-guide">
+            <strong>Recommended columns</strong>
+            <code> Name | Gender | Division | Player 1 | Player 2 | Winner | Loser | Score | Date</code>
+            <span>Roster rows only need Name, Gender, and Division. Match rows can use Winner and Loser, or Player 1, Player 2, and Winner.</span>
+          </div>
+          <div class="status-message" id="statusMessage" role="status"></div>
+        </section>
+      </main>
+
+      <nav class="bottom-nav">
+        <button class="nav-item active"><span>⌂</span>Home</button>
+        <button class="nav-item"><span>▥</span>Rankings</button>
+        <button class="nav-item" id="navSettings"><span>▣</span>Data</button>
+        <button class="nav-item"><span>◈</span>Insights</button>
+      </nav>
+    </div>
+    <script src="./app.js"></script>
+  </body>
+</html>
