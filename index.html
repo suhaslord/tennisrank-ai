@@ -3,55 +3,117 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#091324" />
+    <meta name="theme-color" content="#f3ede6" />
+    <meta name="description" content="TennisRank AI turns a team's existing spreadsheet into clear, current singles and doubles rankings." />
+    <link rel="canonical" href="https://tennisrank-ai.vercel.app/" />
+    <meta property="og:title" content="TennisRank AI" />
+    <meta property="og:description" content="Import a team spreadsheet and keep every tennis division current." />
+    <meta property="og:url" content="https://tennisrank-ai.vercel.app/" />
+    <meta property="og:type" content="website" />
     <title>TennisRank AI</title>
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
+    <link rel="preload" as="image" href="/assets/team-court.jpg" fetchpriority="high" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.1/src/regular/style.css" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.1/src/fill/style.css" />
     <link rel="stylesheet" href="./style.css" />
   </head>
   <body>
     <div class="app-shell">
       <header class="topbar">
-        <div class="brand-mark"><span class="brand-dot"></span>TennisRank <span class="brand-ai">AI</span></div>
+        <a class="brand-mark" href="#top" aria-label="TennisRank home"><span class="brand-dot"></span>TennisRank <span class="brand-ai">AI</span></a>
+        <nav class="topbar-links" aria-label="Section navigation">
+          <a href="#rankingsSection"><i class="ph ph-chart-bar" aria-hidden="true"></i>Rankings</a>
+          <a href="#statsSection"><i class="ph ph-users" aria-hidden="true"></i>Players</a>
+          <a href="#settingsPanel"><i class="ph ph-upload-simple" aria-hidden="true"></i>Import</a>
+        </nav>
         <div class="topbar-actions">
-          <span class="live-pill"><span class="pulse"></span> LIVE</span>
-          <button class="icon-button" id="openSettings" aria-label="Open data settings">⚙</button>
+          <span class="live-pill"><i class="ph-fill ph-broadcast" aria-hidden="true"></i><span class="pulse"></span> BOARD STATUS</span>
+          <button class="icon-button" id="openSettings" aria-label="Open data settings" title="Open data settings"><i class="ph ph-database" aria-hidden="true"></i><span>Data</span></button>
         </div>
       </header>
 
-      <main>
+      <main id="top">
         <section class="hero-section">
-          <div>
-            <p class="eyebrow">TEAM PERFORMANCE CENTER</p>
-            <h1>Practice results,<br /><span>ranked automatically.</span></h1>
-            <p class="hero-copy">Track boys’ and girls’ singles and doubles from one simple spreadsheet.</p>
+          <div class="hero-content">
+            <p class="eyebrow">Team ranking workspace</p>
+            <h1>Your season,<br /><span>sorted.</span></h1>
+            <p class="hero-copy">Import the sheet your team already uses. TennisRank maps the columns, understands the results, and keeps every division current.</p>
+            <div class="hero-actions">
+              <button class="primary-button" id="heroRankings"><span>View rankings</span><i class="ph ph-arrow-down" aria-hidden="true"></i></button>
+              <button class="ghost-button" id="heroData"><span>Update data</span><i class="ph ph-database" aria-hidden="true"></i></button>
+            </div>
+            <div class="hero-note"><span class="status-dot"></span><span id="heroSourceLabel">Sample board</span><span class="hero-note-separator">|</span><span id="heroRowCount">0 rows analyzed</span></div>
           </div>
-          <div class="hero-ball" aria-hidden="true"><span>✦</span></div>
+          <div class="hero-visual" role="group" aria-label="Current season summary">
+            <img class="hero-photo" src="/assets/team-court.jpg" alt="Tennis players and coaches gathered on the court" fetchpriority="high" decoding="async" />
+            <div class="hero-photo-shade" aria-hidden="true"></div>
+            <div class="visual-grid" aria-hidden="true"></div>
+            <div class="visual-topline"><span>Season pulse</span><span class="visual-status"><span class="pulse"></span> Ready</span></div>
+            <div class="court-mark" aria-hidden="true"><span class="court-net"></span><span class="court-center"></span><span class="court-serve court-serve-left"></span><span class="court-serve court-serve-right"></span></div>
+            <div class="racket-art" aria-hidden="true">
+              <div class="racket-head"><span class="racket-head-glow"></span></div>
+              <span class="racket-throat"></span>
+              <span class="racket-shaft"></span>
+              <span class="racket-grip"></span>
+              <span class="racket-cap"></span>
+            </div>
+            <div class="visual-metric"><span class="visual-label">Record differential</span><strong id="heroDiff">+0</strong><span id="heroDiffDetail">Waiting for match data</span></div>
+            <div class="visual-footer"><span id="heroMatchCount">0 matches tracked</span><span id="heroUpdateState">Sample data</span></div>
+          </div>
+        </section>
+
+        <section class="story-rail" aria-label="Season stories">
+          <article class="story-card">
+            <div class="story-image story-image-awards">
+            <img src="/assets/matchday-awards.jpg" alt="Players holding tennis trophies after a matchday" loading="lazy" decoding="async" />
+            </div>
+            <div class="story-copy">
+              <p class="story-kicker">Built on the court</p>
+              <h2>Every result has a place on the board.</h2>
+              <p>Keep the full season visible, from a new player starting at 0-0 to the matches that move a division.</p>
+              <a class="inline-link" href="#rankingsSection">Explore rankings <i class="ph ph-arrow-up-right" aria-hidden="true"></i></a>
+            </div>
+          </article>
+          <article class="spotlight-card">
+            <div class="spotlight-copy">
+              <p class="story-kicker">Singles spotlight</p>
+              <h2>Clear signals. Less noise.</h2>
+              <p>Use the analyzer to turn the sheet your team already has into a ranking board everyone can follow.</p>
+              <a class="inline-link" href="#settingsPanel">Connect a sheet <i class="ph ph-arrow-up-right" aria-hidden="true"></i></a>
+            </div>
+            <div class="spotlight-image">
+              <img src="/assets/singles-spotlight.jpg" alt="Tennis player holding a tournament trophy" loading="lazy" decoding="async" />
+            </div>
+          </article>
         </section>
 
         <section class="summary-grid" id="summaryGrid"></section>
 
-        <section class="section-heading">
+        <section class="insight-strip" id="insightStrip" aria-live="polite"></section>
+
+        <section class="section-heading" id="rankingsSection">
           <div>
-            <p class="eyebrow">CURRENT LEADERBOARD</p>
+            <p class="eyebrow">Current leaderboard</p>
             <h2>Top rankings</h2>
           </div>
           <div class="last-updated" id="lastUpdated">Sample data</div>
         </section>
 
         <section class="filter-bar" aria-label="Ranking filters">
-          <button class="filter-chip active" data-gender="all">All teams</button>
-          <button class="filter-chip" data-gender="boys">Boys</button>
-          <button class="filter-chip" data-gender="girls">Girls</button>
+          <button class="filter-chip active" data-gender="all" aria-pressed="true">All teams</button>
+          <button class="filter-chip" data-gender="boys" aria-pressed="false">Boys</button>
+          <button class="filter-chip" data-gender="girls" aria-pressed="false">Girls</button>
           <span class="filter-divider"></span>
-          <button class="filter-chip active" data-division="all">Singles + doubles</button>
-          <button class="filter-chip" data-division="singles">Singles</button>
-          <button class="filter-chip" data-division="doubles">Doubles</button>
+          <button class="filter-chip active" data-division="all" aria-pressed="true">Singles + doubles</button>
+          <button class="filter-chip" data-division="singles" aria-pressed="false">Singles</button>
+          <button class="filter-chip" data-division="doubles" aria-pressed="false">Doubles</button>
         </section>
 
         <section class="rankings-grid" id="rankingsGrid"></section>
 
-        <section class="section-heading table-heading">
+        <section class="section-heading table-heading" id="statsSection">
           <div>
-            <p class="eyebrow">FULL BREAKDOWN</p>
+            <p class="eyebrow">Full breakdown</p>
             <h2>All ranked players</h2>
           </div>
           <span class="record-note">Sorted by record differential</span>
@@ -60,7 +122,7 @@
           <div class="table-scroll">
             <table>
               <thead>
-                <tr><th>#</th><th>Player / team</th><th>Team</th><th>Type</th><th>Record</th><th>Diff</th><th>Win rate</th></tr>
+                <tr><th>#</th><th>Player / team</th><th>Group</th><th>Type</th><th>Record</th><th>Diff</th><th>Win rate</th></tr>
               </thead>
               <tbody id="rankingTable"></tbody>
             </table>
@@ -69,7 +131,7 @@
 
         <section class="section-heading recent-heading">
           <div>
-            <p class="eyebrow">LATEST INPUT</p>
+            <p class="eyebrow">Latest results</p>
             <h2>Recent matches</h2>
           </div>
         </section>
@@ -78,31 +140,44 @@
         <section class="data-panel" id="settingsPanel">
           <div class="panel-heading">
             <div>
-              <p class="eyebrow">DATA CONNECTION</p>
-              <h2>Connect your spreadsheet</h2>
+              <p class="eyebrow">Data connection</p>
+              <h2>Bring your sheet</h2>
             </div>
-            <button class="close-button" id="closeSettings" aria-label="Close settings">×</button>
+            <button class="close-button" id="closeSettings" aria-label="Back to rankings" title="Back to rankings"><i class="ph ph-arrow-left" aria-hidden="true"></i><span>Back</span></button>
           </div>
-          <p class="panel-copy">Use a public Google Sheet, upload a CSV export, or paste CSV text while testing. The app recalculates whenever the data refreshes.</p>
+          <p class="panel-copy">Use a public Google Sheet, upload a CSV export, or paste data while testing. The analyzer looks for headers even when the sheet starts with a title, notes, or blank rows.</p>
 
-          <div class="source-tabs">
-            <button class="source-tab active" data-source="sheet">Google Sheet URL</button>
-            <button class="source-tab" data-source="csv">CSV / file</button>
+          <div class="source-tabs" role="tablist" aria-label="Data source">
+            <button class="source-tab active" id="tabSheet" data-source="sheet" role="tab" aria-selected="true" aria-controls="sheetSource"><i class="ph ph-link" aria-hidden="true"></i>Google Sheet URL</button>
+            <button class="source-tab" id="tabCsv" data-source="csv" role="tab" aria-selected="false" aria-controls="csvSource"><i class="ph ph-file-csv" aria-hidden="true"></i>CSV / file</button>
           </div>
-          <div class="source-view active" id="sheetSource">
-            <label for="sheetUrl">Published or shareable Google Sheet link</label>
+          <div class="source-view active" id="sheetSource" role="tabpanel" aria-labelledby="tabSheet" tabindex="0">
+            <label for="sheetUrl">Public or published Google Sheet link</label>
             <div class="input-row">
               <input id="sheetUrl" type="url" placeholder="https://docs.google.com/spreadsheets/d/..." />
-              <button class="primary-button" id="connectSheet">Connect</button>
+              <button class="primary-button" id="connectSheet"><span>Connect</span><i class="ph ph-arrow-right" aria-hidden="true"></i></button>
             </div>
-            <p class="helper-text">Set sharing to “Anyone with the link — Viewer.” The app converts the link to a CSV feed automatically.</p>
+            <p class="helper-text">Set sharing to “Anyone with the link - Viewer.” The app reads the selected tab and converts it to data automatically.</p>
           </div>
-          <div class="source-view" id="csvSource">
+          <div class="source-view" id="csvSource" role="tabpanel" aria-labelledby="tabCsv" tabindex="0" hidden>
             <label for="csvFile">Upload a CSV export</label>
-            <input id="csvFile" type="file" accept=".csv,text/csv" />
+            <input id="csvFile" type="file" accept=".csv,text/csv,.tsv,text/tab-separated-values" />
             <label for="csvText">Or paste spreadsheet data</label>
             <textarea id="csvText" rows="5" placeholder="Name,Gender,Division,Player 1,Player 2,Winner,Loser,Score,Date"></textarea>
-            <button class="secondary-button" id="useCsv">Use pasted CSV</button>
+            <button class="secondary-button" id="useCsv"><span>Use pasted CSV</span><i class="ph ph-check" aria-hidden="true"></i></button>
+          </div>
+
+          <div class="analyzer-card" id="analyzerCard" aria-live="polite">
+            <div class="analyzer-header">
+              <div>
+                <div class="analyzer-kicker">Sheet analyzer</div>
+                <strong id="analyzerTitle">Ready to inspect your data</strong>
+              </div>
+              <span class="confidence-badge" id="analyzerConfidence">WAITING</span>
+            </div>
+            <div class="analyzer-stats" id="analyzerStats"></div>
+            <div class="analyzer-fields" id="analyzerFields"></div>
+            <p class="analyzer-note" id="analyzerNote">Connect a sheet and the app will explain what it recognized before ranking anything.</p>
           </div>
 
           <div class="refresh-controls">
@@ -116,35 +191,36 @@
                 <option value="300">Every 5 minutes</option>
               </select>
             </div>
-            <button class="secondary-button" id="refreshNow">Refresh now</button>
+            <button class="secondary-button" id="refreshNow"><span>Refresh now</span><i class="ph ph-arrow-clockwise" aria-hidden="true"></i></button>
           </div>
 
           <div class="backend-row">
             <div>
               <label>Persistent database</label>
-              <p id="backendStatus">Checking backend connection…</p>
+              <p id="backendStatus">Checking backend connection...</p>
             </div>
-            <button class="secondary-button" id="saveBackend">Save current data</button>
+            <button class="secondary-button" id="saveBackend"><span>Save current data</span><i class="ph ph-floppy-disk" aria-hidden="true"></i></button>
           </div>
           <label for="backendToken">Backend write token <span class="optional-label">(only needed if configured in Vercel)</span></label>
           <input id="backendToken" type="password" placeholder="Enter coach/admin token to save data" autocomplete="off" />
 
           <div class="format-guide">
-            <strong>Recommended columns</strong>
-            <code> Name | Gender | Division | Player 1 | Player 2 | Winner | Loser | Score | Date</code>
-            <span>Roster rows only need Name, Gender, and Division. Match rows can use Winner and Loser, or Player 1, Player 2, and Winner.</span>
+            <strong>What the analyzer understands</strong>
+            <code>Name, Player, Athlete, Winner, Loser, Opponent, Result, Score, Date</code>
+            <span>It also recognizes common variations, title rows, grouped Boys/Girls or Singles/Doubles sections, and player/opponent rows with W or L results.</span>
           </div>
           <div class="status-message" id="statusMessage" role="status"></div>
         </section>
       </main>
 
-      <nav class="bottom-nav">
-        <button class="nav-item active"><span>⌂</span>Home</button>
-        <button class="nav-item"><span>▥</span>Rankings</button>
-        <button class="nav-item" id="navSettings"><span>▣</span>Data</button>
-        <button class="nav-item"><span>◈</span>Insights</button>
+      <nav class="bottom-nav" aria-label="Primary navigation">
+        <button class="nav-item active" id="navHome"><i class="ph ph-house" aria-hidden="true"></i><span>Home</span></button>
+        <button class="nav-item" id="navRankings"><i class="ph ph-chart-bar" aria-hidden="true"></i><span>Rankings</span></button>
+        <button class="nav-item" id="navSettings"><i class="ph ph-database" aria-hidden="true"></i><span>Data</span></button>
+        <button class="nav-item" id="navInsights"><i class="ph ph-sparkle" aria-hidden="true"></i><span>Insights</span></button>
       </nav>
     </div>
+    <div class="cursor-ball" aria-hidden="true"><span class="cursor-ball-core"></span></div>
     <script src="./app.js"></script>
   </body>
 </html>

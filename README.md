@@ -9,6 +9,16 @@ A Vercel-ready, mobile-first tennis ranking dashboard. It reads a public Google 
 - Ranking order is wins minus losses, then win rate, then total wins.
 - Doubles are ranked as teams/pairs. Pair order is normalized so `A & B` and `B & A` are treated as the same team.
 
+## Flexible sheet import
+
+TennisRank does not require the header row to be the first row. When a sheet is connected, it scans the first 30 rows for the strongest header match, recognizes common column names, skips title/notes rows, and shows an analyzer summary before the rankings are used.
+
+It recognizes roster rows, explicit winner/loser rows, side-by-side match rows, and row-per-player results with `W` or `L`. Grouped sections can carry Boys/Girls and Singles/Doubles labels down to the rows beneath them.
+
+Common labels include `Name`, `Athlete`, `Student`, `Player`, `Gender`, `Sex`, `Division`, `Event`, `Category`, `Player 1`, `Player 2`, `Side A`, `Side B`, `Winner`, `Loser`, `Opponent`, `Result`, `Score`, and `Date`. CSV, TSV, and semicolon-delimited exports are supported.
+
+For the best confidence, include a gender or section label. The app cannot safely guess Boys/Girls from a person's name alone, so unlabeled rows are shown in the analyzer as needing review rather than silently assigned to the wrong division.
+
 ## Recommended sheet format
 
 Use one header row. Common header variations are supported, including `Name`, `Player`, `Gender`, `Division`, `Player 1`, `Player 2`, `Winner`, `Loser`, `Score`, and `Date`.
@@ -20,7 +30,7 @@ Ava Patel,Girls,Singles,,,,,,
 ,Girls,Doubles,Sofia Garcia & Emma Wilson,Chloe Brown & Maya Shah,Chloe Brown & Maya Shah,Sofia Garcia & Emma Wilson,8-5,2026-08-03
 ```
 
-Roster rows are optional but recommended. They allow a new player to appear at 0–0 before they play a match.
+Roster rows are optional but recommended. They allow a new player to appear at 0-0 before they play a match.
 
 The parser also accepts a row-per-player results sheet using `Player`, `Opponent`, `Result`, `Gender`, and `Division`, where `Result` is `W` or `L`. For the most reliable import, use explicit `Winner` and `Loser` columns.
 
