@@ -1,3 +1,9 @@
 {
-  "cleanUrls": true
+  "cleanUrls": true,
+  "rewrites": [
+    { "source": "/", "destination": "/api/render" },
+    { "source": "/player", "destination": "/api/render" },
+    { "source": "/admin", "destination": "/api/render" },
+    { "source": "/assets/:path*", "destination": "https://cdn.jsdelivr.net/gh/suhaslord/tennisrank-ai@0aa8d4a6a9d9f65a2e91197d0a1e839a4fe6d189/assets/:path*" }
+  ]
 }
