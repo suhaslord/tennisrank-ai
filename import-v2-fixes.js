@@ -106,11 +106,11 @@
     if (nonEmpty < 2) return null;
     const mapping = values.map(importer.canonicalField);
     const recognized = mapping.filter(field => field !== "column").length;
-    // W/L, Boys/Girls and Singles/Doubles are common DATA values. They may map
-    // to wins/losses/gender/division in isolation, so they are deliberately not
-    // enough to declare a new header block. Require a structural label.
+    // Individual values such as W, Home, Boys and Singles can also resemble
+    // headers. A new block therefore needs multiple independent structural
+    // labels before it may replace the active schema.
     const structuralAnchors = mapping.filter(field => ["name", "opponent", "player1", "player2", "winner", "loser", "result", "record", "rank"].includes(field)).length;
-    return structuralAnchors >= 1 && recognized / nonEmpty >= 0.6 ? mapping : null;
+    return structuralAnchors >= 2 && recognized / nonEmpty >= 0.6 ? mapping : null;
   }
 
   function buildParser(importer) {
