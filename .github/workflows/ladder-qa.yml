@@ -37,10 +37,8 @@ jobs:
           node --check challenge-ui-state.js
           node --check api/render.js
           node --check api/_supabase.js
-          node --check api/config.js
-          node --check api/session.js
+          node --check api/auth-api.js
           node --check api/users.js
-          node --check api/bootstrap.js
           node --check api/records.js
           node --check api/ladder.js
           node --check api/challenges.js
@@ -75,6 +73,7 @@ jobs:
           grep -q './challenge-ui.js' index.html
           grep -q './challenge-ui-state.js' index.html
           test -f tesla-authority.css
+          test -f tesla-finish.css
           test -f production-stability.css
           test -f import-v2.js
           test -f import-v2-fixes.js
@@ -83,7 +82,7 @@ jobs:
           test -f assets/team-court.jpg
           test -f assets/matchday-awards.jpg
           test -f assets/singles-spotlight.jpg
-      - name: Server-auth and import guardrails
+      - name: Server-auth, Vercel and import guardrails
         run: |
           set -euo pipefail
           grep -q 'authenticatedContext' api/records.js
@@ -95,9 +94,22 @@ jobs:
           grep -q 'MAX_BYTES' api/sheet-proxy.js
           grep -q 'sheet-proxy' import-v2.js
           grep -q 'tesla-authority.css' api/render.js
+          grep -q 'tesla-finish.css' api/render.js
           grep -q 'import-runtime-fixes.js' api/render.js
           grep -q 'import-v2.js' api/render.js
           grep -q 'import-v2-fixes.js' api/render.js
+          grep -q 'route === "config"' api/auth-api.js
+          grep -q 'route === "session"' api/auth-api.js
+          grep -q 'route === "bootstrap"' api/auth-api.js
+          grep -q '"source": "/api/config"' vercel.json
+          grep -q '"source": "/api/session"' vercel.json
+          grep -q '"source": "/api/bootstrap"' vercel.json
+          test ! -e api/config.js
+          test ! -e api/session.js
+          test ! -e api/bootstrap.js
+          COUNT=$(find api -type f -name '*.js' | wc -l)
+          echo "Serverless function candidates: $COUNT"
+          test "$COUNT" -le 12
       - name: Secret-safety guardrails
         run: |
           set -euo pipefail
