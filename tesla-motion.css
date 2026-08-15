@@ -1,0 +1,150 @@
+/* TennisRank motion polish
+   Tesla remains the visual authority; this layer adds restrained, Apple-like
+   choreography without changing the project's palette, radii, or hierarchy. */
+:root{
+  --tr-motion-fast:180ms cubic-bezier(.2,.7,.2,1);
+  --tr-motion:330ms cubic-bezier(.5,0,0,.75);
+  --tr-motion-slow:560ms cubic-bezier(.2,.72,.2,1);
+  --tr-motion-enter:680ms cubic-bezier(.16,1,.3,1);
+}
+
+/* Crisp keyboard focus. Keep the orange as a signal, never decoration. */
+:where(a,button,input,select,textarea,[tabindex]):focus-visible{
+  outline:2px solid #171a20!important;
+  outline-offset:3px!important;
+  box-shadow:0 0 0 2px #fff,0 0 0 4px rgba(243,107,33,.38)!important;
+}
+
+/* Physical response without scale/bounce. */
+:where(button,.filter-chip,.source-tab,.coach-tab,.ladder-tab,.challenge-action,.coach-action):active{
+  opacity:.72!important;
+  transition-duration:80ms!important;
+}
+
+/* Navigation glass should arrive softly, not snap. */
+.topbar{
+  transition:background-color var(--tr-motion),border-color var(--tr-motion),color var(--tr-motion),backdrop-filter var(--tr-motion)!important;
+}
+.topbar.is-scrolled{
+  box-shadow:0 1px 0 rgba(23,26,32,.03)!important;
+}
+
+/* New isolated reveal system. The old reveal-on-scroll/stagger classes stay disabled. */
+html[data-tr-motion="enabled"] .tr-motion-item{
+  opacity:0;
+  transform:translate3d(0,12px,0);
+  transition:
+    opacity var(--tr-motion-enter),
+    transform var(--tr-motion-enter)!important;
+  transition-delay:var(--tr-delay,0ms)!important;
+  will-change:opacity,transform;
+}
+html[data-tr-motion="enabled"] .tr-motion-item[data-tr-motion-kind="fade"]{
+  transform:none;
+}
+html[data-tr-motion="enabled"] .tr-motion-item.is-tr-visible{
+  opacity:1;
+  transform:none;
+  will-change:auto;
+}
+
+/* Login: photo first, then the quiet form hierarchy. */
+html[data-tr-motion="enabled"] .auth-visual img{
+  opacity:0;
+  transition:opacity 760ms cubic-bezier(.2,.7,.2,1)!important;
+}
+html[data-tr-motion="enabled"].tr-motion-booted .auth-visual img{opacity:1}
+.auth-visual-rule{
+  transform-origin:left center;
+}
+html[data-tr-motion="enabled"] .auth-visual-rule{
+  transform:scaleX(0);
+  transition:transform 620ms cubic-bezier(.16,1,.3,1) 180ms!important;
+}
+html[data-tr-motion="enabled"].tr-motion-booted .auth-visual-rule{transform:scaleX(1)}
+
+/* Hero stays cinematic but static enough to feel Tesla, not like a promo template. */
+.hero-section{isolation:isolate}
+.hero-photo{
+  transition:filter 700ms cubic-bezier(.2,.7,.2,1),opacity 700ms cubic-bezier(.2,.7,.2,1)!important;
+}
+html[data-tr-motion="enabled"] .hero-section:not(.tr-hero-ready) .hero-photo{opacity:.82}
+html[data-tr-motion="enabled"] .hero-section.tr-hero-ready .hero-photo{opacity:1}
+.hero-actions :where(.primary-button,.ghost-button){
+  transition:color var(--tr-motion),background-color var(--tr-motion),border-color var(--tr-motion),opacity var(--tr-motion-fast)!important;
+}
+
+/* Editorial imagery gets one restrained optical response on pointer devices. */
+@media (hover:hover) and (pointer:fine){
+  .story-image img,.spotlight-image img,.ladder-stage-photo{
+    transition:filter 520ms cubic-bezier(.2,.7,.2,1),opacity 520ms cubic-bezier(.2,.7,.2,1)!important;
+  }
+  .story-card:hover .story-image img,
+  .spotlight-card:hover .spotlight-image img{
+    filter:saturate(.94) contrast(1.01)!important;
+  }
+  .inline-link{
+    transition:color var(--tr-motion),border-color var(--tr-motion),opacity var(--tr-motion)!important;
+  }
+  .inline-link:hover{opacity:.62!important}
+}
+
+/* Athletic board: rows should feel responsive but never float or scale. */
+.ladder-row,.ranking-card,.match-row,.coach-roster-row,.challenge-item,.approval-item{
+  transition:background-color var(--tr-motion),border-color var(--tr-motion),opacity var(--tr-motion)!important;
+}
+.ladder-row:focus-within,.ranking-card:focus-within,.coach-roster-row:focus-within{
+  background:#f4f4f4!important;
+}
+
+/* Tabs use a precise sliding state via color/background only. */
+.ladder-tab,.filter-chip,.source-tab,.coach-tab{
+  transition:color var(--tr-motion),background-color var(--tr-motion),border-color var(--tr-motion),opacity var(--tr-motion-fast)!important;
+}
+
+/* Import workspace: analyzer/status changes feel deliberate rather than flashing. */
+.analyzer-card,.analyzer-stats,.analyzer-fields,.status-message,.backend-row p{
+  transition:opacity var(--tr-motion),color var(--tr-motion),border-color var(--tr-motion),background-color var(--tr-motion)!important;
+}
+.analyzer-card[data-tr-refreshing="true"]{opacity:.58!important}
+
+/* Dialog choreography is short and grounded. */
+@keyframes tr-dialog-enter{
+  from{opacity:0;transform:translate3d(0,10px,0)}
+  to{opacity:1;transform:none}
+}
+@keyframes tr-backdrop-enter{from{background:rgba(0,0,0,0)}to{background:rgba(0,0,0,.62)}}
+.challenge-dialog[open]{animation:tr-dialog-enter 360ms cubic-bezier(.16,1,.3,1) both}
+.challenge-dialog[open]::backdrop{animation:tr-backdrop-enter 280ms ease-out both}
+
+/* Bottom nav on phones gets the same quiet material behavior as the top bar. */
+@media (max-width:720px){
+  .bottom-nav{
+    background:rgba(255,255,255,.9)!important;
+    border-top:1px solid rgba(23,26,32,.08)!important;
+    backdrop-filter:blur(18px) saturate(120%)!important;
+    -webkit-backdrop-filter:blur(18px) saturate(120%)!important;
+  }
+  .nav-item{
+    transition:color var(--tr-motion),background-color var(--tr-motion),opacity var(--tr-motion-fast)!important;
+  }
+}
+
+/* Motion is a progressive enhancement. Reduced-motion is fully static. */
+@media (prefers-reduced-motion:reduce){
+  html{scroll-behavior:auto!important}
+  *,*::before,*::after{
+    animation-duration:.01ms!important;
+    animation-iteration-count:1!important;
+    transition-duration:.01ms!important;
+    transition-delay:0ms!important;
+  }
+  .tr-motion-item,
+  .auth-visual img,
+  .auth-visual-rule,
+  .hero-photo{
+    opacity:1!important;
+    transform:none!important;
+    will-change:auto!important;
+  }
+}
