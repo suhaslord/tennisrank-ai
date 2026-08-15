@@ -28,6 +28,7 @@ jobs:
           set -euo pipefail
           node --check auth.js
           node --check app.js
+          node --check spreadsheet-ml.js
           node --check import-v2.js
           node --check import-v2-fixes.js
           node --check import-runtime-fixes.js
@@ -52,16 +53,19 @@ jobs:
           node --check qa/import-v2.test.js
           node --check qa/import-v2-diagnostics.js
           node --check qa/workbook-formats.test.js
+          node --check qa/spreadsheet-ml.test.js
           node --check qa/browser.spec.js
           node --check qa/visual-stability.spec.js
           node --check playwright.config.js
       - name: Ladder behavior tests
         run: node qa/ladder-engine.test.js
-      - name: Import compatibility tests
+      - name: Spreadsheet intelligence and import compatibility
         run: |
           node qa/import-regression.test.js
+          node qa/import-v2.test.js
           node qa/import-v2-diagnostics.js
           node qa/workbook-formats.test.js
+          node qa/spreadsheet-ml.test.js
       - name: Reconciliation guardrails
         run: |
           set -euo pipefail
@@ -79,6 +83,7 @@ jobs:
           test -f tesla-motion.css
           test -f tesla-motion.js
           test -f production-stability.css
+          test -f spreadsheet-ml.js
           test -f import-v2.js
           test -f import-v2-fixes.js
           test -f import-runtime-fixes.js
@@ -101,6 +106,7 @@ jobs:
           grep -q 'tesla-finish.css' api/render.js
           grep -q 'tesla-motion.css' api/render.js
           grep -q 'tesla-motion.js' api/render.js
+          grep -q 'spreadsheet-ml.js' api/render.js
           grep -q 'import-runtime-fixes.js' api/render.js
           grep -q 'import-v2.js' api/render.js
           grep -q 'import-v2-fixes.js' api/render.js
