@@ -1,4 +1,4 @@
-const COMMIT = '311c6e5691871d0e0cb7dd5ab1cb8e2881ba3f62';
+const COMMIT = 'b4f88940e8a4d2b9df233d39ed07c516483f5321';
 const CDN = `https://cdn.jsdelivr.net/gh/suhaslord/tennisrank-ai@${COMMIT}`;
 const SHEETJS = 'https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js';
 
@@ -23,12 +23,13 @@ function rewrite(html) {
     `<script defer src="${SHEETJS}"></script><link rel="stylesheet" href="${CDN}/production-stability.css"><link rel="stylesheet" href="${CDN}/tesla-authority.css"><link rel="stylesheet" href="${CDN}/tesla-finish.css"><link rel="stylesheet" href="${CDN}/tesla-motion.css"><style>#showBootstrap,.bootstrap-form{display:none!important}</style></head>`,
   );
 
-  // File interception initializes first. The deterministic parser then loads,
-  // followed by the trained spreadsheet model and ML-aware parser patch. This
-  // order keeps the existing parser as the fail-safe while allowing ML rescue.
+  // Runtime interception initializes first. Deterministic parsing remains the
+  // fail-safe; the trained schema model rescues unfamiliar layouts; global
+  // semantic calibration then rejects unsupported/non-tennis interpretations
+  // before any data is allowed to publish.
   out = out.replace(
     `<script src="${CDN}/app.js"></script>`,
-    `<script src="${CDN}/app.js"></script><script src="${CDN}/import-runtime-fixes.js"></script><script src="${CDN}/import-v2.js"></script><script src="${CDN}/spreadsheet-ml.js"></script><script src="${CDN}/import-v2-fixes.js"></script><script src="${CDN}/tesla-motion.js"></script>`,
+    `<script src="${CDN}/app.js"></script><script src="${CDN}/import-runtime-fixes.js"></script><script src="${CDN}/import-v2.js"></script><script src="${CDN}/spreadsheet-ml.js"></script><script src="${CDN}/import-v2-fixes.js"></script><script src="${CDN}/spreadsheet-semantic-calibration.js"></script><script src="${CDN}/tesla-motion.js"></script>`,
   );
 
   out = out.replace('<div class="cursor-ball" aria-hidden="true"><span class="cursor-ball-core"></span></div>', '');
