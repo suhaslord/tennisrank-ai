@@ -102,10 +102,15 @@
   }
 
   function semanticSecondaryHeader(importer, values) {
+    const nonEmpty = values.filter(value => String(value || "").trim()).length;
+    if (nonEmpty < 2) return null;
     const mapping = values.map(importer.canonicalField);
     const recognized = mapping.filter(field => field !== "column").length;
-    const anchors = mapping.filter(field => ["name", "opponent", "player1", "player2", "winner", "loser", "result", "record", "wins", "losses", "rank"].includes(field)).length;
-    return recognized >= 2 && anchors >= 1 ? mapping : null;
+    // W/L, Boys/Girls and Singles/Doubles are common DATA values. They may map
+    // to wins/losses/gender/division in isolation, so they are deliberately not
+    // enough to declare a new header block. Require a structural label.
+    const structuralAnchors = mapping.filter(field => ["name", "opponent", "player1", "player2", "winner", "loser", "result", "record", "rank"].includes(field)).length;
+    return structuralAnchors >= 1 && recognized / nonEmpty >= 0.6 ? mapping : null;
   }
 
   function buildParser(importer) {
@@ -119,8 +124,6 @@
         if (matrixRows?.length) return matrixRows;
       }
 
-      // Known schemas are never re-oriented by ML. The trained model is a rescue
-      // path, not permission to override a high-confidence deterministic parse.
       const originalDeterministic = deterministicHeaderStrength(importer, parsed.matrix);
       let workingMatrix = parsed.matrix;
       let orientation = "rows";
