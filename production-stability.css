@@ -1,0 +1,153 @@
+/* Production stability layer — bug fixes only. Loads after Tesla authority CSS. */
+
+/* Never let historical selectors override native visibility semantics. */
+[hidden],
+#appShell[hidden],
+#authGate[hidden],
+#loginForm[hidden],
+#passwordForm[hidden],
+#bootstrapForm[hidden],
+.source-view[hidden],
+.coach-panel[hidden] {
+  display: none !important;
+}
+
+/* Auth boot must never expose both the private app and login at once. */
+body.auth-loading #appShell { display: none !important; }
+body.auth-loading #authGate { display: grid !important; }
+body.auth-loading { overflow-x: hidden; }
+
+/* Remove the old novelty cursor completely and restore normal browser cursors. */
+.cursor-ball,
+.cursor-ball-core { display: none !important; visibility: hidden !important; opacity: 0 !important; pointer-events: none !important; }
+html, body { cursor: default !important; }
+a, button, [role="button"], select, summary, label[for] { cursor: pointer !important; }
+input, textarea { cursor: text !important; }
+input[type="file"] { cursor: pointer !important; }
+
+/* Global overflow safety. */
+html, body { width: 100%; max-width: 100%; overflow-x: clip; }
+img, svg, video, canvas { max-width: 100%; }
+main, section, article, form, .auth-card, .auth-visual, .app-shell { min-width: 0; }
+
+/* Login stability. */
+.auth-gate { width: 100%; max-width: 100vw; overflow-x: clip; }
+.auth-card { min-width: 0; }
+.auth-form { grid-template-columns: minmax(0, 1fr); width: 100%; }
+.auth-form > *,
+.auth-card input,
+.auth-card button { min-width: 0; max-width: 100%; }
+.auth-card input,
+.auth-form .primary-button,
+.auth-form .secondary-button { width: 100%; }
+.auth-visual-topline { top: max(24px, env(safe-area-inset-top)); }
+.auth-visual-copy { max-width: calc(100% - 40px); }
+.auth-card-topline { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.auth-footnote { display: flex; align-items: flex-start; gap: 7px; line-height: 1.45; }
+
+/* Hero/home stability. */
+.hero-section { isolation: isolate; max-width: 100vw; }
+.hero-photo { object-position: center center !important; }
+.hero-content { min-width: 0; }
+.hero-note { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; }
+.hero-note-separator { margin-inline: 2px; }
+.hero-actions button { min-width: 0; }
+
+/* Navigation should never force horizontal scroll. */
+.topbar { max-width: 100vw; overflow: hidden; }
+.topbar-actions { min-width: 0; flex-shrink: 1; }
+.account-button { min-width: 0; max-width: 220px; }
+.account-copy { min-width: 0; }
+
+/* Ranking/filter stability. */
+.filter-bar { display: flex; flex-wrap: wrap; width: 100%; }
+.filter-chip { flex: 0 0 auto; min-width: 0; white-space: nowrap; }
+.rankings-grid, .summary-grid, .player-stat-grid { min-width: 0; }
+.ranking-card, .summary-card, .player-stat { min-width: 0; }
+.table-scroll { width: 100%; max-width: 100%; overflow-x: auto; overscroll-behavior-inline: contain; }
+
+/* Ladder images are full-bleed and should never distort. */
+.ladder-stage { overflow: hidden; }
+.ladder-stage-photo { width: 100%; height: 100%; object-fit: cover; object-position: center 44%; }
+.ladder-row { min-width: 0; }
+.ladder-player, .ladder-player-name { min-width: 0; overflow-wrap: anywhere; }
+
+/* Modal/dialog bounds. */
+.challenge-dialog {
+  width: min(620px, calc(100vw - 28px)) !important;
+  max-width: calc(100vw - 28px) !important;
+  max-height: calc(100dvh - 28px) !important;
+  overflow: auto !important;
+  overscroll-behavior: contain;
+}
+.challenge-dialog-inner { min-width: 0; }
+.challenge-time-grid { min-width: 0; }
+
+/* Admin forms must shrink instead of overflowing. */
+.input-row, .invite-grid, .refresh-controls, .backend-row { min-width: 0; }
+.input-row > *, .invite-grid > * { min-width: 0; }
+
+@media (max-width: 980px) {
+  .auth-gate { grid-template-columns: minmax(0, 1fr) !important; }
+  .auth-visual { min-height: clamp(320px, 43svh, 430px) !important; }
+  .auth-card { width: min(100% - 40px, 520px) !important; padding: 48px 0 64px !important; }
+}
+
+@media (max-width: 720px) {
+  .topbar { padding-left: 14px !important; padding-right: 14px !important; }
+  .brand-mark { white-space: nowrap; }
+  .topbar-actions { gap: 8px; }
+  .account-button { max-width: 48px; padding: 5px !important; }
+  .account-copy, .account-button > .ph { display: none !important; }
+
+  .auth-visual { min-height: 300px !important; }
+  .auth-visual-topline { top: max(18px, env(safe-area-inset-top)); right: 18px !important; left: 18px !important; }
+  .auth-visual-copy { right: 18px !important; bottom: 24px !important; left: 18px !important; max-width: calc(100% - 36px); }
+  .auth-brand-lockup { gap: 10px; }
+  .auth-visual-copy p { font-size: clamp(32px, 10vw, 46px) !important; line-height: 1 !important; }
+  .auth-visual-meta { gap: 8px 12px !important; }
+  .auth-card { width: min(100% - 32px, 470px) !important; padding: 36px 0 52px !important; }
+  .auth-card-topline { margin-bottom: 30px !important; }
+  .auth-card h1 { font-size: clamp(40px, 12vw, 48px) !important; line-height: .98 !important; }
+  .auth-copy { margin-bottom: 26px !important; }
+  .text-button { margin-top: 16px !important; }
+
+  .hero-section { min-height: 76svh !important; padding: 0 18px 44px !important; }
+  .hero-photo { object-position: 56% center !important; }
+  .hero-section h1 { font-size: clamp(46px, 14vw, 68px) !important; }
+  .hero-copy { max-width: 100% !important; }
+  .hero-actions { width: 100% !important; max-width: 360px; }
+
+  .filter-bar { gap: 6px !important; }
+  .filter-chip { flex: 1 1 auto; min-height: 42px !important; padding-inline: 11px !important; }
+  .filter-divider { display: none !important; }
+
+  .ladder-intro, .ladder-board, .challenge-center, .coach-ladder-console { padding-left: 16px !important; padding-right: 16px !important; }
+  .ladder-tabs { width: 100%; min-width: 0 !important; }
+  .ladder-stage, .ladder-spotlight { min-height: 520px !important; }
+
+  .input-row { flex-direction: column; align-items: stretch; }
+  .input-row .primary-button, .input-row .secondary-button { width: 100%; justify-content: center; }
+  .refresh-controls, .backend-row { align-items: stretch; flex-direction: column; }
+  .refresh-controls button, .backend-row button { width: 100%; justify-content: center; }
+}
+
+@media (max-width: 480px) {
+  .auth-visual { min-height: 270px !important; }
+  .auth-live { font-size: 10px; }
+  .auth-visual-index { display: none; }
+  .auth-visual-copy p { font-size: clamp(30px, 10vw, 40px) !important; }
+  .auth-visual-meta { font-size: 10px !important; }
+  .auth-card { padding-top: 30px !important; }
+  .auth-card h1 { font-size: 40px !important; }
+
+  .hero-section { min-height: 72svh !important; }
+  .hero-note { line-height: 1.4; }
+
+  .filter-chip { flex: 1 1 calc(33.333% - 6px); font-size: 12px !important; }
+  .section-heading { align-items: flex-start !important; flex-direction: column; }
+  .last-updated, .record-note { margin-top: 6px; }
+
+  .challenge-dialog { width: calc(100vw - 16px) !important; max-width: calc(100vw - 16px) !important; max-height: calc(100dvh - 16px) !important; }
+  .challenge-dialog-inner { padding: 22px 18px !important; }
+}
