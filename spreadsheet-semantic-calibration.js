@@ -10,6 +10,7 @@
 
   const PERSON_FIELDS = ["opponent", "player1", "player2", "winner", "loser"];
   const AGGREGATE_FIELDS = ["rank", "record", "wins", "losses"];
+  const STRONG_TENNIS_FIELDS = new Set(["result", "score", "gender", "division", "opponent", "winner", "loser", "player1", "player2"]);
 
   function nonEmpty(value) {
     return String(value ?? "").trim() !== "";
@@ -94,13 +95,79 @@
     return rows;
   }
 
+  function sourceHasTennisContext(rows) {
+    const source = String(rows?.__analysis?.sourceName || "");
+    return /\b(?:tennis|singles?|doubles?|match|results?|ladder|rankings?|standings?|leaderboard|roster|varsity|jv|boys?|girls?)\b/i.test(source);
+  }
+
+  function mappingHasRule(rows, fields) {
+    return (rows?.__analysis?.mapping || []).some(item => fields.has(item.field) && /^(?:rule|semantic-rule|secondary-rule|matrix)$/.test(String(item.method || "")));
+  }
+
+  function rowHasStrongTennisValue(row, ml) {
+    if (nonEmpty(row?.result) && /^(?:w|l|win|loss|player\s*[ab])$/i.test(String(row.result).trim())) return true;
+    if (nonEmpty(row?.score) && (ml?.looksScore ? ml.looksScore(row.score) : /\d+\s*-\s*\d+/.test(String(row.score)))) return true;
+    if (nonEmpty(row?.gender) && /^(?:boys?|girls?|male|female|m|f)$/i.test(String(row.gender).trim())) return true;
+    if (nonEmpty(row?.division) && /\b(?:singles?|doubles?|2v2)\b/i.test(String(row.division))) return true;
+    return false;
+  }
+
+  function applyDomainEvidenceGate(rows, review, ml) {
+    if (!review?.valid || !Array.isArray(rows) || !rows.length) return review;
+    const sourceEvidence = sourceHasTennisContext(rows);
+    const strongValueRatio = rows.filter(row => rowHasStrongTennisValue(row, ml)).length / rows.length;
+    const strongRuleEvidence = mappingHasRule(rows, STRONG_TENNIS_FIELDS);
+    const aggregateRuleEvidence = mappingHasRule(rows, new Set(AGGREGATE_FIELDS));
+    const aggregateRatio = rows.filter(rowHasAggregate).length / rows.length;
+    const matchStructure = hasExplicitMatchStructure(rows) || rows.some(row => nonEmpty(row?.opponent));
+
+    // Match-like data may be accepted from unmistakable result/score semantics.
+    if (matchStructure && (sourceEvidence || strongRuleEvidence || strongValueRatio >= 0.5)) return review;
+
+    // Aggregate tables are especially easy to hallucinate from generic numeric
+    // spreadsheets. A rank/record inference therefore needs explicit aggregate
+    // headers or clear tennis context/value evidence; ML confidence alone is not
+    // sufficient to publish team rankings.
+    if (aggregateRatio >= 0.5) {
+      if (sourceEvidence || aggregateRuleEvidence || strongValueRatio >= 0.5) return review;
+      return {
+        valid: false,
+        confidence: Math.min(Number(review.confidence || 0), 0.44),
+        level: "LOW",
+        reason: "The columns resemble standings, but the sheet does not contain enough tennis-specific evidence to publish them safely.",
+      };
+    }
+
+    // Roster-only imports need an explicit player/name mapping plus team context.
+    const nameRuleEvidence = mappingHasRule(rows, new Set(["name"]));
+    if (nameRuleEvidence && (sourceEvidence || strongValueRatio >= 0.5)) return review;
+
+    if (!sourceEvidence && !strongRuleEvidence && strongValueRatio < 0.5) {
+      return {
+        valid: false,
+        confidence: Math.min(Number(review.confidence || 0), 0.44),
+        level: "LOW",
+        reason: "The sheet is structurally plausible, but it does not contain enough tennis-specific evidence to publish safely.",
+      };
+    }
+    return review;
+  }
+
   function wrapImporter(importer, ml) {
     if (!importer || importer.__semanticCalibration) return importer;
     hardenMatrixDetector(ml);
     const parseText = importer.parseText.bind(importer);
     const mergeWorksheetRows = importer.mergeWorksheetRows.bind(importer);
+    const validateInterpretation = typeof importer.validateInterpretation === "function"
+      ? importer.validateInterpretation.bind(importer)
+      : rows => ml?.assessRows?.(rows) || { valid: true, confidence: 1, level: "HIGH" };
     importer.parseText = (...args) => calibrateRows(parseText(...args), ml);
     importer.mergeWorksheetRows = (...args) => calibrateRows(mergeWorksheetRows(...args), ml);
+    importer.validateInterpretation = rows => {
+      const review = applyDomainEvidenceGate(rows, validateInterpretation(rows), ml);
+      if (rows?.__analysis) rows.__analysis.review = review;
+      return review;
+    };
     importer.__semanticCalibration = true;
     return importer;
   }
@@ -117,5 +184,14 @@
     else setTimeout(apply, 0);
   }
 
-  return { calibrateRows, wrapImporter, chooseAggregatePersonField, hasExplicitMatchStructure, matrixIdentityOverlap, hardenMatrixDetector, installBrowser };
+  return {
+    calibrateRows,
+    wrapImporter,
+    chooseAggregatePersonField,
+    hasExplicitMatchStructure,
+    matrixIdentityOverlap,
+    hardenMatrixDetector,
+    applyDomainEvidenceGate,
+    installBrowser,
+  };
 });
