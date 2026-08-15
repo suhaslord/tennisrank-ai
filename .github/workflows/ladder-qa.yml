@@ -54,6 +54,7 @@ jobs:
           node --check qa/import-v2-diagnostics.js
           node --check qa/workbook-formats.test.js
           node --check qa/spreadsheet-ml.test.js
+          node --check qa/spreadsheet-ml-benchmark.test.js
           node --check qa/browser.spec.js
           node --check qa/visual-stability.spec.js
           node --check playwright.config.js
@@ -66,6 +67,7 @@ jobs:
           node qa/import-v2-diagnostics.js
           node qa/workbook-formats.test.js
           node qa/spreadsheet-ml.test.js
+          node qa/spreadsheet-ml-benchmark.test.js
       - name: Reconciliation guardrails
         run: |
           set -euo pipefail
