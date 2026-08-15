@@ -3,6 +3,7 @@ const fs = require("node:fs");
 const vm = require("node:vm");
 const path = require("node:path");
 const importer = require("../import-v2.js");
+const runtime = require("../import-runtime-fixes.js");
 
 function loadLegacyImporter() {
   const appPath = path.join(__dirname, "..", "app.js");
@@ -23,7 +24,7 @@ function loadLegacyImporter() {
 
 const legacy = loadLegacyImporter();
 function calculate(text, sheetName) {
-  const rows = importer.parseText(text, sheetName);
+  const rows = runtime.normalizeRows(importer.parseText(text, sheetName));
   return { rows, result: importer.enhancedCalculateRankings(rows, legacy.calculateRankings) };
 }
 
@@ -56,15 +57,17 @@ for (const sample of cases) {
   if (sample.topWins !== undefined) assert.equal(result.rankings[0]?.wins, sample.topWins, `${sample.name}: aggregate wins`);
 }
 
-const workbookRows = importer.mergeWorksheetRows([
+const workbookRows = runtime.normalizeRows(importer.mergeWorksheetRows([
   { name: "Boys Singles", text: "Player,Opponent,Result\nAiden,Leo,W" },
   { name: "Girls Singles", text: "Player,Opponent,Result\nMaya,Zoe,L" },
   { name: "Girls Doubles", text: "Team A,Team B,Winner\nMaya & Zoe,Ella & Mia,Team A" },
-]);
+]));
 const workbookResult = importer.enhancedCalculateRankings(workbookRows, legacy.calculateRankings);
 assert.equal(workbookRows.__analysis.sheets.length, 3, "multi-sheet workbook tracks all non-empty tabs");
 assert.equal(workbookResult.matches.length, 3, "sheet names supply Boys/Girls + Singles/Doubles context");
 assert.equal(workbookResult.rankings.length, 6, "workbook combines singles players and doubles teams");
+assert.equal(runtime.sidePointer("Home"), "Player A");
+assert.equal(runtime.sidePointer("Team B"), "Player B");
 
 assert.equal(importer.googleCsvUrl("https://docs.google.com/spreadsheets/u/0/d/abc123/edit?gid=42#gid=42"), "https://docs.google.com/spreadsheets/d/abc123/export?format=csv&gid=42");
 assert.equal(importer.googleCsvUrl("https://docs.google.com/spreadsheets/d/e/pubABC/pubhtml?gid=77&single=true"), "https://docs.google.com/spreadsheets/d/e/pubABC/pub?output=csv&gid=77");
