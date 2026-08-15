@@ -29,6 +29,7 @@ jobs:
           node --check auth.js
           node --check app.js
           node --check spreadsheet-ml.js
+          node --check spreadsheet-semantic-calibration.js
           node --check import-v2.js
           node --check import-v2-fixes.js
           node --check import-runtime-fixes.js
@@ -86,6 +87,7 @@ jobs:
           test -f tesla-motion.js
           test -f production-stability.css
           test -f spreadsheet-ml.js
+          test -f spreadsheet-semantic-calibration.js
           test -f import-v2.js
           test -f import-v2-fixes.js
           test -f import-runtime-fixes.js
@@ -109,6 +111,7 @@ jobs:
           grep -q 'tesla-motion.css' api/render.js
           grep -q 'tesla-motion.js' api/render.js
           grep -q 'spreadsheet-ml.js' api/render.js
+          grep -q 'spreadsheet-semantic-calibration.js' api/render.js
           grep -q 'import-runtime-fixes.js' api/render.js
           grep -q 'import-v2.js' api/render.js
           grep -q 'import-v2-fixes.js' api/render.js
