@@ -1,0 +1,59 @@
+name: TennisRank ladder QA
+
+on:
+  push:
+    branches:
+      - feature/tesla-ladder-dashboard
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: JavaScript syntax
+        run: |
+          set -euo pipefail
+          node --check auth.js
+          node --check app.js
+          node --check lib/ladder-engine.js
+          node --check ladder.js
+          node --check challenge-ui.js
+          node --check api/_supabase.js
+          node --check api/config.js
+          node --check api/session.js
+          node --check api/users.js
+          node --check api/bootstrap.js
+          node --check api/records.js
+          node --check api/ladder.js
+          node --check api/challenges.js
+          node --check api/match-score.js
+          node --check api/admin/verify-match.js
+          node --check api/admin/ladder.js
+          node --check api/admin/seed-ladder.js
+      - name: Ladder behavior tests
+        run: node qa/ladder-engine.test.js
+      - name: Reconciliation guardrails
+        run: |
+          set -euo pipefail
+          grep -q 'id="authGate"' index.html
+          grep -q 'id="playerDashboard"' index.html
+          grep -q 'id="accountsPanel"' index.html
+          grep -q './ladder.css' index.html
+          grep -q './challenge-ui.css' index.html
+          grep -q './lib/ladder-engine.js' index.html
+          grep -q './challenge-ui.js' index.html
+          test -f assets/team-court.jpg
+          test -f assets/matchday-awards.jpg
+          test -f assets/singles-spotlight.jpg
+      - name: Secret-safety guardrails
+        run: |
+          set -euo pipefail
+          ! grep -R --exclude-dir=.git -E 'SUPABASE_SERVICE_ROLE_KEY[[:space:]]*=' .
+          ! grep -R --exclude-dir=.git -E 'sb_secret_[A-Za-z0-9_-]+' .
