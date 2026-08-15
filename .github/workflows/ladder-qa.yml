@@ -37,6 +37,7 @@ jobs:
           node --check api/admin/verify-match.js
           node --check api/admin/ladder.js
           node --check api/admin/seed-ladder.js
+          node --check qa/browser.spec.js
       - name: Ladder behavior tests
         run: node qa/ladder-engine.test.js
       - name: Reconciliation guardrails
@@ -66,3 +67,15 @@ jobs:
           set -euo pipefail
           ! grep -R --exclude-dir=.git -E 'SUPABASE_SERVICE_ROLE_KEY[[:space:]]*=' .
           ! grep -R --exclude-dir=.git -E 'sb_secret_[A-Za-z0-9_-]+' .
+      - name: Install Playwright browser
+        run: |
+          npm install --no-save @playwright/test@1.55.0
+          npx playwright install --with-deps chromium
+      - name: Browser QA — real app, mocked network only
+        run: |
+          set -euo pipefail
+          python3 -m http.server 4173 >/tmp/tennisrank-http.log 2>&1 &
+          SERVER_PID=$!
+          trap 'kill $SERVER_PID || true' EXIT
+          sleep 2
+          npx playwright test qa/browser.spec.js --reporter=line --workers=1
