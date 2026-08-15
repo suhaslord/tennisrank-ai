@@ -29,6 +29,7 @@ jobs:
           node --check lib/ladder-engine.js
           node --check ladder.js
           node --check challenge-ui.js
+          node --check challenge-ui-state.js
           node --check api/_supabase.js
           node --check api/config.js
           node --check api/session.js
@@ -53,9 +54,12 @@ jobs:
           grep -q 'id="accountsPanel"' index.html
           grep -q './ladder.css' index.html
           grep -q './challenge-ui.css' index.html
+          grep -q './challenge-ui-fixes.css' index.html
           grep -q './lib/ladder-engine.js' index.html
           grep -q './challenge-ui.js' index.html
+          grep -q './challenge-ui-state.js' index.html
           test -f challenge-ui-fixes.css
+          test -f challenge-ui-state.js
           test -f assets/team-court.jpg
           test -f assets/matchday-awards.jpg
           test -f assets/singles-spotlight.jpg
