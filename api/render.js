@@ -1,4 +1,4 @@
-const COMMIT = 'ce885778bbc24ac99dcfca092b4de9dd9f7fd614';
+const COMMIT = 'ce7198019dc3210b1e6df21c9c35627691e6aa1f';
 const CDN = `https://cdn.jsdelivr.net/gh/suhaslord/tennisrank-ai@${COMMIT}`;
 const SHEETJS = 'https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js';
 
@@ -18,15 +18,15 @@ function rewrite(html) {
     .replaceAll('src="./challenge-ui.js"', `src="${CDN}/challenge-ui.js"`)
     .replaceAll('src="./challenge-ui-state.js"', `src="${CDN}/challenge-ui-state.js"`);
 
-  // Behavior/stability CSS loads first. Tesla authority is deliberately last,
-  // making the design system the final visual source of truth everywhere.
+  // Stability handles behavior/visibility first. The Tesla authority and final
+  // cleanup load after it, so old theme CSS cannot win the production cascade.
   out = out.replace(
     '</head>',
-    `<script defer src="${SHEETJS}"></script><link rel="stylesheet" href="${CDN}/production-stability.css"><link rel="stylesheet" href="${CDN}/tesla-authority.css"><style>#showBootstrap,.bootstrap-form{display:none!important}</style></head>`,
+    `<script defer src="${SHEETJS}"></script><link rel="stylesheet" href="${CDN}/production-stability.css"><link rel="stylesheet" href="${CDN}/tesla-authority.css"><link rel="stylesheet" href="${CDN}/tesla-finish.css"><style>#showBootstrap,.bootstrap-form{display:none!important}</style></head>`,
   );
 
-  // Runtime workbook interception must register before import-v2. The parser
-  // majority-header fix then patches import-v2 before the app is used.
+  // Register file interception first, then install the v2 parser and its
+  // majority-header correction. This is the same load order covered by QA.
   out = out.replace(
     `<script src="${CDN}/app.js"></script>`,
     `<script src="${CDN}/app.js"></script><script src="${CDN}/import-runtime-fixes.js"></script><script src="${CDN}/import-v2.js"></script><script src="${CDN}/import-v2-fixes.js"></script>`,
