@@ -17,7 +17,7 @@ module.exports = async function handler(req, res) {
       return json(res, 400, { error: "Challenge, winner, and score are required." });
     }
 
-    const score = engine.parseScoreSummary(scoreSummary);
+    const score = engine.validateWinnerScore(scoreSummary);
     if (!score.valid) return json(res, 400, { error: score.error });
 
     const result = await rpc(context, "submit_ladder_match", {
