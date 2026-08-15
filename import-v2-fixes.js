@@ -5,6 +5,8 @@
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
   "use strict";
 
+  const STRUCTURAL_FIELDS = new Set(["name", "opponent", "player1", "player2", "winner", "loser", "result", "record", "rank"]);
+
   function getSpreadsheetModel() {
     if (typeof globalThis !== "undefined" && globalThis.TennisRankSpreadsheetML) return globalThis.TennisRankSpreadsheetML;
     if (typeof require === "function") {
@@ -97,8 +99,18 @@
   function deterministicHeaderStrength(importer, matrix) {
     const detected = importer.detectHeaderRow(matrix);
     const recognized = (detected.mapping || []).filter(field => field !== "column").length;
-    const anchors = (detected.mapping || []).filter(field => ["name", "opponent", "player1", "player2", "winner", "loser", "result", "record", "rank"].includes(field)).length;
+    const anchors = (detected.mapping || []).filter(field => STRUCTURAL_FIELDS.has(field)).length;
     return { detected, recognized, anchors };
+  }
+
+  function transposedSchemaSignal(importer, matrix) {
+    if (!Array.isArray(matrix) || matrix.length < 3) return false;
+    const topRecognized = (matrix[0] || []).map(importer.canonicalField).filter(field => field !== "column").length;
+    const verticalFields = matrix.slice(1, 14)
+      .map(row => importer.canonicalField(row?.[0]))
+      .filter(field => field !== "column");
+    const structural = verticalFields.filter(field => STRUCTURAL_FIELDS.has(field));
+    return topRecognized < 2 && structural.length >= 2 && new Set(verticalFields).size >= 3;
   }
 
   function semanticSecondaryHeader(importer, values) {
@@ -106,7 +118,7 @@
     if (nonEmpty < 2) return null;
     const mapping = values.map(importer.canonicalField);
     const recognized = mapping.filter(field => field !== "column").length;
-    const structuralAnchors = mapping.filter(field => ["name", "opponent", "player1", "player2", "winner", "loser", "result", "record", "rank"].includes(field)).length;
+    const structuralAnchors = mapping.filter(field => STRUCTURAL_FIELDS.has(field)).length;
     return structuralAnchors >= 2 && recognized / nonEmpty >= 0.6 ? mapping : null;
   }
 
@@ -121,11 +133,12 @@
         if (matrixRows?.length) return matrixRows;
       }
 
+      const forceTranspose = Boolean(ml?.transpose && transposedSchemaSignal(importer, parsed.matrix));
       const originalDeterministic = deterministicHeaderStrength(importer, parsed.matrix);
-      let workingMatrix = parsed.matrix;
-      let orientation = "rows";
+      let workingMatrix = forceTranspose ? ml.transpose(parsed.matrix) : parsed.matrix;
+      let orientation = forceTranspose ? "transposed" : "rows";
       let inferred = null;
-      if (ml?.inferTable && (originalDeterministic.recognized < 2 || originalDeterministic.anchors < 1)) {
+      if (!forceTranspose && ml?.inferTable && (originalDeterministic.recognized < 2 || originalDeterministic.anchors < 1)) {
         inferred = ml.inferTable(parsed.matrix, sourceName);
         if (inferred?.matrix?.length) {
           workingMatrix = inferred.matrix;
@@ -290,5 +303,5 @@
     else apply();
   }
 
-  return { isRepeatedHeader, normalizeResult, postProcessRow, buildParser, patchImporter, polishImportCopy, installBrowser, csvCell, getSpreadsheetModel };
+  return { isRepeatedHeader, normalizeResult, postProcessRow, buildParser, patchImporter, polishImportCopy, installBrowser, csvCell, getSpreadsheetModel, transposedSchemaSignal };
 });
