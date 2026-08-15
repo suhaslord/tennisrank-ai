@@ -137,6 +137,7 @@ test('authenticated hero preserves Tesla photography and hierarchy', async ({ pa
   await showApp(page, 'admin');
   await settleMotion(page);
   await expect(page.locator('.hero-section')).toBeVisible();
+  await expect(page.locator('.bottom-nav')).toBeHidden();
   await expect(page.locator('.hero-section h1')).toContainText('Your season');
   expect(await css(page, '.hero-section h1', 'color')).toBe('rgb(255, 255, 255)');
   const photoLoaded = await page.locator('.hero-photo').evaluate(img => img.complete && img.naturalWidth > 0);
@@ -196,6 +197,7 @@ test('critical mobile navigation and controls meet touch target guidance', async
   await page.goto(BASE, { waitUntil: 'networkidle' });
   await showApp(page, 'admin');
   await settleMotion(page);
+  await expect(page.locator('.bottom-nav')).toBeVisible();
   await expectTouchHeight(page, '#navHome');
   await expectTouchHeight(page, '#navRankings');
   await expectTouchHeight(page, '#navSettings');
