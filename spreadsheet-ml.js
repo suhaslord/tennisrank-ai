@@ -5,7 +5,7 @@
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
   "use strict";
 
-  const MODEL_VERSION = "tennisrank-schema-nb-1.0.0";
+  const MODEL_VERSION = "tennisrank-schema-nb-1.1.0";
   const LABELS = [
     "name", "firstName", "lastName", "opponent", "player1", "player2", "winner", "loser",
     "result", "score", "date", "gender", "division", "wins", "losses", "record", "rank", "column",
@@ -15,7 +15,12 @@
   // this corpus and then used only for inference. No team/private spreadsheet data
   // is used for training.
   const TRAIN_HEADERS = {
-    name: ["name", "player", "athlete", "competitor", "participant", "student", "roster", "player name", "athlete name", "team name", "entrant", "member", "player/team", "person"],
+    name: [
+      "name", "player", "athlete", "competitor", "participant", "student", "roster", "player name",
+      "athlete name", "team name", "entrant", "member", "player/team", "person", "who played",
+      "who played?", "ranked player", "standings player", "leaderboard player", "player listed",
+      "competitor listed", "athlete listed", "roster player", "team member", "who is ranked",
+    ],
     firstName: ["first name", "firstname", "given name", "forename", "first", "given"],
     lastName: ["last name", "lastname", "surname", "family name", "family", "last"],
     opponent: ["opponent", "against", "versus", "vs", "opponent name", "opposing player", "opposing team", "played against", "rival", "other player"],
@@ -25,13 +30,13 @@
     loser: ["loser", "lost to", "defeated", "losing player", "loser name", "losing team", "match loser"],
     result: ["result", "outcome", "winner is", "match result", "win loss", "w/l", "wl", "w or l", "status", "decision", "finish"],
     score: ["score", "game score", "result score", "set score", "sets", "final score", "match score", "scoreline", "final"],
-    date: ["date", "played on", "match date", "timestamp", "time", "day", "match day", "played", "fixture date"],
+    date: ["date", "played on", "match date", "timestamp", "time", "day", "match day", "fixture date"],
     gender: ["gender", "sex", "team gender", "player gender", "boys/girls", "team sex"],
     division: ["division", "category", "format", "event", "flight", "draw", "discipline", "class", "level", "match type", "match format", "section", "group", "bracket", "singles/doubles", "event type"],
     wins: ["wins", "win", "w", "victories", "victory", "matches won", "won matches", "w count"],
     losses: ["losses", "loss", "l", "defeats", "defeat", "matches lost", "lost matches", "l count"],
     record: ["record", "w-l record", "win loss record", "overall record", "season record", "record w/l", "record wl"],
-    rank: ["rank", "ranking", "position", "standing", "standings", "ladder rank", "seed", "seed rank", "place", "order", "current rank"],
+    rank: ["rank", "ranking", "position", "standing", "standings", "ladder rank", "seed", "seed rank", "place", "order", "current rank", "current place"],
     column: ["notes", "comments", "school", "coach", "location", "court", "round", "id", "email", "phone", "team code", "season", "year", "grade", "class year", "age", "misc", "remarks", "comment", "venue"],
   };
 
@@ -57,7 +62,7 @@
   };
 
   const EXPECTED_POSITIONS = {
-    name: [0], firstName: [0], lastName: [1], opponent: [1], player1: [0], player2: [1],
+    name: [0, 1], firstName: [0], lastName: [1], opponent: [1], player1: [0], player2: [1],
     winner: [2], loser: [3], result: [2], score: [3, 4], date: [4, 5], gender: [2, 3],
     division: [3, 4], wins: [2], losses: [3], record: [2], rank: [0], column: [4, 5],
   };
@@ -167,6 +172,12 @@
     return tokens;
   }
 
+  function trainingSheetName(label, headerIndex) {
+    if (["rank", "record", "wins", "losses"].includes(label)) return "Season Standings Leaderboard";
+    if (label === "name" && headerIndex % 2 === 0) return "Season Standings Leaderboard Roster";
+    return "Varsity Match Results";
+  }
+
   function createTrainingDocuments() {
     const documents = [];
     LABELS.forEach(label => {
@@ -181,7 +192,7 @@
             tokens: featureTokens(variant, values, {
               position,
               totalColumns: Math.max(position + 2, 5),
-              sheetName: label === "record" || label === "rank" ? "Season Standings" : "Varsity Results",
+              sheetName: trainingSheetName(label, headerIndex),
             }),
           });
         });
@@ -192,7 +203,14 @@
       if (!["player1", "player2", "winner", "loser", "firstName", "lastName"].includes(label)) {
         ["Column A", "Field 2", "Data", ""].forEach((header, index) => {
           const position = expected[index % expected.length];
-          documents.push({ label, tokens: featureTokens(header, values, { position, totalColumns: 6, sheetName: "Tennis Export" }) });
+          documents.push({
+            label,
+            tokens: featureTokens(header, values, {
+              position,
+              totalColumns: 6,
+              sheetName: ["name", "record", "rank", "wins", "losses"].includes(label) ? "Season Standings" : "Tennis Export",
+            }),
+          });
         });
       }
     });
@@ -235,7 +253,6 @@
       return { label, score };
     });
 
-    // Temperature softens Naive Bayes' natural overconfidence.
     const temperature = 2.15;
     const max = Math.max(...raw.map(item => item.score / temperature));
     const exps = raw.map(item => Math.exp(item.score / temperature - max));
@@ -323,12 +340,18 @@
     return 0.62;
   }
 
+  function columnValues(matrix, headerIndex, column) {
+    return matrix.slice(headerIndex + 1, headerIndex + 25)
+      .map(row => row[column])
+      .filter(value => String(value || "").trim());
+  }
+
   function reconcilePredictions(rawHeaders, matrix, headerIndex, sourceName, predictions) {
     const totalColumns = rawHeaders.length;
     const mapped = rawHeaders.map((header, column) => {
       const classified = predictions?.[column] || classifyColumn(
         header,
-        matrix.slice(headerIndex + 1, headerIndex + 13).map(row => row[column]),
+        columnValues(matrix, headerIndex, column),
         { position: column, totalColumns, sheetName: sourceName },
       );
       const candidates = classified.predictions.filter(item => item.label !== "column");
@@ -344,20 +367,39 @@
     });
 
     const fields = new Set(mapped.filter(item => item.field !== "column").map(item => item.field));
-    const nameLikeUnknown = mapped.filter(item => item.field === "column" && item.candidates.some(candidate => ["name", "opponent", "player1", "player2"].includes(candidate.label)));
     const hasResult = fields.has("result");
     const hasWinnerPointer = fields.has("winner") || fields.has("loser");
+    const hasTwoSidedMatch = fields.has("player1") || fields.has("player2");
+    const hasScore = fields.has("score");
     const hasAggregate = fields.has("record") || fields.has("wins") || fields.has("losses") || fields.has("rank");
+    const hasExplicitMatchStructure = hasResult || hasWinnerPointer || hasTwoSidedMatch || hasScore;
 
-    // Cross-column reconciliation resolves the otherwise ambiguous name-like
-    // columns from the structure of the rest of the sheet.
+    // A standings/leaderboard row describes the ranked entity. In that global
+    // context, an otherwise opponent-like person column is the player being
+    // ranked. This avoids the classic ambiguity of labels like "Who Played?".
+    if (hasAggregate && !hasExplicitMatchStructure && !fields.has("name")) {
+      const aggregatePerson = mapped
+        .filter(item => item.field === "opponent" || item.field === "column")
+        .map(item => ({ item, nameRatio: ratio(columnValues(matrix, headerIndex, item.column), looksName) }))
+        .filter(entry => entry.nameRatio >= 0.6)
+        .sort((a, b) => b.nameRatio - a.nameRatio || b.item.confidence - a.item.confidence)[0];
+      if (aggregatePerson) {
+        aggregatePerson.item.field = "name";
+        aggregatePerson.item.confidence = Math.max(aggregatePerson.item.confidence, 0.72);
+        fields.add("name");
+        fields.delete("opponent");
+      }
+    }
+
+    const nameLikeUnknown = mapped.filter(item => item.field === "column" && item.candidates.some(candidate => ["name", "opponent", "player1", "player2"].includes(candidate.label)));
+
     if (hasResult && nameLikeUnknown.length) {
       const roles = ["name", "opponent"];
       nameLikeUnknown.slice(0, 2).forEach((item, index) => { item.field = roles[index]; item.confidence = Math.max(item.confidence, 0.58); });
     } else if (hasWinnerPointer && nameLikeUnknown.length) {
       const roles = ["player1", "player2"];
       nameLikeUnknown.slice(0, 2).forEach((item, index) => { item.field = roles[index]; item.confidence = Math.max(item.confidence, 0.58); });
-    } else if (hasAggregate && nameLikeUnknown.length) {
+    } else if (hasAggregate && nameLikeUnknown.length && !mapped.some(item => item.field === "name")) {
       nameLikeUnknown[0].field = "name";
       nameLikeUnknown[0].confidence = Math.max(nameLikeUnknown[0].confidence, 0.58);
     }
