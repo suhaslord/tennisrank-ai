@@ -42,40 +42,57 @@
     return rows;
   }
 
+  async function textRows(file, importer) {
+    if (!importer || typeof importer.parseText !== "function") throw new Error("The TennisRank spreadsheet importer is not ready yet.");
+    const text = await file.text();
+    if (!String(text || "").trim()) throw new Error("This file is empty.");
+    const rows = normalizeRows(importer.parseText(text, file.name || "Uploaded file"));
+    if (!rows.length) throw new Error("No usable tennis rows were found in this file.");
+    return rows;
+  }
+
   function isWorkbook(file) {
     const name = String(file?.name || "").toLowerCase();
     return /\.(xlsx|xlsm|xlsb|xls|ods|fods|numbers)$/i.test(name)
       || /spreadsheet|excel|opendocument|numbers/i.test(String(file?.type || ""));
   }
 
+  async function rowsFromFile(file, XLSX, importer) {
+    return isWorkbook(file) ? workbookRows(file, XLSX, importer) : textRows(file, importer);
+  }
+
   function installBrowser(win) {
     const doc = win.document;
     const boot = () => {
-      // Register before import-v2's workbook capture listener. This handler owns
-      // binary workbook imports and stops the legacy FileReader text path.
+      // Register before import-v2 and the legacy FileReader listener. One path
+      // now owns every uploaded spreadsheet, so CSV/TSV and binary workbooks
+      // receive the same normalization and filename-based section hints.
       const input = doc.querySelector("#csvFile");
       if (input && !input.dataset.importRuntimeBound) {
         input.dataset.importRuntimeBound = "true";
         input.addEventListener("change", async event => {
           const file = event.target.files?.[0];
-          if (!file || !isWorkbook(file)) return;
+          if (!file) return;
           event.stopImmediatePropagation();
           const button = doc.querySelector("#useCsv");
           try {
             if (typeof win.setBusy === "function") win.setBusy(button, true);
             if (typeof win.setStatus === "function") win.setStatus(`Reading ${file.name}...`);
-            const rows = await workbookRows(file, win.XLSX, win.TennisRankImportV2);
+            const rows = await rowsFromFile(file, win.XLSX, win.TennisRankImportV2);
             if (typeof win.loadRows !== "function") throw new Error("The TennisRank importer is not ready yet.");
             win.loadRows(rows, "file");
             if (typeof win.setStatus === "function") {
-              win.setStatus(`Loaded ${rows.length} rows from ${rows.__analysis?.sheets?.length || 1} worksheet(s). Saving to the shared database...`);
+              const sheets = rows.__analysis?.sheets?.length;
+              win.setStatus(sheets
+                ? `Loaded ${rows.length} rows from ${sheets} worksheet(s). Saving to the shared database...`
+                : `Loaded ${rows.length} rows from ${file.name}. Saving to the shared database...`);
             }
             if (typeof win.syncToBackend === "function") {
               try {
                 await win.syncToBackend();
                 if (typeof win.setStatus === "function") win.setStatus(`Loaded and saved ${file.name}.`);
               } catch (error) {
-                if (typeof win.setStatus === "function") win.setStatus(`Loaded the workbook, but it was not published: ${error.message}`, true);
+                if (typeof win.setStatus === "function") win.setStatus(`Loaded the file, but it was not published: ${error.message}`, true);
               }
             }
           } catch (error) {
@@ -86,8 +103,9 @@
         }, true);
       }
 
-      // import-v2 boots on the same DOMContentLoaded event. Run immediately
-      // afterwards so text and pasted imports get the same side normalization.
+      // import-v2 boots on the same DOMContentLoaded event. Run after all three
+      // importer modules have initialized so pasted and Google-Sheet imports use
+      // the same row normalization as uploaded files.
       setTimeout(() => {
         const importer = win.TennisRankImportV2;
         if (!importer || importer.__runtimeNormalized) return;
@@ -105,5 +123,5 @@
     else boot();
   }
 
-  return { sidePointer, normalizeRows, workbookRows, isWorkbook, installBrowser };
+  return { sidePointer, normalizeRows, workbookRows, textRows, rowsFromFile, isWorkbook, installBrowser };
 });
