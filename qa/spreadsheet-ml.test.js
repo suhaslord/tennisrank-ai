@@ -2,8 +2,10 @@ const assert = require("node:assert/strict");
 const ml = require("../spreadsheet-ml.js");
 const importer = require("../import-v2.js");
 const fixes = require("../import-v2-fixes.js");
+const calibration = require("../spreadsheet-semantic-calibration.js");
 const runtime = require("../import-runtime-fixes.js");
 fixes.patchImporter(importer);
+calibration.wrapImporter(importer, ml);
 
 function top(header, values, position = 0, totalColumns = 5, sheetName = "Tennis Export") {
   return ml.classifyColumn(header, values, { position, totalColumns, sheetName }).top;
@@ -91,7 +93,6 @@ const ambiguous = importer.parseText([
   "one,two,three",
 ].join("\n"), "Misc Data");
 assert.equal(importer.validateInterpretation(ambiguous).valid, false, "ambiguous arbitrary table is blocked");
-
 assert.throws(() => runtime.validateRows(ambiguous, importer), /could not confidently identify/i, "runtime safety gate refuses low-confidence publication");
 
 console.log(`Spreadsheet ML suite passed: ${ml.MODEL_VERSION}, ${ml.modelStats.trainingDocuments} training docs, ${ml.modelStats.vocabularySize} learned tokens.`);
