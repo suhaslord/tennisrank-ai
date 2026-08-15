@@ -97,7 +97,7 @@
   function deterministicHeaderStrength(importer, matrix) {
     const detected = importer.detectHeaderRow(matrix);
     const recognized = (detected.mapping || []).filter(field => field !== "column").length;
-    const anchors = (detected.mapping || []).filter(field => ["name", "opponent", "player1", "player2", "winner", "loser", "result", "record", "wins", "losses", "rank"].includes(field)).length;
+    const anchors = (detected.mapping || []).filter(field => ["name", "opponent", "player1", "player2", "winner", "loser", "result", "record", "rank"].includes(field)).length;
     return { detected, recognized, anchors };
   }
 
@@ -106,9 +106,6 @@
     if (nonEmpty < 2) return null;
     const mapping = values.map(importer.canonicalField);
     const recognized = mapping.filter(field => field !== "column").length;
-    // Individual values such as W, Home, Boys and Singles can also resemble
-    // headers. A new block therefore needs multiple independent structural
-    // labels before it may replace the active schema.
     const structuralAnchors = mapping.filter(field => ["name", "opponent", "player1", "player2", "winner", "loser", "result", "record", "rank"].includes(field)).length;
     return structuralAnchors >= 2 && recognized / nonEmpty >= 0.6 ? mapping : null;
   }
