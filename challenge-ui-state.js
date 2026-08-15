@@ -1,37 +1,65 @@
 (() => {
   let activeCoachTab = "approvals";
+  const pendingRankEdits = new Map();
 
-  function restoreCoachTab() {
+  function restoreCoachState() {
     const consoleEl = document.querySelector("#coachLadderConsole");
     if (!consoleEl) return;
     const selected = consoleEl.querySelector(`[data-coach-tab="${activeCoachTab}"]`);
-    if (!selected) return;
+    if (selected) {
+      consoleEl.querySelectorAll("[data-coach-tab]").forEach(button => {
+        button.setAttribute("aria-selected", String(button === selected));
+      });
+      consoleEl.querySelectorAll("[data-coach-panel]").forEach(panel => {
+        panel.hidden = panel.dataset.coachPanel !== activeCoachTab;
+      });
+    }
 
-    consoleEl.querySelectorAll("[data-coach-tab]").forEach(button => {
-      button.setAttribute("aria-selected", String(button === selected));
-    });
-    consoleEl.querySelectorAll("[data-coach-panel]").forEach(panel => {
-      panel.hidden = panel.dataset.coachPanel !== activeCoachTab;
+    pendingRankEdits.forEach((value, playerId) => {
+      const row = consoleEl.querySelector(`[data-roster-player="${CSS.escape(playerId)}"]`);
+      const input = row?.querySelector("[data-new-rank]");
+      if (input && input.value !== value) input.value = value;
     });
   }
 
   document.addEventListener("click", event => {
     const tab = event.target.closest?.("[data-coach-tab]");
-    if (!tab) return;
-    activeCoachTab = tab.dataset.coachTab || "approvals";
+    if (tab) activeCoachTab = tab.dataset.coachTab || "approvals";
+  }, true);
+
+  document.addEventListener("input", event => {
+    const input = event.target.closest?.("[data-new-rank]");
+    if (!input) return;
+    const row = input.closest("[data-roster-player]");
+    if (!row?.dataset.rosterPlayer) return;
+    pendingRankEdits.set(row.dataset.rosterPlayer, input.value);
+  }, true);
+
+  document.addEventListener("click", event => {
+    const move = event.target.closest?.("[data-move]");
+    if (!move) return;
+    const row = move.closest("[data-roster-player]");
+    const input = row?.querySelector("[data-new-rank]");
+    if (row?.dataset.rosterPlayer && input) pendingRankEdits.set(row.dataset.rosterPlayer, input.value);
   }, true);
 
   const observer = new MutationObserver(records => {
     if (!records.some(record => record.addedNodes.length || record.removedNodes.length)) return;
-    requestAnimationFrame(restoreCoachTab);
+    // Restore synchronously in the observer microtask so a rerender cannot reset
+    // a typed rank between the input event and the user's Move click.
+    restoreCoachState();
+    requestAnimationFrame(restoreCoachState);
   });
 
   const start = () => {
     observer.observe(document.body, { childList: true, subtree: true });
-    restoreCoachTab();
+    restoreCoachState();
   };
 
-  window.addEventListener("tennisrank:ladder-workflow-ready", () => requestAnimationFrame(restoreCoachTab));
+  window.addEventListener("tennisrank:ladder-workflow-ready", () => {
+    restoreCoachState();
+    requestAnimationFrame(restoreCoachState);
+  });
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start, { once: true });
   else start();
 })();
