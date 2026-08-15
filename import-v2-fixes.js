@@ -5,6 +5,14 @@
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
   "use strict";
 
+  function getSpreadsheetModel() {
+    if (typeof globalThis !== "undefined" && globalThis.TennisRankSpreadsheetML) return globalThis.TennisRankSpreadsheetML;
+    if (typeof require === "function") {
+      try { return require("./spreadsheet-ml.js"); } catch {}
+    }
+    return null;
+  }
+
   function csvCell(value) {
     const text = String(value ?? "");
     return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
@@ -75,36 +83,127 @@
     return row;
   }
 
+  function uniqueHeaders(rawHeaders, mappedFields, importer) {
+    const used = new Map();
+    return rawHeaders.map((raw, index) => {
+      const mapped = mappedFields[index] || "column";
+      const field = mapped === "column" ? (importer.normalizeHeader(raw) || `column${index + 1}`) : mapped;
+      const count = used.get(field) || 0;
+      used.set(field, count + 1);
+      return count ? `${field}${count + 1}` : field;
+    });
+  }
+
+  function deterministicHeaderStrength(importer, matrix) {
+    const detected = importer.detectHeaderRow(matrix);
+    const recognized = (detected.mapping || []).filter(field => field !== "column").length;
+    const anchors = (detected.mapping || []).filter(field => ["name", "opponent", "player1", "player2", "winner", "loser", "result", "record", "wins", "losses", "rank"].includes(field)).length;
+    return { detected, recognized, anchors };
+  }
+
+  function semanticSecondaryHeader(importer, values) {
+    const mapping = values.map(importer.canonicalField);
+    const recognized = mapping.filter(field => field !== "column").length;
+    const anchors = mapping.filter(field => ["name", "opponent", "player1", "player2", "winner", "loser", "result", "record", "wins", "losses", "rank"].includes(field)).length;
+    return recognized >= 2 && anchors >= 1 ? mapping : null;
+  }
+
   function buildParser(importer) {
     function parseText(text, sourceName) {
-      const { matrix, delimiter } = importer.parseDelimited(text);
-      if (!matrix.length) return [];
-      const detected = importer.detectHeaderRow(matrix);
-      const headerIndex = detected.index;
-      const used = new Map();
-      const rawHeaders = matrix[headerIndex] || [];
-      const headers = rawHeaders.map((raw, index) => {
-        const mapped = detected.mapping[index] === "column" ? (importer.normalizeHeader(raw) || `column${index + 1}`) : detected.mapping[index];
-        const count = used.get(mapped) || 0;
-        used.set(mapped, count + 1);
-        return count ? `${mapped}${count + 1}` : mapped;
+      const ml = getSpreadsheetModel();
+      const parsed = importer.parseDelimited(text);
+      if (!parsed.matrix.length) return [];
+
+      if (ml?.parseOutcomeMatrix) {
+        const matrixRows = ml.parseOutcomeMatrix(parsed.matrix, sourceName);
+        if (matrixRows?.length) return matrixRows;
+      }
+
+      let workingMatrix = parsed.matrix;
+      let orientation = "rows";
+      let inferred = null;
+      if (ml?.inferTable) {
+        inferred = ml.inferTable(parsed.matrix, sourceName);
+        if (inferred?.matrix?.length) {
+          workingMatrix = inferred.matrix;
+          orientation = inferred.orientation || "rows";
+        }
+      }
+
+      const deterministic = deterministicHeaderStrength(importer, workingMatrix);
+      const useMlHeader = Boolean(inferred && inferred.orientation === orientation && inferred.semanticCount >= 2
+        && (deterministic.recognized < 2 || deterministic.anchors < 1));
+      const headerIndex = useMlHeader ? inferred.index : deterministic.detected.index;
+      const rawHeaders = workingMatrix[headerIndex] || [];
+
+      let mlMapping = null;
+      if (ml?.reconcilePredictions) {
+        const predictions = useMlHeader ? inferred.predictions : null;
+        mlMapping = ml.reconcilePredictions(rawHeaders, workingMatrix, headerIndex, sourceName, predictions);
+      }
+
+      const mappingMeta = rawHeaders.map((raw, index) => {
+        const deterministicField = importer.canonicalField(raw);
+        if (deterministicField !== "column") {
+          return { source: raw || deterministicField, field: deterministicField, method: "rule", confidence: 1 };
+        }
+        const mlItem = mlMapping?.[index];
+        if (mlItem?.field && mlItem.field !== "column") {
+          return { source: raw || `Column ${index + 1}`, field: mlItem.field, method: "ml", confidence: Number(mlItem.confidence || 0) };
+        }
+        return { source: raw || `Column ${index + 1}`, field: "column", method: "raw", confidence: Number(mlItem?.confidence || 0) };
       });
+
+      let currentHeaders = uniqueHeaders(rawHeaders, mappingMeta.map(item => item.field), importer);
       const rows = [];
-      matrix.slice(headerIndex + 1).forEach((values, offset) => {
-        if (isRepeatedHeader(importer, values, headers)) return;
-        const row = Object.fromEntries(headers.map((header, index) => [header, String(values[index] ?? "").trim()]));
+      const sourceHints = importer.sectionHints(sourceName || "");
+      let activeHints = { ...sourceHints };
+      const extraMappings = [];
+
+      workingMatrix.slice(headerIndex + 1).forEach((values, offset) => {
+        const nonEmpty = values.map(value => String(value ?? "").trim()).filter(Boolean);
+        if (!nonEmpty.length) return;
+
+        const rowHints = importer.sectionHints(nonEmpty.join(" "));
+        if (nonEmpty.length <= 2 && (rowHints.gender || rowHints.division)) {
+          if (rowHints.gender) activeHints.gender = rowHints.gender;
+          if (rowHints.division) activeHints.division = rowHints.division;
+          return;
+        }
+
+        const secondaryMapping = semanticSecondaryHeader(importer, values);
+        if (secondaryMapping) {
+          currentHeaders = uniqueHeaders(values, secondaryMapping, importer);
+          extraMappings.push(...values.map((source, index) => ({ source, field: currentHeaders[index], method: "secondary-rule", confidence: 1 })));
+          return;
+        }
+
+        if (isRepeatedHeader(importer, values, currentHeaders)) return;
+        const row = Object.fromEntries(currentHeaders.map((header, index) => [header, String(values[index] ?? "").trim()]));
         row.__sourceRow = headerIndex + offset + 2;
         if (sourceName) row.__sheetName = sourceName;
+        if (activeHints.gender && !row.gender) row.gender = activeHints.gender;
+        if (activeHints.division && !row.division) row.division = activeHints.division;
         postProcessRow(row);
         if (Object.entries(row).some(([key, value]) => !key.startsWith("__") && String(value || "").trim())) rows.push(row);
       });
+
+      const mlItems = mappingMeta.filter(item => item.method === "ml");
+      const mlConfidence = mlItems.length
+        ? mlItems.reduce((sum, item) => sum + Number(item.confidence || 0), 0) / mlItems.length
+        : (deterministic.recognized >= 2 ? 1 : Number(inferred?.confidence || 0));
+      const review = ml?.assessRows ? ml.assessRows(rows) : null;
       rows.__analysis = {
         headerRow: headerIndex + 1,
-        delimiter: delimiter === "\t" ? "tab" : delimiter === "|" ? "pipe" : delimiter,
+        delimiter: orientation === "transposed" ? "transposed" : parsed.delimiter === "\t" ? "tab" : parsed.delimiter === "|" ? "pipe" : parsed.delimiter,
+        orientation,
         columns: rawHeaders.filter(Boolean),
-        mapping: headers.map((header, index) => ({ source: rawHeaders[index] || header, field: header })),
+        mapping: [...mappingMeta, ...extraMappings],
         sourceName: sourceName || "",
-        engine: "v2-fixed",
+        engine: ml ? "v3-hybrid-ml" : "v2-fixed",
+        modelVersion: ml?.MODEL_VERSION || null,
+        mlConfidence,
+        review,
       };
       return rows;
     }
@@ -112,6 +211,7 @@
     function mergeWorksheetRows(sheets) {
       const merged = [];
       const names = [];
+      const analyses = [];
       for (const sheet of sheets || []) {
         const name = String(sheet.name || "Sheet");
         const text = String(sheet.text || "");
@@ -125,8 +225,24 @@
           merged.push(row);
         });
         names.push(name);
+        if (rows.__analysis) analyses.push(rows.__analysis);
       }
-      merged.__analysis = { headerRow: 1, delimiter: "workbook", columns: [], mapping: [], sourceName: names.join(", "), sheets: names, engine: "v2-fixed" };
+      const ml = getSpreadsheetModel();
+      const confidenceValues = analyses.map(item => Number(item.mlConfidence || item.confidence || 0)).filter(Number.isFinite);
+      const mlConfidence = confidenceValues.length ? confidenceValues.reduce((a, b) => a + b, 0) / confidenceValues.length : 0;
+      merged.__analysis = {
+        headerRow: 1,
+        delimiter: "workbook",
+        columns: [],
+        mapping: analyses.flatMap(item => item.mapping || []),
+        sourceName: names.join(", "),
+        sheets: names,
+        sheetAnalyses: analyses,
+        engine: ml ? "v3-hybrid-ml" : "v2-fixed",
+        modelVersion: ml?.MODEL_VERSION || null,
+        mlConfidence,
+        review: ml?.assessRows ? ml.assessRows(merged) : null,
+      };
       return merged;
     }
 
@@ -138,15 +254,22 @@
     const fixed = buildParser(importer);
     importer.parseText = fixed.parseText;
     importer.mergeWorksheetRows = fixed.mergeWorksheetRows;
+    importer.validateInterpretation = rows => {
+      const ml = getSpreadsheetModel();
+      return ml?.assessRows ? ml.assessRows(rows) : { valid: true, confidence: 1, level: "HIGH", reason: "Rule-based parser." };
+    };
     importer.__majorityHeaderFix = true;
+    importer.__spreadsheetML = Boolean(getSpreadsheetModel());
     return importer;
   }
 
   function polishImportCopy(doc) {
     const copy = doc.querySelector('#settingsPanel .panel-copy');
-    if (copy) copy.textContent = 'Connect a public Google Sheet, upload an Excel / Numbers / ODS workbook, import CSV or TSV, or paste rows directly. TennisRank finds the useful headers even when the file starts with titles, notes, or blank rows.';
+    if (copy) copy.textContent = 'Connect a public Google Sheet, upload an Excel / Numbers / ODS workbook, import CSV or TSV, or paste rows directly. TennisRank uses a tennis-trained schema model plus deterministic validation to understand unfamiliar layouts without silently guessing.';
     const urlLabel = doc.querySelector('label[for="sheetUrl"]');
     if (urlLabel) urlLabel.textContent = 'Public or published Google Sheet link';
+    const guide = doc.querySelector('.format-guide span');
+    if (guide) guide.textContent = 'The importer can recover unfamiliar column names, title rows, sectioned Boys/Girls or Singles/Doubles blocks, transposed tables, outcome matrices, aggregate standings, and player/opponent W-L logs. Low-confidence interpretations are blocked from publishing.';
   }
 
   function installBrowser(win) {
@@ -161,5 +284,5 @@
     else apply();
   }
 
-  return { isRepeatedHeader, normalizeResult, postProcessRow, buildParser, patchImporter, polishImportCopy, installBrowser, csvCell };
+  return { isRepeatedHeader, normalizeResult, postProcessRow, buildParser, patchImporter, polishImportCopy, installBrowser, csvCell, getSpreadsheetModel };
 });
