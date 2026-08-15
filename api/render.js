@@ -1,4 +1,4 @@
-const COMMIT = 'ce7198019dc3210b1e6df21c9c35627691e6aa1f';
+const COMMIT = '09f76f5a86b382e6cf72a87d665ec9b30bfd5784';
 const CDN = `https://cdn.jsdelivr.net/gh/suhaslord/tennisrank-ai@${COMMIT}`;
 const SHEETJS = 'https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js';
 
@@ -18,18 +18,18 @@ function rewrite(html) {
     .replaceAll('src="./challenge-ui.js"', `src="${CDN}/challenge-ui.js"`)
     .replaceAll('src="./challenge-ui-state.js"', `src="${CDN}/challenge-ui-state.js"`);
 
-  // Stability handles behavior/visibility first. The Tesla authority and final
-  // cleanup load after it, so old theme CSS cannot win the production cascade.
+  // Stability handles behavior/visibility first. Tesla authority, cleanup and
+  // the motion polish then load in that order so theme rules remain final.
   out = out.replace(
     '</head>',
-    `<script defer src="${SHEETJS}"></script><link rel="stylesheet" href="${CDN}/production-stability.css"><link rel="stylesheet" href="${CDN}/tesla-authority.css"><link rel="stylesheet" href="${CDN}/tesla-finish.css"><style>#showBootstrap,.bootstrap-form{display:none!important}</style></head>`,
+    `<script defer src="${SHEETJS}"></script><link rel="stylesheet" href="${CDN}/production-stability.css"><link rel="stylesheet" href="${CDN}/tesla-authority.css"><link rel="stylesheet" href="${CDN}/tesla-finish.css"><link rel="stylesheet" href="${CDN}/tesla-motion.css"><style>#showBootstrap,.bootstrap-form{display:none!important}</style></head>`,
   );
 
-  // Register file interception first, then install the v2 parser and its
-  // majority-header correction. This is the same load order covered by QA.
+  // Register file interception first, then the importer fixes and finally the
+  // isolated motion controller. This is the exact load order covered by QA.
   out = out.replace(
     `<script src="${CDN}/app.js"></script>`,
-    `<script src="${CDN}/app.js"></script><script src="${CDN}/import-runtime-fixes.js"></script><script src="${CDN}/import-v2.js"></script><script src="${CDN}/import-v2-fixes.js"></script>`,
+    `<script src="${CDN}/app.js"></script><script src="${CDN}/import-runtime-fixes.js"></script><script src="${CDN}/import-v2.js"></script><script src="${CDN}/import-v2-fixes.js"></script><script src="${CDN}/tesla-motion.js"></script>`,
   );
 
   out = out.replace('<div class="cursor-ball" aria-hidden="true"><span class="cursor-ball-core"></span></div>', '');
