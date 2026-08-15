@@ -22,6 +22,15 @@
     });
   }
 
+  window.TennisRankCoachState = {
+    getPendingRank(playerId, fallback = "") {
+      return pendingRankEdits.has(playerId) ? pendingRankEdits.get(playerId) : fallback;
+    },
+    clearPendingRank(playerId) {
+      pendingRankEdits.delete(playerId);
+    },
+  };
+
   document.addEventListener("click", event => {
     const tab = event.target.closest?.("[data-coach-tab]");
     if (tab) activeCoachTab = tab.dataset.coachTab || "approvals";
@@ -35,18 +44,8 @@
     pendingRankEdits.set(row.dataset.rosterPlayer, input.value);
   }, true);
 
-  document.addEventListener("click", event => {
-    const move = event.target.closest?.("[data-move]");
-    if (!move) return;
-    const row = move.closest("[data-roster-player]");
-    const input = row?.querySelector("[data-new-rank]");
-    if (row?.dataset.rosterPlayer && input) pendingRankEdits.set(row.dataset.rosterPlayer, input.value);
-  }, true);
-
   const observer = new MutationObserver(records => {
     if (!records.some(record => record.addedNodes.length || record.removedNodes.length)) return;
-    // Restore synchronously in the observer microtask so a rerender cannot reset
-    // a typed rank between the input event and the user's Move click.
     restoreCoachState();
     requestAnimationFrame(restoreCoachState);
   });
