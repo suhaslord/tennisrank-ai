@@ -27,10 +27,12 @@ jobs:
           node --check auth.js
           node --check app.js
           node --check import-v2.js
+          node --check import-runtime-fixes.js
           node --check lib/ladder-engine.js
           node --check ladder.js
           node --check challenge-ui.js
           node --check challenge-ui-state.js
+          node --check api/render.js
           node --check api/_supabase.js
           node --check api/config.js
           node --check api/session.js
@@ -46,6 +48,7 @@ jobs:
           node --check api/admin/seed-ladder.js
           node --check qa/import-regression.test.js
           node --check qa/import-v2.test.js
+          node --check qa/import-v2-diagnostics.js
           node --check qa/browser.spec.js
           node --check playwright.config.js
       - name: Ladder behavior tests
@@ -53,7 +56,7 @@ jobs:
       - name: Import compatibility tests
         run: |
           node qa/import-regression.test.js
-          node qa/import-v2.test.js
+          node qa/import-v2-diagnostics.js
       - name: Reconciliation guardrails
         run: |
           set -euo pipefail
@@ -69,6 +72,7 @@ jobs:
           test -f tesla-authority.css
           test -f production-stability.css
           test -f import-v2.js
+          test -f import-runtime-fixes.js
           test -f api/sheet-proxy.js
           test -f assets/team-court.jpg
           test -f assets/matchday-awards.jpg
@@ -84,6 +88,9 @@ jobs:
           grep -q 'docs.google.com' api/sheet-proxy.js
           grep -q 'MAX_BYTES' api/sheet-proxy.js
           grep -q 'sheet-proxy' import-v2.js
+          grep -q 'tesla-authority.css' api/render.js
+          grep -q 'import-runtime-fixes.js' api/render.js
+          grep -q 'import-v2.js' api/render.js
       - name: Secret-safety guardrails
         run: |
           set -euo pipefail
