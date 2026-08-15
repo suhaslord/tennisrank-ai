@@ -1,0 +1,54 @@
+/* Final Tesla cleanup: removes legacy visual artifacts that can leak through style.css. */
+.auth-visual::before{
+  content:none!important;
+  display:none!important;
+  background:none!important;
+  background-image:none!important;
+  border:0!important;
+  box-shadow:none!important;
+}
+.auth-status{
+  min-height:18px!important;
+  margin:22px 0 0!important;
+  color:#5c5e62!important;
+  font-size:12px!important;
+  font-weight:400!important;
+  line-height:1.45!important;
+  letter-spacing:0!important;
+  text-transform:none!important;
+}
+.auth-status.error,
+.auth-status[data-state="error"]{
+  color:#b3261e!important;
+}
+.auth-status:empty{
+  min-height:0!important;
+  margin-top:0!important;
+}
+.auth-visual-court,
+.auth-visual-court span{
+  display:none!important;
+  opacity:0!important;
+}
+
+/* Keep the import workspace editorial even when legacy connection/error classes fire. */
+.data-panel .status-message,
+.data-panel .backend-row p,
+.data-panel .helper-text{
+  text-shadow:none!important;
+}
+.data-panel .status-message.error{
+  color:#b3261e!important;
+}
+.data-panel .status-message.success{
+  color:#5c5e62!important;
+}
+
+/* Prevent old theme transforms/filters from reappearing on core Tesla photos. */
+.auth-visual img,
+.hero-photo,
+.story-image img,
+.spotlight-image img{
+  transform:none!important;
+  box-shadow:none!important;
+}
