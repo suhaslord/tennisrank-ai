@@ -50,6 +50,23 @@ async function listChallenges(context) {
   };
 }
 
+function normalizeProposedTimes(value) {
+  if (!Array.isArray(value)) return [];
+  const now = Date.now();
+  const maxFuture = now + 1000 * 60 * 60 * 24 * 90;
+  const normalized = [];
+  for (const raw of value.slice(0, 3)) {
+    const date = new Date(raw);
+    const timestamp = date.getTime();
+    if (!Number.isFinite(timestamp)) throw Object.assign(new Error("One of the proposed times is invalid."), { status: 400 });
+    if (timestamp <= now) throw Object.assign(new Error("Challenge times must be in the future."), { status: 400 });
+    if (timestamp > maxFuture) throw Object.assign(new Error("Challenge times must be within the next 90 days."), { status: 400 });
+    normalized.push(date.toISOString());
+  }
+  if (!normalized.length) throw Object.assign(new Error("Propose at least one match time."), { status: 400 });
+  return [...new Set(normalized)];
+}
+
 module.exports = async function handler(req, res) {
   allowApi(res, "GET,POST,PATCH,OPTIONS");
   if (req.method === "OPTIONS") return res.status(204).end();
@@ -66,7 +83,7 @@ module.exports = async function handler(req, res) {
     if (req.method === "POST") {
       const defenderPlayerId = String(body.defenderPlayerId || "").trim();
       if (!defenderPlayerId) return json(res, 400, { error: "Choose a defender to challenge." });
-      const proposedTimes = Array.isArray(body.proposedTimes) ? body.proposedTimes.slice(0, 6) : [];
+      const proposedTimes = normalizeProposedTimes(body.proposedTimes);
       const result = await rpc(context, "create_ladder_challenge", {
         p_challenger_profile_id: context.profile.id,
         p_defender_player_id: defenderPlayerId,
@@ -83,13 +100,16 @@ module.exports = async function handler(req, res) {
       if (!new Set(["accept", "decline", "schedule"]).has(action)) return json(res, 400, { error: "Unsupported challenge action." });
       const scheduledFor = body.scheduledFor ? new Date(body.scheduledFor) : null;
       if (body.scheduledFor && Number.isNaN(scheduledFor.getTime())) return json(res, 400, { error: "Scheduled time is invalid." });
+      if (scheduledFor && scheduledFor.getTime() <= Date.now()) return json(res, 400, { error: "Scheduled time must be in the future." });
+      const courtLocation = String(body.courtLocation || "").trim();
+      if (courtLocation.length > 160) return json(res, 400, { error: "Court/location is too long." });
 
       const result = await rpc(context, "respond_ladder_challenge", {
         p_actor_profile_id: context.profile.id,
         p_challenge_id: challengeId,
         p_action: action,
         p_scheduled_for: scheduledFor ? scheduledFor.toISOString() : null,
-        p_court_location: String(body.courtLocation || "").trim() || null,
+        p_court_location: courtLocation || null,
       });
       if (!result.response.ok) return json(res, result.response.status, { error: result.payload.message || "Challenge could not be updated." });
       return json(res, 200, { ok: true });
