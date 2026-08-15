@@ -26,6 +26,7 @@ jobs:
           set -euo pipefail
           node --check auth.js
           node --check app.js
+          node --check import-v2.js
           node --check lib/ladder-engine.js
           node --check ladder.js
           node --check challenge-ui.js
@@ -39,13 +40,20 @@ jobs:
           node --check api/ladder.js
           node --check api/challenges.js
           node --check api/match-score.js
+          node --check api/sheet-proxy.js
           node --check api/admin/verify-match.js
           node --check api/admin/ladder.js
           node --check api/admin/seed-ladder.js
+          node --check qa/import-regression.test.js
+          node --check qa/import-v2.test.js
           node --check qa/browser.spec.js
           node --check playwright.config.js
       - name: Ladder behavior tests
         run: node qa/ladder-engine.test.js
+      - name: Import compatibility tests
+        run: |
+          node qa/import-regression.test.js
+          node qa/import-v2.test.js
       - name: Reconciliation guardrails
         run: |
           set -euo pipefail
@@ -58,12 +66,14 @@ jobs:
           grep -q './lib/ladder-engine.js' index.html
           grep -q './challenge-ui.js' index.html
           grep -q './challenge-ui-state.js' index.html
-          test -f challenge-ui-fixes.css
-          test -f challenge-ui-state.js
+          test -f tesla-authority.css
+          test -f production-stability.css
+          test -f import-v2.js
+          test -f api/sheet-proxy.js
           test -f assets/team-court.jpg
           test -f assets/matchday-awards.jpg
           test -f assets/singles-spotlight.jpg
-      - name: Server-auth guardrails
+      - name: Server-auth and import guardrails
         run: |
           set -euo pipefail
           grep -q 'authenticatedContext' api/records.js
@@ -71,10 +81,13 @@ jobs:
           grep -q 'source_key' api/records.js
           grep -q 'validateWinnerScore' api/match-score.js
           grep -q 'context.profile.role !== "admin"' api/admin/verify-match.js
+          grep -q 'docs.google.com' api/sheet-proxy.js
+          grep -q 'MAX_BYTES' api/sheet-proxy.js
+          grep -q 'sheet-proxy' import-v2.js
       - name: Secret-safety guardrails
         run: |
           set -euo pipefail
-          ! grep -R --exclude-dir=.git -E 'SUPABASE_SERVICE_ROLE_KEY[[:space:]]*=' .
+          ! grep -R --exclude-dir=.git --exclude=.env.example -E 'SUPABASE_SERVICE_ROLE_KEY[[:space:]]*=' .
           ! grep -R --exclude-dir=.git -E 'sb_secret_[A-Za-z0-9_-]+' .
       - name: Install Playwright test runner
         run: npm install --no-save @playwright/test@1.55.0
