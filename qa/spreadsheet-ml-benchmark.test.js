@@ -2,8 +2,10 @@ const assert = require("node:assert/strict");
 const ml = require("../spreadsheet-ml.js");
 const importer = require("../import-v2.js");
 const fixes = require("../import-v2-fixes.js");
+const calibration = require("../spreadsheet-semantic-calibration.js");
 const runtime = require("../import-runtime-fixes.js");
 fixes.patchImporter(importer);
+calibration.wrapImporter(importer, ml);
 
 const validFixtures = [
   {
