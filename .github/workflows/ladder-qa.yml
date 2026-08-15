@@ -31,6 +31,7 @@ jobs:
           node --check import-v2.js
           node --check import-v2-fixes.js
           node --check import-runtime-fixes.js
+          node --check tesla-motion.js
           node --check lib/ladder-engine.js
           node --check ladder.js
           node --check challenge-ui.js
@@ -52,6 +53,7 @@ jobs:
           node --check qa/import-v2-diagnostics.js
           node --check qa/workbook-formats.test.js
           node --check qa/browser.spec.js
+          node --check qa/visual-stability.spec.js
           node --check playwright.config.js
       - name: Ladder behavior tests
         run: node qa/ladder-engine.test.js
@@ -74,6 +76,8 @@ jobs:
           grep -q './challenge-ui-state.js' index.html
           test -f tesla-authority.css
           test -f tesla-finish.css
+          test -f tesla-motion.css
+          test -f tesla-motion.js
           test -f production-stability.css
           test -f import-v2.js
           test -f import-v2-fixes.js
