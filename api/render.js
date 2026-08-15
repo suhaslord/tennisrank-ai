@@ -1,4 +1,4 @@
-const COMMIT = 'dab7d6b941561596b12033ab1543a12ce2b40e4c';
+const COMMIT = 'ce885778bbc24ac99dcfca092b4de9dd9f7fd614';
 const CDN = `https://cdn.jsdelivr.net/gh/suhaslord/tennisrank-ai@${COMMIT}`;
 const SHEETJS = 'https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js';
 
@@ -16,18 +16,22 @@ function rewrite(html) {
     .replaceAll('src="./app.js"', `src="${CDN}/app.js"`)
     .replaceAll('src="./ladder.js"', `src="${CDN}/ladder.js"`)
     .replaceAll('src="./challenge-ui.js"', `src="${CDN}/challenge-ui.js"`)
-    .replaceAll('src="./challenge-ui-state.js"', `src="${CDN}/challenge-ui-state.js` + '"');
+    .replaceAll('src="./challenge-ui-state.js"', `src="${CDN}/challenge-ui-state.js"`);
 
-  // Stability owns visibility and overflow only. Tesla authority is last so
-  // historical theme rules cannot override the production visual language.
+  // Behavior/stability CSS loads first. Tesla authority is deliberately last,
+  // making the design system the final visual source of truth everywhere.
   out = out.replace(
     '</head>',
     `<script defer src="${SHEETJS}"></script><link rel="stylesheet" href="${CDN}/production-stability.css"><link rel="stylesheet" href="${CDN}/tesla-authority.css"><style>#showBootstrap,.bootstrap-form{display:none!important}</style></head>`,
   );
+
+  // Runtime workbook interception must register before import-v2. The parser
+  // majority-header fix then patches import-v2 before the app is used.
   out = out.replace(
     `<script src="${CDN}/app.js"></script>`,
-    `<script src="${CDN}/app.js"></script><script src="${CDN}/import-runtime-fixes.js"></script><script src="${CDN}/import-v2.js"></script>`,
+    `<script src="${CDN}/app.js"></script><script src="${CDN}/import-runtime-fixes.js"></script><script src="${CDN}/import-v2.js"></script><script src="${CDN}/import-v2-fixes.js"></script>`,
   );
+
   out = out.replace('<div class="cursor-ball" aria-hidden="true"><span class="cursor-ball-core"></span></div>', '');
   return out;
 }
