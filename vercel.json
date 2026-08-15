@@ -1,9 +1,12 @@
 {
   "cleanUrls": true,
   "rewrites": [
+    { "source": "/api/config", "destination": "/api/auth-api?route=config" },
+    { "source": "/api/session", "destination": "/api/auth-api?route=session" },
+    { "source": "/api/bootstrap", "destination": "/api/auth-api?route=bootstrap" },
     { "source": "/", "destination": "/api/render" },
     { "source": "/player", "destination": "/api/render" },
     { "source": "/admin", "destination": "/api/render" },
-    { "source": "/assets/:path*", "destination": "https://cdn.jsdelivr.net/gh/suhaslord/tennisrank-ai@0aa8d4a6a9d9f65a2e91197d0a1e839a4fe6d189/assets/:path*" }
+    { "source": "/assets/:path*", "destination": "https://cdn.jsdelivr.net/gh/suhaslord/tennisrank-ai@ce7198019dc3210b1e6df21c9c35627691e6aa1f/assets/:path*" }
   ]
 }
