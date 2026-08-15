@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#f3ede6" />
+    <meta name="theme-color" content="#08151b" />
     <meta name="description" content="TennisRank AI turns a team's existing spreadsheet into clear, current singles and doubles rankings." />
     <link rel="canonical" href="https://tennisrank-ai.vercel.app/" />
     <meta property="og:title" content="TennisRank AI" />
@@ -17,19 +17,73 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.1/src/fill/style.css" />
     <link rel="stylesheet" href="./style.css" />
     <link rel="stylesheet" href="./ladder.css" />
+    <link rel="stylesheet" href="./challenge-ui.css" />
   </head>
-  <body>
-    <div class="app-shell">
+  <body class="auth-loading">
+    <section class="auth-gate" id="authGate" aria-labelledby="authTitle">
+      <div class="auth-visual" aria-hidden="true">
+        <img src="/assets/team-court.jpg" alt="" fetchpriority="high" decoding="async" />
+        <div class="auth-visual-topline">
+          <span>RIHS tennis / 2026 season</span>
+          <span class="auth-live"><span class="auth-live-dot"></span>Board active</span>
+        </div>
+        <div class="auth-visual-copy">
+          <div class="auth-brand-lockup">
+            <span class="brand-mark"><span class="brand-dot"></span>TennisRank <span class="brand-ai">AI</span></span>
+            <span class="auth-visual-index">Team board</span>
+          </div>
+          <span class="auth-visual-rule"></span>
+          <p>Every result<br /><span>changes the board.</span></p>
+          <div class="auth-visual-meta"><span>Singles + doubles</span><span>Coach managed</span><span>Private access</span></div>
+        </div>
+        <div class="auth-visual-court" aria-hidden="true"><span></span><span></span><span></span></div>
+      </div>
+      <div class="auth-card">
+        <div class="auth-card-topline"><span>Member sign in</span><span><i class="ph ph-lock-key" aria-hidden="true"></i> Secure</span></div>
+        <p class="eyebrow">Private team workspace</p>
+        <h1 id="authTitle">Welcome back.</h1>
+        <p class="auth-copy">Sign in with the account your coach invited. Players see their stats; admins manage the team board.</p>
+        <form id="loginForm" class="auth-form">
+          <label for="loginEmail">Email</label>
+          <input id="loginEmail" name="email" type="email" autocomplete="username" required placeholder="you@school.org" />
+          <label for="loginPassword">Password</label>
+          <input id="loginPassword" name="password" type="password" autocomplete="current-password" required minlength="8" placeholder="Your password" />
+          <button class="primary-button" id="loginButton" type="submit"><span>Sign in</span><i class="ph ph-arrow-right" aria-hidden="true"></i></button>
+        </form>
+        <form id="passwordForm" class="auth-form" hidden>
+          <label for="newPassword">Choose a new password</label>
+          <input id="newPassword" name="new-password" type="password" autocomplete="new-password" required minlength="8" placeholder="At least 8 characters" />
+          <button class="primary-button" id="passwordButton" type="submit"><span>Save password</span><i class="ph ph-check" aria-hidden="true"></i></button>
+        </form>
+        <button class="text-button" id="forgotPassword" type="button">Forgot password?</button>
+        <button class="text-button" id="showBootstrap" type="button">First-time admin setup</button>
+        <form id="bootstrapForm" class="auth-form bootstrap-form" hidden>
+          <div class="auth-divider"><span>Set up the first admin</span></div>
+          <label for="bootstrapEmail">Admin email</label>
+          <input id="bootstrapEmail" type="email" autocomplete="email" required placeholder="coach@school.org" />
+          <label for="bootstrapToken">Existing coach/admin setup code</label>
+          <input id="bootstrapToken" type="password" autocomplete="off" required placeholder="Admin setup code" />
+          <label for="bootstrapPassword">Choose your admin password</label>
+          <input id="bootstrapPassword" type="password" autocomplete="new-password" required minlength="10" placeholder="At least 10 characters" />
+          <button class="secondary-button" id="bootstrapButton" type="submit"><span>Create admin account</span><i class="ph ph-shield-check" aria-hidden="true"></i></button>
+        </form>
+        <p class="auth-status" id="authStatus" role="status" aria-live="polite"></p>
+        <p class="auth-footnote"><i class="ph ph-shield-check" aria-hidden="true"></i> Team data stays private to invited accounts.</p>
+      </div>
+    </section>
+
+    <div class="app-shell" id="appShell" hidden>
       <header class="topbar">
         <a class="brand-mark" href="#top" aria-label="TennisRank home"><span class="brand-dot"></span>TennisRank <span class="brand-ai">AI</span></a>
         <nav class="topbar-links" aria-label="Section navigation">
           <a href="#rankingsSection"><i class="ph ph-chart-bar" aria-hidden="true"></i>Rankings</a>
           <a href="#statsSection"><i class="ph ph-users" aria-hidden="true"></i>Players</a>
-          <a href="#settingsPanel"><i class="ph ph-upload-simple" aria-hidden="true"></i>Import</a>
+          <a class="admin-only" href="#settingsPanel"><i class="ph ph-upload-simple" aria-hidden="true"></i>Import</a>
         </nav>
         <div class="topbar-actions">
           <span class="live-pill"><i class="ph-fill ph-broadcast" aria-hidden="true"></i><span class="pulse"></span> BOARD STATUS</span>
-          <button class="icon-button" id="openSettings" aria-label="Open data settings" title="Open data settings"><i class="ph ph-database" aria-hidden="true"></i><span>Data</span></button>
+          <button class="icon-button admin-only" id="openSettings" aria-label="Open data settings" title="Open data settings"><i class="ph ph-database" aria-hidden="true"></i><span>Data</span></button>
+          <button class="account-button" id="accountMenu" type="button" aria-label="Sign out"><span class="account-avatar" id="accountAvatar">TR</span><span class="account-copy"><b id="accountName">Account</b><small id="accountRole">Player</small></span><i class="ph ph-sign-out" aria-hidden="true"></i></button>
         </div>
       </header>
 
@@ -41,7 +95,7 @@
             <p class="hero-copy">Import the sheet your team already uses. TennisRank maps the columns, understands the results, and keeps every division current.</p>
             <div class="hero-actions">
               <button class="primary-button" id="heroRankings"><span>View rankings</span><i class="ph ph-arrow-down" aria-hidden="true"></i></button>
-              <button class="ghost-button" id="heroData"><span>Update data</span><i class="ph ph-database" aria-hidden="true"></i></button>
+              <button class="ghost-button admin-only" id="heroData"><span>Update data</span><i class="ph ph-database" aria-hidden="true"></i></button>
             </div>
             <div class="hero-note"><span class="status-dot"></span><span id="heroSourceLabel">Sample board</span><span class="hero-note-separator">|</span><span id="heroRowCount">0 rows analyzed</span></div>
           </div>
@@ -60,6 +114,24 @@
             </div>
             <div class="visual-metric"><span class="visual-label">Record differential</span><strong id="heroDiff">+0</strong><span id="heroDiffDetail">Waiting for match data</span></div>
             <div class="visual-footer"><span id="heroMatchCount">0 matches tracked</span><span id="heroUpdateState">Sample data</span></div>
+          </div>
+        </section>
+
+        <section class="player-dashboard player-only" id="playerDashboard" aria-labelledby="playerDashboardTitle">
+          <div class="section-heading player-heading">
+            <div>
+              <p class="eyebrow">Your player dashboard</p>
+              <h2 id="playerDashboardTitle">My season</h2>
+            </div>
+            <span class="role-pill">Read only</span>
+          </div>
+          <div class="player-stat-grid" id="playerStatGrid"></div>
+          <div class="player-history-card">
+            <div>
+              <p class="eyebrow">Your latest results</p>
+              <h3>Match history</h3>
+            </div>
+            <div id="playerMatchList"></div>
           </div>
         </section>
 
@@ -138,7 +210,7 @@
         </section>
         <section class="matches-card" id="matchesList"></section>
 
-        <section class="data-panel" id="settingsPanel">
+        <section class="data-panel admin-only" id="settingsPanel">
           <div class="panel-heading">
             <div>
               <p class="eyebrow">Data connection</p>
@@ -202,8 +274,6 @@
             </div>
             <button class="secondary-button" id="saveBackend"><span>Save current data</span><i class="ph ph-floppy-disk" aria-hidden="true"></i></button>
           </div>
-          <label for="backendToken">Backend write token <span class="optional-label">(only needed if configured in Vercel)</span></label>
-          <input id="backendToken" type="password" placeholder="Enter coach/admin token to save data" autocomplete="off" />
 
           <div class="format-guide">
             <strong>What the analyzer understands</strong>
@@ -212,18 +282,41 @@
           </div>
           <div class="status-message" id="statusMessage" role="status"></div>
         </section>
+
+        <section class="accounts-panel admin-only" id="accountsPanel">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">Access control</p>
+              <h2>Player accounts</h2>
+            </div>
+            <span class="role-pill">Admin only</span>
+          </div>
+          <p class="panel-copy">Create each player with their email, a temporary password, and the exact name used in the match sheet. They must choose a new password on first sign-in and cannot edit results.</p>
+          <form class="invite-grid" id="inviteForm">
+            <div><label for="inviteEmail">Player email</label><input id="inviteEmail" type="email" autocomplete="off" required placeholder="player@school.org" /></div>
+            <div><label for="inviteFullName">Display name</label><input id="inviteFullName" type="text" autocomplete="off" required placeholder="Alex Rivera" /></div>
+            <div><label for="invitePlayerName">Name in spreadsheet</label><input id="invitePlayerName" type="text" autocomplete="off" required placeholder="Alex Rivera" /></div>
+            <div><label for="inviteRole">Access level</label><select id="inviteRole"><option value="player">Player - read only</option><option value="admin">Admin - can edit</option></select></div>
+            <div><label for="invitePassword">Temporary password</label><input id="invitePassword" type="password" autocomplete="new-password" required minlength="10" placeholder="At least 10 characters" /></div>
+            <button class="primary-button" id="inviteButton" type="submit"><span>Create account</span><i class="ph ph-user-plus" aria-hidden="true"></i></button>
+          </form>
+          <p class="status-message" id="inviteStatus" role="status" aria-live="polite"></p>
+          <div class="account-list" id="accountList"></div>
+        </section>
       </main>
 
       <nav class="bottom-nav" aria-label="Primary navigation">
         <button class="nav-item active" id="navHome"><i class="ph ph-house" aria-hidden="true"></i><span>Home</span></button>
         <button class="nav-item" id="navRankings"><i class="ph ph-chart-bar" aria-hidden="true"></i><span>Rankings</span></button>
-        <button class="nav-item" id="navSettings"><i class="ph ph-database" aria-hidden="true"></i><span>Data</span></button>
+        <button class="nav-item admin-only" id="navSettings"><i class="ph ph-database" aria-hidden="true"></i><span>Data</span></button>
         <button class="nav-item" id="navInsights"><i class="ph ph-sparkle" aria-hidden="true"></i><span>Insights</span></button>
       </nav>
     </div>
     <div class="cursor-ball" aria-hidden="true"><span class="cursor-ball-core"></span></div>
+    <script src="./auth.js"></script>
     <script src="./lib/ladder-engine.js"></script>
     <script src="./app.js"></script>
     <script src="./ladder.js"></script>
+    <script src="./challenge-ui.js"></script>
   </body>
 </html>

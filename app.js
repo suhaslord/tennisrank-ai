@@ -25,7 +25,10 @@ const state = {
   refreshTimer: null,
   backendAvailable: false,
   analysis: null,
+  profile: null,
 };
+
+const LOCAL_SNAPSHOT_KEY = "tennisRankDataSnapshotV1";
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
@@ -50,7 +53,11 @@ function setupCursorBall() {
   let y = 0;
 
   const paint = () => {
-    ball.style.transform = `translate3d(${x}px, ${y}px, 0) translate(-50%, -50%)`;
+    const radius = Math.max(ball.offsetWidth, ball.offsetHeight) / 2;
+    const inset = radius + 2;
+    const safeX = Math.min(Math.max(x, inset), window.innerWidth - inset);
+    const safeY = Math.min(Math.max(y, inset), window.innerHeight - inset);
+    ball.style.transform = `translate3d(${safeX}px, ${safeY}px, 0) translate(-50%, -50%)`;
     frame = 0;
   };
 
@@ -63,6 +70,7 @@ function setupCursorBall() {
   }, { passive: true });
   document.addEventListener("pointerdown", () => ball.classList.add("is-pressed"));
   document.addEventListener("pointerup", () => ball.classList.remove("is-pressed"));
+  document.documentElement.addEventListener("mouseleave", () => ball.classList.remove("is-visible", "is-pressed"));
   window.addEventListener("blur", () => ball.classList.remove("is-visible", "is-pressed"));
 }
 
@@ -88,10 +96,11 @@ function animateTicker(element, target, formatter) {
     element.textContent = String(target);
     return;
   }
+  const hasPreviousValue = Object.prototype.hasOwnProperty.call(element.dataset, "tickerValue");
   const start = Number(element.dataset.tickerValue || 0);
   element.dataset.tickerValue = String(end);
   const format = formatter || (value => String(Math.round(value)));
-  if (prefersReducedMotion() || start === end) {
+  if (!hasPreviousValue || prefersReducedMotion() || start === end) {
     element.textContent = format(end);
     return;
   }
@@ -533,6 +542,45 @@ function formatRate(rate) { return `${Math.round(rate * 100)}%`; }
 function formatDiff(diff) { return diff > 0 ? `+${diff}` : String(diff); }
 function groupTitle(gender, division) { return `${gender === "boys" ? "Boys" : "Girls"} ${division === "singles" ? "singles" : "doubles"}`; }
 
+function identityKey(value) {
+  return String(value || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+function belongsToPlayer(entityName, playerName) {
+  const target = identityKey(playerName);
+  if (!target) return false;
+  return cleanNames(entityName).some(name => identityKey(name) === target) || identityKey(entityName) === target;
+}
+
+function renderPlayerDashboard() {
+  const dashboard = $("#playerDashboard");
+  if (!dashboard || state.profile?.role !== "player") return;
+  const playerName = state.profile.player_name || state.profile.full_name;
+  $("#playerDashboardTitle").textContent = `${playerName || "My"} season`;
+  const entries = state.rankings.filter(player => belongsToPlayer(player.name, playerName));
+  const total = entries.reduce((summary, player) => ({
+    wins: summary.wins + player.wins,
+    losses: summary.losses + player.losses,
+    matches: summary.matches + player.matches,
+  }), { wins: 0, losses: 0, matches: 0 });
+  const best = [...entries].sort((a, b) => b.diff - a.diff || b.winRate - a.winRate)[0];
+  const rank = best ? state.rankings.filter(player => player.gender === best.gender && player.division === best.division).findIndex(player => player.key === best.key) + 1 : 0;
+  const rate = total.matches ? total.wins / total.matches : 0;
+  $("#playerStatGrid").innerHTML = [
+    ["Record", `${total.wins}-${total.losses}`, total.matches ? `${total.matches} matches recorded` : "No matches recorded yet"],
+    ["Win rate", formatRate(rate), total.matches ? `${total.wins} wins this season` : "Starts at 0%"],
+    ["Best rank", rank ? `#${rank}` : "-", best ? groupTitle(best.gender, best.division) : "Waiting for a matching sheet name"],
+    ["Formats", entries.length, entries.length ? entries.map(entry => entry.division).filter((value, index, list) => list.indexOf(value) === index).join(" + ") : "No linked ranking yet"],
+  ].map(([label, value, detail]) => `<article class="player-stat"><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong><small>${escapeHtml(detail)}</small></article>`).join("");
+
+  const matches = state.matches.filter(match => belongsToPlayer(match.winner, playerName) || belongsToPlayer(match.loser, playerName)).slice(0, 8);
+  $("#playerMatchList").innerHTML = matches.length ? matches.map(match => {
+    const won = belongsToPlayer(match.winner, playerName);
+    const opponent = won ? match.loser : match.winner;
+    return `<div class="player-match"><span class="result-badge ${won ? "win" : "loss"}">${won ? "W" : "L"}</span><div><strong>${won ? "Defeated" : "Lost to"} ${displayName(opponent)}</strong><small>${escapeHtml(match.date || "Recent")} · ${escapeHtml(match.division)} · ${escapeHtml(match.score || "Score unavailable")}</small></div></div>`;
+  }).join("") : `<div class="empty-state">No matches currently match “${escapeHtml(playerName)}.” Ask an admin to check the spreadsheet name on your account.</div>`;
+}
+
 function renderHero() {
   const matches = state.matches.length;
   const activePlayers = state.rankings.filter(player => player.matches > 0);
@@ -608,7 +656,7 @@ function renderMatches() {
 }
 
 function render() {
-  renderHero(); renderSummary(); renderInsight(); renderRankings(); renderMatches(); renderAnalyzer();
+  renderHero(); renderSummary(); renderInsight(); renderRankings(); renderMatches(); renderAnalyzer(); renderPlayerDashboard();
   $("#lastUpdated").textContent = state.lastUpdated ? `Updated ${state.lastUpdated.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}` : "Sample data";
   replayAnimation($("#insightStrip"), "content-swap");
   replayAnimation($("#rankingsGrid"), "content-swap");
@@ -617,10 +665,39 @@ function render() {
   setupScrollReveal();
 }
 
+function saveLocalSnapshot(rows, source) {
+  if ((state.profile && state.profile.role !== "admin") || !Array.isArray(rows) || !rows.length || source === "sample") return;
+  try {
+    localStorage.setItem(LOCAL_SNAPSHOT_KEY, JSON.stringify({
+      rows,
+      source,
+      sourceUrl: state.sourceUrl || "",
+      savedAt: new Date().toISOString(),
+    }));
+  } catch {
+    // The shared backend can still persist data if browser storage is full or unavailable.
+  }
+}
+
+function readLocalSnapshot() {
+  try {
+    const snapshot = JSON.parse(localStorage.getItem(LOCAL_SNAPSHOT_KEY) || "null");
+    return Array.isArray(snapshot?.rows) && snapshot.rows.length ? snapshot : null;
+  } catch {
+    localStorage.removeItem(LOCAL_SNAPSHOT_KEY);
+    return null;
+  }
+}
+
 function loadRows(rows, source = "csv") {
   if (!rows.length) throw new Error("No rows were found. Check that the first row contains column headers.");
+  if (source === "csv") {
+    state.sourceUrl = "";
+    localStorage.removeItem("tennisRankSheetUrl");
+  }
   const calculated = calculateRankings(rows);
   state.rows = rows; state.rankings = calculated.rankings; state.matches = calculated.matches; state.analysis = analyzeRows(rows, calculated); state.source = source; state.lastUpdated = new Date();
+  saveLocalSnapshot(rows, source);
   render();
 }
 
@@ -657,9 +734,9 @@ async function fetchSheet() {
 }
 
 async function fetchBackendRecords() {
-  const response = await fetch("/api/records", { cache: "no-store" });
-  if (!response.ok) throw new Error("Persistent backend is not configured yet.");
-  const payload = await response.json();
+  const response = await window.TennisRankAuth.fetch("/api/records", { cache: "no-store" });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(payload.error || "Persistent backend is not configured yet.");
   state.backendAvailable = true;
   const backendStatus = $("#backendStatus");
   backendStatus.textContent = `${payload.count || 0} saved spreadsheet rows available.`;
@@ -669,11 +746,9 @@ async function fetchBackendRecords() {
 }
 
 async function syncToBackend(rows = state.rows) {
-  const token = $("#backendToken").value.trim() || sessionStorage.getItem("tennisRankBackendToken") || "";
-  if (token) sessionStorage.setItem("tennisRankBackendToken", token);
-  const response = await fetch("/api/records", {
+  if (state.profile?.role !== "admin") throw new Error("Only an admin can publish team data.");
+  const response = await window.TennisRankAuth.fetch("/api/records", {
     method: "POST",
-    headers: { "Content-Type": "application/json", ...(token ? { "x-admin-token": token } : {}) },
     body: JSON.stringify({ rows, source: state.sourceUrl || state.source || "default" }),
   });
   const payload = await response.json().catch(() => ({}));
@@ -683,6 +758,15 @@ async function syncToBackend(rows = state.rows) {
   backendStatus.textContent = `${payload.saved || rows.length} rows saved to the database.`;
   backendStatus.className = "connected";
   return payload;
+}
+
+async function loadAccounts() {
+  if (state.profile?.role !== "admin") return;
+  const response = await window.TennisRankAuth.fetch("/api/users", { cache: "no-store" });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(payload.error || "Player accounts could not be loaded.");
+  const list = $("#accountList");
+  list.innerHTML = payload.profiles.length ? payload.profiles.map(account => `<article class="account-row"><span class="account-avatar">${escapeHtml((account.full_name || account.email).split(/\s+/).slice(0, 2).map(part => part[0]).join("").toUpperCase())}</span><div><strong>${escapeHtml(account.full_name || account.email)}</strong><small>${escapeHtml(account.email)}${account.player_name ? ` · Sheet name: ${escapeHtml(account.player_name)}` : ""}${account.must_change_password ? " · Password change pending" : ""}</small></div><span class="role-pill">${escapeHtml(account.role)}</span></article>`).join("") : `<div class="empty-state">No accounts have been created yet.</div>`;
 }
 
 function setStatus(message, error = false) {
@@ -800,10 +884,43 @@ on("#connectSheet", "click", () => withBusy($("#connectSheet"), async () => {
   }
 }));
 on("#refreshNow", "click", () => withBusy($("#refreshNow"), async () => { setStatus("Refreshing..."); try { if (state.source === "sheet") { await fetchSheet(); try { await syncToBackend(); } catch (backendError) { setStatus(`Sheet refreshed. ${backendError.message}`); return; } } else if (state.source === "backend") await fetchBackendRecords(); else render(); setStatus("Data refreshed."); } catch (error) { setStatus(error.message, true); } }));
-on("#saveBackend", "click", () => withBusy($("#saveBackend"), async () => { setStatus("Saving current data..."); try { await syncToBackend(); setStatus(`Saved ${state.rows.length} spreadsheet rows to the persistent database.`); } catch (error) { setStatus(error.message, true); $("#backendStatus").textContent = "Backend unavailable - add the Vercel environment variables."; $("#backendStatus").className = "error"; } }));
-on("#csvFile", "change", event => { const file = event.target.files[0]; if (!file) return; const button = $("#useCsv"); setBusy(button, true); const reader = new FileReader(); reader.onload = () => { try { loadText(reader.result, "csv"); setStatus(`Loaded ${state.rankings.length} players and ${state.matches.length} matches from CSV.`); } catch (error) { setStatus(error.message, true); } finally { setBusy(button, false); } }; reader.onerror = () => { setStatus("The CSV file could not be read. Try exporting it again.", true); setBusy(button, false); }; reader.readAsText(file); });
-on("#useCsv", "click", () => withBusy($("#useCsv"), async () => { try { loadText($("#csvText").value, "csv"); setStatus(`Loaded ${state.rankings.length} players and ${state.matches.length} matches.`); } catch (error) { setStatus(error.message, true); } }));
+on("#saveBackend", "click", () => withBusy($("#saveBackend"), async () => { setStatus("Saving current data..."); try { await syncToBackend(); setStatus(`Saved ${state.rows.length} spreadsheet rows to the persistent database.`); } catch (error) { setStatus(error.message, true); $("#backendStatus").textContent = "Database connected, but this account could not publish the data."; $("#backendStatus").className = "error"; } }));
+on("#csvFile", "change", event => { const file = event.target.files[0]; if (!file) return; const button = $("#useCsv"); setBusy(button, true); const reader = new FileReader(); reader.onload = async () => { try { loadText(reader.result, "csv"); setStatus("Data loaded. Saving to the shared database..."); try { await syncToBackend(); setStatus(`Loaded and saved ${state.rankings.length} players and ${state.matches.length} matches.`); } catch (error) { setStatus(`Loaded the file, but it was not published: ${error.message}`, true); } } catch (error) { setStatus(error.message, true); } finally { setBusy(button, false); } }; reader.onerror = () => { setStatus("The CSV file could not be read. Try exporting it again.", true); setBusy(button, false); }; reader.readAsText(file); });
+on("#useCsv", "click", () => withBusy($("#useCsv"), async () => { try { loadText($("#csvText").value, "csv"); setStatus("Data loaded. Saving to the shared database..."); try { await syncToBackend(); setStatus(`Loaded and saved ${state.rankings.length} players and ${state.matches.length} matches.`); } catch (error) { setStatus(`Loaded the pasted data, but it was not published: ${error.message}`, true); } } catch (error) { setStatus(error.message, true); } }));
 on("#refreshRate", "change", startRefresh);
+on("#inviteForm", "submit", event => {
+  event.preventDefault();
+  return withBusy($("#inviteButton"), async () => {
+    const status = $("#inviteStatus");
+    status.textContent = "Sending invitation...";
+    status.classList.remove("error");
+    try {
+      const response = await window.TennisRankAuth.fetch("/api/users", {
+        method: "POST",
+        body: JSON.stringify({
+          email: $("#inviteEmail").value.trim(),
+          fullName: $("#inviteFullName").value.trim(),
+          playerName: $("#invitePlayerName").value.trim(),
+          role: $("#inviteRole").value,
+          temporaryPassword: $("#invitePassword").value,
+        }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.error || "Invitation failed.");
+      event.target.reset();
+      status.textContent = `Account created for ${payload.profile.email}. Share the temporary password privately; they must replace it at first sign-in.`;
+      await loadAccounts();
+    } catch (error) {
+      status.textContent = error.message;
+      status.classList.add("error");
+    }
+  });
+});
+on("#inviteRole", "change", event => {
+  const isPlayer = event.target.value === "player";
+  $("#invitePlayerName").required = isPlayer;
+  $("#invitePlayerName").closest("div").classList.toggle("is-optional", !isPlayer);
+});
 
 $$('[data-gender], [data-division]').forEach(button => button.setAttribute("aria-pressed", String(button.classList.contains("active"))));
 $$('.source-tab').forEach(button => button.setAttribute("aria-selected", String(button.classList.contains("active"))));
@@ -813,16 +930,46 @@ setupAnchorNavigation();
 setupCursorBall();
 setupTopbarState();
 
-const savedUrl = localStorage.getItem("tennisRankSheetUrl");
-const savedRate = localStorage.getItem("tennisRankRefreshRate");
-if (savedUrl) { $("#sheetUrl").value = savedUrl; state.sourceUrl = savedUrl; }
-if (savedRate) $("#refreshRate").value = savedRate;
-const savedBackendToken = sessionStorage.getItem("tennisRankBackendToken");
-if (savedBackendToken) $("#backendToken").value = savedBackendToken;
-$("#csvText").value = SAMPLE_CSV;
-loadText(SAMPLE_CSV, "sample");
-if (savedUrl) setStatus("Saved Google Sheet found. Connect it to load current results.");
-fetchBackendRecords().then(() => { startRefresh(); if (!savedUrl) setStatus("Loaded the latest saved data from the backend."); }).catch(() => {
-  $("#backendStatus").textContent = "Not configured - the app is using sample/local data.";
-  $("#backendStatus").className = "error";
-});
+let appInitialized = false;
+async function initializeAuthenticatedApp(profile) {
+  if (appInitialized) return;
+  appInitialized = true;
+  state.profile = profile;
+  const isAdmin = profile.role === "admin";
+  if (!isAdmin) {
+    localStorage.removeItem(LOCAL_SNAPSHOT_KEY);
+    localStorage.removeItem("tennisRankSheetUrl");
+  }
+  const savedUrl = isAdmin ? localStorage.getItem("tennisRankSheetUrl") : "";
+  const savedRate = isAdmin ? localStorage.getItem("tennisRankRefreshRate") : "0";
+  if (savedUrl) { $("#sheetUrl").value = savedUrl; state.sourceUrl = savedUrl; }
+  if (savedRate) $("#refreshRate").value = savedRate;
+  $("#csvText").value = SAMPLE_CSV;
+  const localSnapshot = isAdmin ? readLocalSnapshot() : null;
+  if (localSnapshot) {
+    state.sourceUrl = localSnapshot.sourceUrl || state.sourceUrl;
+    loadRows(localSnapshot.rows, "local");
+    setStatus("Restored the last admin copy saved on this device.");
+  } else {
+    loadText(SAMPLE_CSV, "sample");
+  }
+  try {
+    const payload = await fetchBackendRecords();
+    if (isAdmin) {
+      startRefresh();
+      await loadAccounts();
+    }
+    if (Array.isArray(payload.rows) && payload.rows.length) setStatus("Loaded the latest saved data from the shared database.");
+    else if (!localSnapshot && isAdmin) setStatus("Database connected. Import data to start the shared board.");
+  } catch (error) {
+    const backendStatus = $("#backendStatus");
+    if (backendStatus) {
+      backendStatus.textContent = error.message;
+      backendStatus.className = "error";
+    }
+    if (isAdmin) setStatus(error.message, true);
+  }
+}
+
+window.addEventListener("tennisrank:auth-ready", event => initializeAuthenticatedApp(event.detail.profile));
+if (window.TennisRankAuth?.getProfile()) initializeAuthenticatedApp(window.TennisRankAuth.getProfile());
