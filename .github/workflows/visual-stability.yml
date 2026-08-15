@@ -1,0 +1,52 @@
+name: TennisRank visual stability
+
+on:
+  push:
+    branches:
+      - feature/tesla-ladder-dashboard
+  workflow_dispatch:
+
+concurrency:
+  group: tennisrank-visual-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  visual:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Build production-like QA shell
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          html = Path('index.html').read_text()
+          html = html.replace('</head>', '<link rel="stylesheet" href="./tesla-final.css"><link rel="stylesheet" href="./production-stability.css"><style>#showBootstrap,.bootstrap-form{display:none!important}</style></head>')
+          html = html.replace('<div class="cursor-ball" aria-hidden="true"><span class="cursor-ball-core"></span></div>', '')
+          Path('qa-index.html').write_text(html)
+          PY
+      - name: Install Playwright runner
+        run: npm install --no-save @playwright/test@1.55.0
+      - name: Run visual regression checks
+        env:
+          QA_BASE: http://127.0.0.1:4173/qa-index.html
+        run: |
+          set -euo pipefail
+          google-chrome --version
+          python3 -m http.server 4173 >/tmp/tennisrank-visual-http.log 2>&1 &
+          SERVER_PID=$!
+          trap 'kill $SERVER_PID || true' EXIT
+          sleep 2
+          npx playwright test qa/visual-stability.spec.js --reporter=line --workers=1
+      - name: Upload visual QA screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tennisrank-visual-qa
+          path: qa-artifacts
+          if-no-files-found: warn
