@@ -49,6 +49,9 @@ async function expectLoginState(page) {
   expect(await css(page, '#authTitle', 'color')).toBe('rgb(23, 26, 32)');
   expect(await css(page, '#loginButton', 'backgroundColor')).toBe('rgb(243, 107, 33)');
   expect(await css(page, '#authTitle', 'fontWeight')).toBe('500');
+  expect(await css(page, '#authStatus', 'color')).toBe('rgb(92, 94, 98)');
+  const visualBefore = await page.locator('.auth-visual').evaluate(node => getComputedStyle(node, '::before').display);
+  expect(visualBefore).toBe('none');
 
   const imageLoaded = await page.locator('.auth-visual img').evaluate(img => img.complete && img.naturalWidth > 0);
   expect(imageLoaded).toBe(true);
