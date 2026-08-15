@@ -21,9 +21,6 @@
       const expected = String(expectedHeaders[i] || "").replace(/\d+$/, "");
       if (incoming !== "column" && incoming === expected) matches += 1;
     }
-    // A normal tennis row often contains values such as Boys + Singles, which
-    // happen to map to header concepts. Require a clear majority instead of
-    // the old "any two fields" heuristic.
     return compared >= 2 && matches >= Math.max(2, Math.ceil(compared * 0.6));
   }
 
@@ -145,16 +142,24 @@
     return importer;
   }
 
+  function polishImportCopy(doc) {
+    const copy = doc.querySelector('#settingsPanel .panel-copy');
+    if (copy) copy.textContent = 'Connect a public Google Sheet, upload an Excel / Numbers / ODS workbook, import CSV or TSV, or paste rows directly. TennisRank finds the useful headers even when the file starts with titles, notes, or blank rows.';
+    const urlLabel = doc.querySelector('label[for="sheetUrl"]');
+    if (urlLabel) urlLabel.textContent = 'Public or published Google Sheet link';
+  }
+
   function installBrowser(win) {
     const apply = () => {
       const importer = patchImporter(win.TennisRankImportV2);
       if (!importer) return;
       win.parseCSV = importer.parseText;
       win.googleCsvUrl = importer.googleCsvProxyUrl;
+      polishImportCopy(win.document);
     };
     if (win.document.readyState === "loading") win.document.addEventListener("DOMContentLoaded", apply, { once: true });
     else apply();
   }
 
-  return { isRepeatedHeader, normalizeResult, postProcessRow, buildParser, patchImporter, installBrowser, csvCell };
+  return { isRepeatedHeader, normalizeResult, postProcessRow, buildParser, patchImporter, polishImportCopy, installBrowser, csvCell };
 });
