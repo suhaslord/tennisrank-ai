@@ -3,7 +3,9 @@ const fs = require("node:fs");
 const vm = require("node:vm");
 const path = require("node:path");
 const importer = require("../import-v2.js");
+const fixes = require("../import-v2-fixes.js");
 const runtime = require("../import-runtime-fixes.js");
+fixes.patchImporter(importer);
 
 function loadLegacyImporter() {
   const appPath = path.join(__dirname, "..", "app.js");
