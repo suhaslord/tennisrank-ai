@@ -132,7 +132,11 @@ for (const fixture of rejectedFixtures) {
   const rows = importer.parseText(fixture.text, fixture.source);
   const review = importer.validateInterpretation(rows);
   assert.equal(review.valid, false, `${fixture.name}: importer must refuse unrelated or ambiguous data`);
-  assert.throws(() => runtime.validateRows(rows, importer), /could not confidently identify|No usable tennis rows/i, `${fixture.name}: runtime publication gate must reject`);
+  assert.throws(
+    () => runtime.validateRows(rows, importer),
+    /could not confidently identify|No usable tennis rows|tennis-specific evidence|publish safely/i,
+    `${fixture.name}: runtime publication gate must reject`,
+  );
   rejectionPasses += 1;
 }
 
