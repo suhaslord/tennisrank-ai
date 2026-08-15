@@ -75,13 +75,7 @@ const aggregate = importer.parseText([
   "1,Aiden Shah,9-1,Boys,Singles",
   "2,Leo Kim,7-3,Boys,Singles",
 ].join("\n"), "Season Standings");
-console.log("AGGREGATE_DEBUG", JSON.stringify({ rows: aggregate, analysis: aggregate.__analysis, review: importer.validateInterpretation(aggregate), predictions: [
-  ml.classifyColumn("Current Place", ["1", "2"], { position: 0, totalColumns: 5, sheetName: "Season Standings" }).predictions.slice(0, 4),
-  ml.classifyColumn("Who Played?", ["Aiden Shah", "Leo Kim"], { position: 1, totalColumns: 5, sheetName: "Season Standings" }).predictions.slice(0, 4),
-  ml.classifyColumn("Season W-L", ["9-1", "7-3"], { position: 2, totalColumns: 5, sheetName: "Season Standings" }).predictions.slice(0, 4),
-  ml.classifyColumn("Team Sex", ["Boys", "Boys"], { position: 3, totalColumns: 5, sheetName: "Season Standings" }).predictions.slice(0, 4),
-  ml.classifyColumn("Event Type", ["Singles", "Singles"], { position: 4, totalColumns: 5, sheetName: "Season Standings" }).predictions.slice(0, 4),
-] }, null, 2));
+assert.equal(aggregate[0].name, "Aiden Shah", "aggregate context resolves the ranked person rather than an opponent");
 assert.ok(importer.validateInterpretation(aggregate).valid, "aggregate standings are valid without individual match rows");
 
 const nonTennis = [
