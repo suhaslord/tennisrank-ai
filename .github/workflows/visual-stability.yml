@@ -26,14 +26,16 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
           html = Path('index.html').read_text()
-          html = html.replace('</head>', '<link rel="stylesheet" href="./production-stability.css"><link rel="stylesheet" href="./tesla-authority.css"><link rel="stylesheet" href="./tesla-finish.css"><style>#showBootstrap,.bootstrap-form{display:none!important}</style></head>')
-          html = html.replace('<script src="./ladder.js"></script>', '<script src="./import-runtime-fixes.js"></script><script src="./import-v2.js"></script><script src="./import-v2-fixes.js"></script><script src="./ladder.js"></script>')
+          html = html.replace('</head>', '<link rel="stylesheet" href="./production-stability.css"><link rel="stylesheet" href="./tesla-authority.css"><link rel="stylesheet" href="./tesla-finish.css"><link rel="stylesheet" href="./tesla-motion.css"><style>#showBootstrap,.bootstrap-form{display:none!important}</style></head>')
+          html = html.replace('<script src="./ladder.js"></script>', '<script src="./import-runtime-fixes.js"></script><script src="./import-v2.js"></script><script src="./import-v2-fixes.js"></script><script src="./tesla-motion.js"></script><script src="./ladder.js"></script>')
           html = html.replace('<div class="cursor-ball" aria-hidden="true"><span class="cursor-ball-core"></span></div>', '')
           Path('qa-index.html').write_text(html)
           PY
+      - name: JavaScript syntax
+        run: node --check tesla-motion.js
       - name: Install Playwright runner
         run: npm install --no-save @playwright/test@1.55.0
-      - name: Run visual regression checks
+      - name: Run deep visual and motion checks
         env:
           QA_BASE: http://127.0.0.1:4173/qa-index.html
         run: |
