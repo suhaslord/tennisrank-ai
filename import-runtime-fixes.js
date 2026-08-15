@@ -25,6 +25,18 @@
     return rows;
   }
 
+  function validateRows(rows, importer) {
+    if (!Array.isArray(rows) || !rows.length) throw new Error("No usable tennis rows were found in this spreadsheet.");
+    if (!importer || typeof importer.validateInterpretation !== "function") return { valid: true, confidence: 1, level: "HIGH" };
+    const review = importer.validateInterpretation(rows);
+    if (rows.__analysis) rows.__analysis.review = review;
+    if (!review.valid) {
+      const percent = Math.round(Number(review.confidence || 0) * 100);
+      throw new Error(`${review.reason} Confidence ${percent}%. Rename ambiguous columns or add Player/Opponent/Result, Winner/Loser, or Rank/Record fields and try again.`);
+    }
+    return review;
+  }
+
   async function workbookRows(file, XLSX, importer) {
     if (!XLSX || typeof XLSX.read !== "function") throw new Error("Spreadsheet support is still loading. Try again in a moment.");
     if (!importer || typeof importer.mergeWorksheetRows !== "function") throw new Error("The TennisRank spreadsheet importer is not ready yet.");
@@ -38,7 +50,7 @@
       if (text.trim()) sheets.push({ name, text });
     }
     const rows = normalizeRows(importer.mergeWorksheetRows(sheets));
-    if (!rows.length) throw new Error("No usable tennis rows were found in this workbook.");
+    validateRows(rows, importer);
     return rows;
   }
 
@@ -47,7 +59,7 @@
     const text = await file.text();
     if (!String(text || "").trim()) throw new Error("This file is empty.");
     const rows = normalizeRows(importer.parseText(text, file.name || "Uploaded file"));
-    if (!rows.length) throw new Error("No usable tennis rows were found in this file.");
+    validateRows(rows, importer);
     return rows;
   }
 
@@ -66,7 +78,7 @@
     const boot = () => {
       // Register before import-v2 and the legacy FileReader listener. One path
       // now owns every uploaded spreadsheet, so CSV/TSV and binary workbooks
-      // receive the same normalization and filename-based section hints.
+      // receive the same normalization and confidence validation.
       const input = doc.querySelector("#csvFile");
       if (input && !input.dataset.importRuntimeBound) {
         input.dataset.importRuntimeBound = "true";
@@ -77,20 +89,21 @@
           const button = doc.querySelector("#useCsv");
           try {
             if (typeof win.setBusy === "function") win.setBusy(button, true);
-            if (typeof win.setStatus === "function") win.setStatus(`Reading ${file.name}...`);
+            if (typeof win.setStatus === "function") win.setStatus(`Reading ${file.name} with TennisRank Spreadsheet Intelligence...`);
             const rows = await rowsFromFile(file, win.XLSX, win.TennisRankImportV2);
             if (typeof win.loadRows !== "function") throw new Error("The TennisRank importer is not ready yet.");
             win.loadRows(rows, "file");
             if (typeof win.setStatus === "function") {
               const sheets = rows.__analysis?.sheets?.length;
+              const confidence = Math.round(Number(rows.__analysis?.review?.confidence || rows.__analysis?.mlConfidence || 0) * 100);
               win.setStatus(sheets
-                ? `Loaded ${rows.length} rows from ${sheets} worksheet(s). Saving to the shared database...`
-                : `Loaded ${rows.length} rows from ${file.name}. Saving to the shared database...`);
+                ? `Loaded ${rows.length} rows from ${sheets} worksheet(s) at ${confidence}% interpretation confidence. Saving...`
+                : `Loaded ${rows.length} rows from ${file.name} at ${confidence}% interpretation confidence. Saving...`);
             }
             if (typeof win.syncToBackend === "function") {
               try {
                 await win.syncToBackend();
-                if (typeof win.setStatus === "function") win.setStatus(`Loaded and saved ${file.name}.`);
+                if (typeof win.setStatus === "function") win.setStatus(`Loaded, validated, and saved ${file.name}.`);
               } catch (error) {
                 if (typeof win.setStatus === "function") win.setStatus(`Loaded the file, but it was not published: ${error.message}`, true);
               }
@@ -103,9 +116,9 @@
         }, true);
       }
 
-      // import-v2 boots on the same DOMContentLoaded event. Run after all three
-      // importer modules have initialized so pasted and Google-Sheet imports use
-      // the same row normalization as uploaded files.
+      // import-v2 boots on the same DOMContentLoaded event. Run after importer
+      // modules initialize so pasted, uploaded, Google-Sheet and restored data
+      // all pass through the same safety gate.
       setTimeout(() => {
         const importer = win.TennisRankImportV2;
         if (!importer || importer.__runtimeNormalized) return;
@@ -116,6 +129,16 @@
         importer.mergeWorksheetRows = (...args) => normalizeRows(baseMerge(...args));
         win.parseCSV = importer.parseText;
         win.googleCsvUrl = importer.googleCsvProxyUrl;
+
+        if (typeof win.loadRows === "function" && !win.loadRows.__tennisrankValidated) {
+          const baseLoadRows = win.loadRows;
+          const validatedLoadRows = function (rows, source) {
+            if (source !== "sample") validateRows(rows, importer);
+            return baseLoadRows(rows, source);
+          };
+          validatedLoadRows.__tennisrankValidated = true;
+          win.loadRows = validatedLoadRows;
+        }
       }, 0);
     };
 
@@ -123,5 +146,5 @@
     else boot();
   }
 
-  return { sidePointer, normalizeRows, workbookRows, textRows, rowsFromFile, isWorkbook, installBrowser };
+  return { sidePointer, normalizeRows, validateRows, workbookRows, textRows, rowsFromFile, isWorkbook, installBrowser };
 });
