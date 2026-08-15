@@ -1,4 +1,4 @@
-const COMMIT = '758c386c0beccfff4b56f8db85679009ce6c76e0';
+const COMMIT = 'dab7d6b941561596b12033ab1543a12ce2b40e4c';
 const CDN = `https://cdn.jsdelivr.net/gh/suhaslord/tennisrank-ai@${COMMIT}`;
 const SHEETJS = 'https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js';
 
@@ -16,17 +16,17 @@ function rewrite(html) {
     .replaceAll('src="./app.js"', `src="${CDN}/app.js"`)
     .replaceAll('src="./ladder.js"', `src="${CDN}/ladder.js"`)
     .replaceAll('src="./challenge-ui.js"', `src="${CDN}/challenge-ui.js"`)
-    .replaceAll('src="./challenge-ui-state.js"', `src="${CDN}/challenge-ui-state.js"`);
+    .replaceAll('src="./challenge-ui-state.js"', `src="${CDN}/challenge-ui-state.js` + '"');
 
-  // Stability handles visibility/overflow first. Tesla authority is deliberately
-  // last so historical theme CSS cannot win the visual cascade.
+  // Stability owns visibility and overflow only. Tesla authority is last so
+  // historical theme rules cannot override the production visual language.
   out = out.replace(
     '</head>',
     `<script defer src="${SHEETJS}"></script><link rel="stylesheet" href="${CDN}/production-stability.css"><link rel="stylesheet" href="${CDN}/tesla-authority.css"><style>#showBootstrap,.bootstrap-form{display:none!important}</style></head>`,
   );
   out = out.replace(
     `<script src="${CDN}/app.js"></script>`,
-    `<script src="${CDN}/app.js"></script><script src="${CDN}/import-v2.js"></script>`,
+    `<script src="${CDN}/app.js"></script><script src="${CDN}/import-runtime-fixes.js"></script><script src="${CDN}/import-v2.js"></script>`,
   );
   out = out.replace('<div class="cursor-ball" aria-hidden="true"><span class="cursor-ball-core"></span></div>', '');
   return out;
