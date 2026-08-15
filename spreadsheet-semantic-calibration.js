@@ -15,6 +15,31 @@
     return String(value ?? "").trim() !== "";
   }
 
+  function identity(value) {
+    return String(value || "").toLowerCase().replace(/[^a-z0-9]+/g, "").trim();
+  }
+
+  function matrixIdentityOverlap(matrix) {
+    if (!Array.isArray(matrix) || matrix.length < 3) return false;
+    for (let headerIndex = 0; headerIndex < Math.min(matrix.length - 2, 12); headerIndex += 1) {
+      const headerIdentities = new Set((matrix[headerIndex] || []).slice(1).map(identity).filter(Boolean));
+      if (headerIdentities.size < 2) continue;
+      const rowIdentities = new Set(matrix.slice(headerIndex + 1, headerIndex + 14).map(row => identity(row?.[0])).filter(Boolean));
+      let overlap = 0;
+      headerIdentities.forEach(value => { if (rowIdentities.has(value)) overlap += 1; });
+      if (overlap >= 2 && overlap / Math.min(headerIdentities.size, rowIdentities.size) >= 0.5) return true;
+    }
+    return false;
+  }
+
+  function hardenMatrixDetector(ml) {
+    if (!ml || ml.__matrixIdentityGuard || typeof ml.parseOutcomeMatrix !== "function") return ml;
+    const base = ml.parseOutcomeMatrix.bind(ml);
+    ml.parseOutcomeMatrix = (matrix, sourceName) => matrixIdentityOverlap(matrix) ? base(matrix, sourceName) : null;
+    ml.__matrixIdentityGuard = true;
+    return ml;
+  }
+
   function rowHasAggregate(row) {
     return AGGREGATE_FIELDS.some(field => nonEmpty(row?.[field]))
       || Number.isFinite(Number(row?.__sourceRank))
@@ -71,6 +96,7 @@
 
   function wrapImporter(importer, ml) {
     if (!importer || importer.__semanticCalibration) return importer;
+    hardenMatrixDetector(ml);
     const parseText = importer.parseText.bind(importer);
     const mergeWorksheetRows = importer.mergeWorksheetRows.bind(importer);
     importer.parseText = (...args) => calibrateRows(parseText(...args), ml);
@@ -91,5 +117,5 @@
     else setTimeout(apply, 0);
   }
 
-  return { calibrateRows, wrapImporter, chooseAggregatePersonField, hasExplicitMatchStructure, installBrowser };
+  return { calibrateRows, wrapImporter, chooseAggregatePersonField, hasExplicitMatchStructure, matrixIdentityOverlap, hardenMatrixDetector, installBrowser };
 });
