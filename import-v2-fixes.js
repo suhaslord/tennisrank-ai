@@ -160,13 +160,14 @@
         mlMapping = ml.reconcilePredictions(rawHeaders, workingMatrix, headerIndex, sourceName, predictions);
       }
 
+      const deterministicFields = new Set(rawHeaders.map(importer.canonicalField).filter(field => field !== "column"));
       const mappingMeta = rawHeaders.map((raw, index) => {
         const deterministicField = importer.canonicalField(raw);
         if (deterministicField !== "column") {
           return { source: raw || deterministicField, field: deterministicField, method: "rule", confidence: 1 };
         }
         const mlItem = mlMapping?.[index];
-        if (mlItem?.field && mlItem.field !== "column") {
+        if (mlItem?.field && mlItem.field !== "column" && !deterministicFields.has(mlItem.field)) {
           return { source: raw || `Column ${index + 1}`, field: mlItem.field, method: "ml", confidence: Number(mlItem.confidence || 0) };
         }
         return { source: raw || `Column ${index + 1}`, field: "column", method: "raw", confidence: Number(mlItem?.confidence || 0) };
