@@ -40,13 +40,24 @@ jobs:
           path = Path('index.html')
           text = path.read_text(encoding='utf-8')
 
-          css = '    <link rel="stylesheet" href="./ladder.css" />\n    <link rel="stylesheet" href="./challenge-ui.css" />\n'
+          css = (
+              '    <link rel="stylesheet" href="./ladder.css" />\n'
+              '    <link rel="stylesheet" href="./challenge-ui.css" />\n'
+              '    <link rel="stylesheet" href="./challenge-ui-fixes.css" />\n'
+          )
           if './ladder.css' not in text:
               text = text.replace('    <link rel="stylesheet" href="./style.css" />\n', '    <link rel="stylesheet" href="./style.css" />\n' + css)
 
-          scripts = '    <script src="./lib/ladder-engine.js"></script>\n    <script src="./ladder.js"></script>\n    <script src="./challenge-ui.js"></script>\n'
           if './lib/ladder-engine.js' not in text:
-              text = text.replace('    <script src="./auth.js"></script>\n    <script src="./app.js"></script>\n', '    <script src="./auth.js"></script>\n    <script src="./lib/ladder-engine.js"></script>\n    <script src="./app.js"></script>\n    <script src="./ladder.js"></script>\n    <script src="./challenge-ui.js"></script>\n')
+              text = text.replace(
+                  '    <script src="./auth.js"></script>\n    <script src="./app.js"></script>\n',
+                  '    <script src="./auth.js"></script>\n'
+                  '    <script src="./lib/ladder-engine.js"></script>\n'
+                  '    <script src="./app.js"></script>\n'
+                  '    <script src="./ladder.js"></script>\n'
+                  '    <script src="./challenge-ui.js"></script>\n'
+                  '    <script src="./challenge-ui-state.js"></script>\n'
+              )
 
           path.write_text(text, encoding='utf-8')
           PY
@@ -58,7 +69,9 @@ jobs:
           grep -q 'id="accountsPanel"' index.html
           grep -q './ladder.css' index.html
           grep -q './challenge-ui.css' index.html
+          grep -q './challenge-ui-fixes.css' index.html
           grep -q './challenge-ui.js' index.html
+          grep -q './challenge-ui-state.js' index.html
           grep -q 'tennisrank:auth-ready' app.js
           grep -q 'First-time admin setup' index.html
 
