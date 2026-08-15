@@ -99,6 +99,8 @@ jobs:
           grep -q 'sheet-proxy' import-v2.js
           grep -q 'tesla-authority.css' api/render.js
           grep -q 'tesla-finish.css' api/render.js
+          grep -q 'tesla-motion.css' api/render.js
+          grep -q 'tesla-motion.js' api/render.js
           grep -q 'import-runtime-fixes.js' api/render.js
           grep -q 'import-v2.js' api/render.js
           grep -q 'import-v2-fixes.js' api/render.js
