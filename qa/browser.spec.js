@@ -57,6 +57,18 @@ function pendingApproval() {
   };
 }
 
+function bodyOf(request) {
+  try { return request.postDataJSON() || {}; }
+  catch { return {}; }
+}
+
+function apiRequest(page, path, predicate = () => true) {
+  return page.waitForRequest(request => {
+    const url = new URL(request.url());
+    return url.pathname === path && predicate(request, bodyOf(request));
+  });
+}
+
 async function installMocks(page, role) {
   const profile = role === 'admin'
     ? { id: 'profile-admin', email: 'coach@example.test', full_name: 'Coach QA', player_name: null, role: 'admin', must_change_password: false }
@@ -70,7 +82,6 @@ async function installMocks(page, role) {
       expires_at: now + 3600,
       user: { id: profile.id, email: profile.email },
     }));
-    window.__apiCalls = [];
   }, { profile });
 
   await page.route('https://cdn.jsdelivr.net/**', route => route.fulfill({ status: 200, contentType: 'text/css', body: '' }));
@@ -79,25 +90,22 @@ async function installMocks(page, role) {
     const req = route.request();
     const url = new URL(req.url());
     const path = url.pathname;
-    let body = {};
-    try { body = req.postDataJSON() || {}; } catch {}
-    await route.fulfill((() => {
-      const json = value => ({ status: 200, contentType: 'application/json', body: JSON.stringify(value) });
-      if (path === '/api/config') return json({ supabaseUrl: 'https://fake.supabase.test', publishableKey: 'qa-public-key' });
-      if (path === '/api/session') return json({ profile });
-      if (path === '/api/records') return json({ rows: [], count: 0 });
-      if (path === '/api/users') return json({ profiles: [] });
-      if (path === '/api/ladder') return json(ladderPayload(role));
-      if (path === '/api/challenges' && req.method() === 'GET') return json({ challenges: role === 'admin' ? [pendingApproval()] : [] });
-      if (path === '/api/challenges' && req.method() === 'POST') return { status: 201, contentType: 'application/json', body: JSON.stringify({ challengeId: 'challenge-new' }) };
-      if (path === '/api/challenges' && req.method() === 'PATCH') return json({ ok: true });
-      if (path === '/api/match-score') return { status: 201, contentType: 'application/json', body: JSON.stringify({ matchId: 'match-new', approvalStatus: 'pending' }) };
-      if (path === '/api/admin/verify-match') return json({ ok: true });
-      if (path === '/api/admin/ladder') return json({ ok: true });
-      if (path === '/api/admin/seed-ladder') return { status: 201, contentType: 'application/json', body: JSON.stringify({ seeded: 8 }) };
-      return { status: 404, contentType: 'application/json', body: JSON.stringify({ error: `Unhandled QA route ${path}` }) };
-    })());
-    await page.evaluate(({ path, method, body }) => window.__apiCalls.push({ path, method, body }), { path, method: req.method(), body }).catch(() => {});
+    const json = value => ({ status: 200, contentType: 'application/json', body: JSON.stringify(value) });
+    let response;
+    if (path === '/api/config') response = json({ supabaseUrl: 'https://fake.supabase.test', publishableKey: 'qa-public-key' });
+    else if (path === '/api/session') response = json({ profile });
+    else if (path === '/api/records') response = json({ rows: [], count: 0 });
+    else if (path === '/api/users') response = json({ profiles: [] });
+    else if (path === '/api/ladder') response = json(ladderPayload(role));
+    else if (path === '/api/challenges' && req.method() === 'GET') response = json({ challenges: role === 'admin' ? [pendingApproval()] : [] });
+    else if (path === '/api/challenges' && req.method() === 'POST') response = { status: 201, contentType: 'application/json', body: JSON.stringify({ challengeId: 'challenge-new' }) };
+    else if (path === '/api/challenges' && req.method() === 'PATCH') response = json({ ok: true });
+    else if (path === '/api/match-score') response = { status: 201, contentType: 'application/json', body: JSON.stringify({ matchId: 'match-new', approvalStatus: 'pending' }) };
+    else if (path === '/api/admin/verify-match') response = json({ ok: true });
+    else if (path === '/api/admin/ladder') response = json({ ok: true });
+    else if (path === '/api/admin/seed-ladder') response = { status: 201, contentType: 'application/json', body: JSON.stringify({ seeded: 8 }) };
+    else response = { status: 404, contentType: 'application/json', body: JSON.stringify({ error: `Unhandled QA route ${path}` }) };
+    await route.fulfill(response);
   });
 }
 
@@ -124,11 +132,12 @@ test('player sees official ladder and can issue an eligible challenge', async ({
   await page.locator('.ladder-row[data-player-id="p7"] .ladder-challenge-button').click();
   await expect(page.locator('#challengeDialog')).toBeVisible();
   await page.locator('input[name="time1"]').fill('2026-08-20T16:00');
+  const challengeRequest = apiRequest(page, '/api/challenges', (request, body) => request.method() === 'POST' && body.defenderPlayerId === 'p7');
   await page.locator('#challengeCreateForm button[type="submit"]').click();
+  const challenge = await challengeRequest;
+  expect(bodyOf(challenge).defenderPlayerId).toBe('p7');
   await expect(page.locator('#challengeDialog')).not.toBeVisible();
 
-  const calls = await page.evaluate(() => window.__apiCalls);
-  expect(calls.some(call => call.path === '/api/challenges' && call.method === 'POST' && call.body.defenderPlayerId === 'p7')).toBeTruthy();
   await assertNoHorizontalOverflow(page);
   expect(pageErrors).toEqual([]);
 });
@@ -142,20 +151,28 @@ test('coach sees approval queue and roster controls', async ({ page }) => {
   await expect(page.locator('#coachLadderConsole')).toBeVisible();
   await expect(page.locator('[data-coach-panel="approvals"]')).toContainText('Player 8 vs Player 6');
   await expect(page.locator('[data-verify="approve"]')).toBeVisible();
+  const approveRequest = apiRequest(page, '/api/admin/verify-match', (request, body) => request.method() === 'POST' && body.action === 'approve');
   await page.locator('[data-verify="approve"]').click();
+  const approve = await approveRequest;
+  expect(bodyOf(approve).matchId).toBe('match-1');
 
   await page.locator('[data-coach-tab="roster"]').click();
   await expect(page.locator('[data-coach-panel="roster"]')).toBeVisible();
+
   const p3 = page.locator('[data-roster-player="p3"]');
+  const statusRequest = apiRequest(page, '/api/admin/ladder', (request, body) => request.method() === 'PATCH' && body.action === 'status' && body.playerId === 'p3');
   await p3.locator('[data-status]').selectOption('injured');
+  const status = await statusRequest;
+  expect(bodyOf(status).status).toBe('injured');
+
+  await expect(page.locator('[data-coach-panel="roster"]')).toBeVisible();
   const p4 = page.locator('[data-roster-player="p4"]');
   await p4.locator('[data-new-rank]').fill('2');
+  const moveRequest = apiRequest(page, '/api/admin/ladder', (request, body) => request.method() === 'PATCH' && body.action === 'move' && body.playerId === 'p4');
   await p4.locator('[data-move]').click();
+  const move = await moveRequest;
+  expect(bodyOf(move).newRank).toBe(2);
 
-  const calls = await page.evaluate(() => window.__apiCalls);
-  expect(calls.some(call => call.path === '/api/admin/verify-match' && call.body.action === 'approve')).toBeTruthy();
-  expect(calls.some(call => call.path === '/api/admin/ladder' && call.body.action === 'status' && call.body.status === 'injured')).toBeTruthy();
-  expect(calls.some(call => call.path === '/api/admin/ladder' && call.body.action === 'move' && call.body.newRank === 2)).toBeTruthy();
   await assertNoHorizontalOverflow(page);
   expect(pageErrors).toEqual([]);
 });
