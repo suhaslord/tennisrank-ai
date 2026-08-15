@@ -34,12 +34,40 @@
     const playerId = row?.dataset.rosterPlayer;
     const input = row?.querySelector("[data-new-rank]");
     if (!playerId || !input) return;
-    // The coach console can rerender after an unrelated async status update.
-    // Resolve the value from the preserved edit at the action boundary so the
-    // move handler cannot accidentally submit the freshly-rendered current rank.
     const preserved = pendingRankEdits.get(playerId);
     if (preserved !== undefined && input.value !== preserved) input.value = preserved;
     captureRankEdit(input);
+  }
+
+  function installFetchGuard() {
+    const auth = window.TennisRankAuth;
+    if (!auth?.fetch || auth.fetch.__coachRankGuard) return;
+    const baseFetch = auth.fetch.bind(auth);
+    const guardedFetch = async (path, options = {}) => {
+      let nextOptions = options;
+      let movedPlayerId = "";
+      try {
+        if (String(path) === "/api/admin/ladder" && String(options.method || "GET").toUpperCase() === "PATCH" && options.body) {
+          const body = typeof options.body === "string" ? JSON.parse(options.body) : { ...options.body };
+          if (body.action === "move" && body.playerId && pendingRankEdits.has(body.playerId)) {
+            const preserved = Number(pendingRankEdits.get(body.playerId));
+            if (Number.isInteger(preserved) && preserved > 0) {
+              body.newRank = preserved;
+              movedPlayerId = body.playerId;
+              nextOptions = { ...options, body: JSON.stringify(body) };
+            }
+          }
+        }
+      } catch {
+        // Leave malformed/non-JSON requests untouched; the API owns validation.
+      }
+      const response = await baseFetch(path, nextOptions);
+      if (response?.ok && movedPlayerId) pendingRankEdits.delete(movedPlayerId);
+      return response;
+    };
+    guardedFetch.__coachRankGuard = true;
+    guardedFetch.__baseFetch = baseFetch;
+    auth.fetch = guardedFetch;
   }
 
   window.TennisRankCoachState = {
@@ -64,9 +92,6 @@
     if (input) captureRankEdit(input);
   }, true);
 
-  // change is included because some browser automation, accessibility tools,
-  // and number-input interactions commit a value without a conventional input
-  // event sequence.
   document.addEventListener("change", event => {
     const input = event.target.closest?.("[data-new-rank]");
     if (input) captureRankEdit(input);
@@ -79,11 +104,14 @@
   });
 
   const start = () => {
+    installFetchGuard();
     observer.observe(document.body, { childList: true, subtree: true });
     restoreCoachState();
   };
 
+  window.addEventListener("tennisrank:auth-ready", installFetchGuard);
   window.addEventListener("tennisrank:ladder-workflow-ready", () => {
+    installFetchGuard();
     restoreCoachState();
     requestAnimationFrame(restoreCoachState);
   });
