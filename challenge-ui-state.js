@@ -22,6 +22,26 @@
     });
   }
 
+  function captureRankEdit(input) {
+    if (!input) return;
+    const row = input.closest("[data-roster-player]");
+    if (!row?.dataset.rosterPlayer) return;
+    pendingRankEdits.set(row.dataset.rosterPlayer, input.value);
+  }
+
+  function restoreRankBeforeMove(button) {
+    const row = button?.closest("[data-roster-player]");
+    const playerId = row?.dataset.rosterPlayer;
+    const input = row?.querySelector("[data-new-rank]");
+    if (!playerId || !input) return;
+    // The coach console can rerender after an unrelated async status update.
+    // Resolve the value from the preserved edit at the action boundary so the
+    // move handler cannot accidentally submit the freshly-rendered current rank.
+    const preserved = pendingRankEdits.get(playerId);
+    if (preserved !== undefined && input.value !== preserved) input.value = preserved;
+    captureRankEdit(input);
+  }
+
   window.TennisRankCoachState = {
     getPendingRank(playerId, fallback = "") {
       return pendingRankEdits.has(playerId) ? pendingRankEdits.get(playerId) : fallback;
@@ -34,14 +54,22 @@
   document.addEventListener("click", event => {
     const tab = event.target.closest?.("[data-coach-tab]");
     if (tab) activeCoachTab = tab.dataset.coachTab || "approvals";
+
+    const move = event.target.closest?.("[data-move]");
+    if (move) restoreRankBeforeMove(move);
   }, true);
 
   document.addEventListener("input", event => {
     const input = event.target.closest?.("[data-new-rank]");
-    if (!input) return;
-    const row = input.closest("[data-roster-player]");
-    if (!row?.dataset.rosterPlayer) return;
-    pendingRankEdits.set(row.dataset.rosterPlayer, input.value);
+    if (input) captureRankEdit(input);
+  }, true);
+
+  // change is included because some browser automation, accessibility tools,
+  // and number-input interactions commit a value without a conventional input
+  // event sequence.
+  document.addEventListener("change", event => {
+    const input = event.target.closest?.("[data-new-rank]");
+    if (input) captureRankEdit(input);
   }, true);
 
   const observer = new MutationObserver(records => {
