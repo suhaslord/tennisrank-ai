@@ -60,6 +60,17 @@ test("10-9 is rejected because a tiebreak must be won by two", () => {
   assert.equal(engine.parseScoreSummary("10-9").valid, false);
 });
 
+test("selected winner score must be entered from winner perspective", () => {
+  assert.equal(engine.validateWinnerScore("6-4, 4-6, 10-8").valid, true);
+  assert.equal(engine.validateWinnerScore("4-6, 5-7").valid, false);
+});
+
+test("a split score with no deciding set is rejected as incomplete", () => {
+  const parsed = engine.parseScoreSummary("6-4, 4-6");
+  assert.equal(parsed.valid, false);
+  assert.match(parsed.error, /match winner/i);
+});
+
 test("active streak stops at the most recent loss", () => {
   const matches = [
     { date: "2026-08-12", winner: "Alex", loser: "Ben" },
