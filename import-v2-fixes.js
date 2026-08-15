@@ -119,10 +119,13 @@
         if (matrixRows?.length) return matrixRows;
       }
 
+      // Known schemas are never re-oriented by ML. The trained model is a rescue
+      // path, not permission to override a high-confidence deterministic parse.
+      const originalDeterministic = deterministicHeaderStrength(importer, parsed.matrix);
       let workingMatrix = parsed.matrix;
       let orientation = "rows";
       let inferred = null;
-      if (ml?.inferTable) {
+      if (ml?.inferTable && (originalDeterministic.recognized < 2 || originalDeterministic.anchors < 1)) {
         inferred = ml.inferTable(parsed.matrix, sourceName);
         if (inferred?.matrix?.length) {
           workingMatrix = inferred.matrix;
@@ -130,7 +133,9 @@
         }
       }
 
-      const deterministic = deterministicHeaderStrength(importer, workingMatrix);
+      const deterministic = workingMatrix === parsed.matrix
+        ? originalDeterministic
+        : deterministicHeaderStrength(importer, workingMatrix);
       const useMlHeader = Boolean(inferred && inferred.orientation === orientation && inferred.semanticCount >= 2
         && (deterministic.recognized < 2 || deterministic.anchors < 1));
       const headerIndex = useMlHeader ? inferred.index : deterministic.detected.index;
@@ -156,7 +161,8 @@
 
       let currentHeaders = uniqueHeaders(rawHeaders, mappingMeta.map(item => item.field), importer);
       const rows = [];
-      const sourceHints = importer.sectionHints(sourceName || "");
+      const preHeaderText = workingMatrix.slice(0, headerIndex).flat().join(" ");
+      const sourceHints = importer.sectionHints(`${sourceName || ""} ${preHeaderText}`);
       let activeHints = { ...sourceHints };
       const extraMappings = [];
 
