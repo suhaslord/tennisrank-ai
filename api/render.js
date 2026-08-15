@@ -1,0 +1,47 @@
+const COMMIT = '0aa8d4a6a9d9f65a2e91197d0a1e839a4fe6d189';
+const CDN = `https://cdn.jsdelivr.net/gh/suhaslord/tennisrank-ai@${COMMIT}`;
+
+function rewrite(html) {
+  let out = String(html || '');
+  out = out
+    .replaceAll('src="/assets/', `src="${CDN}/assets/`)
+    .replaceAll('href="/assets/', `href="${CDN}/assets/`)
+    .replaceAll('href="./style.css"', `href="${CDN}/style.css"`)
+    .replaceAll('href="./ladder.css"', `href="${CDN}/ladder.css"`)
+    .replaceAll('href="./challenge-ui.css"', `href="${CDN}/challenge-ui.css"`)
+    .replaceAll('href="./challenge-ui-fixes.css"', `href="${CDN}/challenge-ui-fixes.css"`)
+    .replaceAll('src="./auth.js"', `src="${CDN}/auth.js"`)
+    .replaceAll('src="./lib/ladder-engine.js"', `src="${CDN}/lib/ladder-engine.js"`)
+    .replaceAll('src="./app.js"', `src="${CDN}/app.js"`)
+    .replaceAll('src="./ladder.js"', `src="${CDN}/ladder.js"`)
+    .replaceAll('src="./challenge-ui.js"', `src="${CDN}/challenge-ui.js"`)
+    .replaceAll('src="./challenge-ui-state.js"', `src="${CDN}/challenge-ui-state.js"`);
+
+  out = out.replace(
+    '</head>',
+    `<link rel="stylesheet" href="${CDN}/tesla-final.css"><link rel="stylesheet" href="${CDN}/production-stability.css"><style>#showBootstrap,.bootstrap-form{display:none!important}</style></head>`,
+  );
+  out = out.replace('<div class="cursor-ball" aria-hidden="true"><span class="cursor-ball-core"></span></div>', '');
+  return out;
+}
+
+module.exports = async function handler(req, res) {
+  if (req.method !== 'GET' && req.method !== 'HEAD') {
+    res.status(405).setHeader('Allow', 'GET, HEAD').end();
+    return;
+  }
+  try {
+    const response = await fetch(`${CDN}/index.html`, { cache: 'no-store' });
+    if (!response.ok) throw new Error(`Frontend source returned ${response.status}`);
+    const html = rewrite(await response.text());
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.setHeader('Cache-Control', 'no-store');
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    if (req.method === 'HEAD') return res.status(200).end();
+    return res.status(200).send(html);
+  } catch (error) {
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.setHeader('Cache-Control', 'no-store');
+    return res.status(503).send('<!doctype html><meta charset="utf-8"><title>TennisRank</title><p style="font-family:system-ui;padding:24px">TennisRank is temporarily unavailable. Please refresh.</p>');
+  }
+};
