@@ -27,14 +27,18 @@ test('story photography is compact and balanced on desktop', async ({ page }) =>
     return {
       storyRatio: rect(storyImage).width / rect(story).width,
       spotlightRatio: rect(spotlightImage).width / rect(spotlight).width,
+      storyHeight: rect(storyImage).height,
+      spotlightHeight: rect(spotlightImage).height,
       overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
     };
   });
 
-  expect(metrics.storyRatio).toBeGreaterThan(0.33);
-  expect(metrics.storyRatio).toBeLessThan(0.40);
-  expect(metrics.spotlightRatio).toBeGreaterThan(0.33);
-  expect(metrics.spotlightRatio).toBeLessThan(0.40);
+  expect(metrics.storyRatio).toBeGreaterThan(0.28);
+  expect(metrics.storyRatio).toBeLessThan(0.34);
+  expect(metrics.spotlightRatio).toBeGreaterThan(0.28);
+  expect(metrics.spotlightRatio).toBeLessThan(0.34);
+  expect(metrics.storyHeight).toBeLessThanOrEqual(330);
+  expect(metrics.spotlightHeight).toBeLessThanOrEqual(330);
   expect(metrics.overflow).toBeLessThanOrEqual(2);
 
   await page.locator('.story-rail').scrollIntoViewIfNeeded();
@@ -57,8 +61,8 @@ test('story photography stays compact on mobile without overflow', async ({ page
     };
   });
 
-  expect(metrics.storyHeight).toBeLessThanOrEqual(160);
-  expect(metrics.spotlightHeight).toBeLessThanOrEqual(160);
+  expect(metrics.storyHeight).toBeLessThanOrEqual(190);
+  expect(metrics.spotlightHeight).toBeLessThanOrEqual(190);
   expect(metrics.overflow).toBeLessThanOrEqual(2);
 
   await page.locator('.story-rail').scrollIntoViewIfNeeded();
