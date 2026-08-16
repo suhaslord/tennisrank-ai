@@ -2,7 +2,8 @@ const { json, authenticatedContext, allowApi, parseBody } = require("./_supabase
 const aiAnalyzer = require("../lib/ai-sheet-analyzer");
 
 const MAX_BYTES = 5 * 1024 * 1024;
-const TIMEOUT_MS = 12_000;
+const SHEET_TIMEOUT_MS = 12_000;
+const AI_TIMEOUT_MS = 30_000;
 
 function parseAllowedUrl(value) {
   let url;
@@ -60,7 +61,7 @@ async function handleAiAnalysis(req, res) {
 
     const body = parseBody(req);
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS);
+    const timeout = setTimeout(() => controller.abort(), AI_TIMEOUT_MS);
     try {
       const result = await aiAnalyzer.analyzeRows({
         apiKey: String(process.env.GEMINI_API_KEY || "").trim(),
@@ -101,7 +102,7 @@ async function handleGoogleSheet(req, res) {
   }
 
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS);
+  const timeout = setTimeout(() => controller.abort(), SHEET_TIMEOUT_MS);
   try {
     const response = await fetch(target, {
       cache: "no-store",
