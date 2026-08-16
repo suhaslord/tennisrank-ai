@@ -3,7 +3,7 @@
   if (typeof module === "object" && module.exports) module.exports = api;
   if (root) {
     root.TennisRankDelimiterFix = api;
-    if (root.TennisRankImportV2) api.patchImporter(root.TennisRankImportV2);
+    if (root.document && root.TennisRankImportV2) api.patchImporter(root.TennisRankImportV2);
   }
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
   "use strict";
