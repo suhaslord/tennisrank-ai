@@ -1,4 +1,5 @@
 const { json, authenticatedContext, rest, allowApi, parseBody, serviceHeaders } = require("./_supabase");
+const { linkPlayerByName } = require("./_player-link");
 
 async function createAuthUser(context, email, password) {
   const response = await fetch(`${context.url}/auth/v1/admin/users`, {
@@ -17,6 +18,14 @@ async function deleteAuthUser(context, userId) {
     method: "DELETE",
     headers: serviceHeaders(context.key),
   }).catch(() => {});
+}
+
+function linkWarning(reason, playerName) {
+  if (!reason || new Set(["linked", "already-linked", "direct"]).has(reason)) return "";
+  if (reason === "not-found") return `Account created, but “${playerName}” is not in the current imported roster yet. Import that player and the account will link automatically.`;
+  if (reason === "ambiguous") return `Account created, but more than one roster player matches “${playerName}”. Use a unique spreadsheet name before challenges are enabled.`;
+  if (reason === "claimed") return `Account created, but “${playerName}” is already linked to another account. A coach should correct the roster/account mapping.`;
+  return "Account created, but its roster link needs coach review.";
 }
 
 module.exports = async function handler(req, res) {
@@ -72,7 +81,25 @@ module.exports = async function handler(req, res) {
         if (!profileResult.response.ok) throw Object.assign(new Error(profileResult.payload.message || "Profile could not be created."), { status: profileResult.response.status });
 
         const profile = Array.isArray(profileResult.payload) ? profileResult.payload[0] : null;
-        return json(res, 201, { profile });
+        let linkedPlayer = null;
+        let warning = "";
+        if (role === "player") {
+          try {
+            const link = await linkPlayerByName(context, user.id, playerName);
+            linkedPlayer = link.linkedPlayer || null;
+            warning = linkWarning(link.reason, playerName);
+          } catch (error) {
+            // The auth/profile account is already valid. Do not destroy it merely
+            // because the optional roster-link repair had a transient failure.
+            warning = `Account created, but roster linking needs another try: ${error.message}`;
+          }
+        }
+
+        return json(res, 201, {
+          profile,
+          linkedPlayerId: linkedPlayer?.id || null,
+          linkWarning: warning || null,
+        });
       } catch (error) {
         await deleteAuthUser(context, user?.id);
         throw error;
