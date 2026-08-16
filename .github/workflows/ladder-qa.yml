@@ -56,6 +56,7 @@ jobs:
           node --check qa/import-v2.test.js
           node --check qa/import-v2-diagnostics.js
           node --check qa/workbook-formats.test.js
+          node --check qa/sheet-proxy.test.js
           node --check qa/spreadsheet-ml.test.js
           node --check qa/spreadsheet-ml-benchmark.test.js
           node --check qa/spreadsheet-ai.test.js
@@ -71,6 +72,7 @@ jobs:
           node qa/import-v2.test.js
           node qa/import-v2-diagnostics.js
           node qa/workbook-formats.test.js
+          node qa/sheet-proxy.test.js
           node qa/spreadsheet-ml.test.js
           node qa/spreadsheet-ml-benchmark.test.js
           node qa/spreadsheet-ai.test.js
@@ -111,6 +113,7 @@ jobs:
           grep -q 'validateWinnerScore' api/match-score.js
           grep -q 'context.profile.role !== "admin"' api/admin/verify-match.js
           grep -q 'docs.google.com' api/sheet-proxy.js
+          grep -q 'googleusercontent.com' api/sheet-proxy.js
           grep -q 'MAX_BYTES' api/sheet-proxy.js
           grep -q 'sheet-proxy' import-v2.js
           grep -q 'GEMINI_API_KEY' api/sheet-proxy.js
