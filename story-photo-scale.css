@@ -1,0 +1,16 @@
+/* Small, Tesla-MD-aligned photography balance adjustment.
+   Keep the current cards and crops; only give story copy slightly more room. */
+@media (min-width: 760px) {
+  .story-card {
+    grid-template-columns: minmax(0, 0.93fr) minmax(0, 1.07fr) !important;
+  }
+
+  .spotlight-card {
+    grid-template-columns: minmax(0, 1.07fr) minmax(0, 0.93fr) !important;
+  }
+
+  .story-image,
+  .spotlight-image {
+    min-width: 0;
+  }
+}
