@@ -1,4 +1,4 @@
-const COMMIT = 'efa783c6358606bed603b795d970f40ece159d92';
+const COMMIT = 'adcc5df59d6c795fe217725887393b2668e7d7f8';
 const CDN = `https://cdn.jsdelivr.net/gh/suhaslord/tennisrank-ai@${COMMIT}`;
 const SHEETJS = 'https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js';
 
@@ -23,9 +23,9 @@ function rewrite(html) {
     `<script defer src="${SHEETJS}"></script><link rel="stylesheet" href="${CDN}/production-stability.css"><link rel="stylesheet" href="${CDN}/tesla-authority.css"><link rel="stylesheet" href="${CDN}/tesla-finish.css"><link rel="stylesheet" href="${CDN}/tesla-motion.css"><style>#showBootstrap,.bootstrap-form{display:none!important}</style></head>`,
   );
 
-  // Untouched/redacted source columns reach AI before local ML can rename them.
-  // Delimiter detection is hardened first; explicit row evidence beats ML guesses;
-  // multiple table schemas inside one worksheet are isolated before calibration.
+  // The exact importer stack that passed local extreme-workbook testing and CI:
+  // robust delimiter detection -> hybrid parser -> explicit row safety ->
+  // multi-table isolation -> semantic calibration -> AI schema rescue/quota guard.
   out = out.replace(
     `<script src="${CDN}/app.js"></script>`,
     `<script src="${CDN}/app.js"></script><script src="${CDN}/import-runtime-fixes.js"></script><script src="${CDN}/import-v2.js"></script><script src="${CDN}/import-delimiter-fix.js"></script><script src="${CDN}/spreadsheet-ml.js"></script><script src="${CDN}/import-v2-fixes.js"></script><script src="${CDN}/import-row-safety-fix.js"></script><script src="${CDN}/import-multiblock-fix.js"></script><script src="${CDN}/spreadsheet-semantic-calibration.js"></script><script src="${CDN}/spreadsheet-ai.js"></script><script src="${CDN}/ai-quota-guard.js"></script><script src="${CDN}/tesla-motion.js"></script>`,
