@@ -9,6 +9,7 @@
   "use strict";
 
   const WORKBOOK_ACCEPT = ".csv,.tsv,.txt,.xlsx,.xlsm,.xlsb,.xls,.ods,.fods,.numbers,text/csv,text/tab-separated-values,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.oasis.opendocument.spreadsheet";
+  const STRUCTURAL_HEADER_FIELDS = new Set(["name", "firstName", "lastName", "opponent", "player1", "player2", "winner", "loser", "record", "rank"]);
 
   function sidePointer(value) {
     const raw = String(value || "").trim();
@@ -81,8 +82,12 @@
 
   function structuralHeaderIndex(matrix, importer) {
     const semantic = typeof importer?.detectHeaderRow === "function" ? importer.detectHeaderRow(matrix) : null;
-    const semanticRecognized = (semantic?.mapping || []).filter(field => field !== "column").length;
-    if (semanticRecognized >= 2 && Number.isInteger(semantic.index)) return semantic.index;
+    const semanticStructural = (semantic?.mapping || []).filter(field => STRUCTURAL_HEADER_FIELDS.has(field)).length;
+    // Values such as W, Boys and Singles are legitimate data and can also look
+    // like result/gender/division headers. Never let those value-like semantics
+    // alone select a data row as the header. A semantic header needs at least
+    // two structural labels (Player/Opponent, Winner/Loser, Rank/Player, etc.).
+    if (semanticStructural >= 2 && Number.isInteger(semantic.index)) return semantic.index;
 
     let best = { index: 0, score: -Infinity };
     for (let index = 0; index < Math.min(matrix.length, 40); index += 1) {
@@ -166,9 +171,6 @@
       if (localReview.valid) return localRows;
       throw new Error(aiReview.reason || localReview.reason || "The spreadsheet could not be interpreted safely.");
     } catch (error) {
-      // Provider outages/configuration issues may safely fall back to a local
-      // interpretation that independently passed TennisRank validation. A high-
-      // confidence AI rejection still throws from enhanceRows and is preserved.
       const fallbackCodes = new Set(["AI_NOT_CONFIGURED", "AI_AUTH_UNAVAILABLE"]);
       if (localReview.valid && (fallbackCodes.has(error?.code) || error?.status === 429 || Number(error?.status) >= 500)) return localRows;
       throw error;
@@ -489,6 +491,7 @@
 
   return {
     WORKBOOK_ACCEPT,
+    STRUCTURAL_HEADER_FIELDS,
     sidePointer,
     normalizeResult,
     normalizeCanonicalRow,
