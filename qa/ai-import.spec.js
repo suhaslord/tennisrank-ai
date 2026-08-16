@@ -41,7 +41,7 @@ function inferMappings(rows) {
   return mappings;
 }
 
-async function installAdminMocks(page) {
+async function installAdminMocks(page, options = {}) {
   const profile = { id: 'profile-admin', email: 'coach@example.test', full_name: 'Coach QA', player_name: null, role: 'admin', must_change_password: false };
   await page.addInitScript(({ profile }) => {
     const now = Math.floor(Date.now() / 1000);
@@ -75,6 +75,24 @@ async function installAdminMocks(page) {
       return route.fulfill(ok({ saved: Array.isArray(body.rows) ? body.rows.length : 0 }));
     }
     if (path === '/api/ai-analyze-sheet' && request.method() === 'POST') {
+      if (options.aiMode === 'unavailable') {
+        return route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ error: 'AI verifier temporarily unavailable.' }) });
+      }
+      if (options.aiMode === 'unsupported') {
+        return route.fulfill(ok({
+          model: 'gemini-3.6-flash-qa',
+          privacy: { redactedBeforeProvider: true },
+          ai: {
+            supported: false,
+            sheetKind: 'unsupported',
+            confidence: 0.99,
+            globalGender: 'unknown',
+            globalDivision: 'unknown',
+            mappings: [],
+            warnings: ['No tennis ranking structure found.'],
+          },
+        }));
+      }
       const body = bodyOf(request);
       return route.fulfill(ok({
         model: 'gemini-3.6-flash-qa',
@@ -101,13 +119,17 @@ async function openImport(page) {
   await expect(page.locator('#settingsPanel')).toBeVisible();
 }
 
+async function openCsvImport(page) {
+  await openImport(page);
+  await page.locator('#tabCsv').click();
+  await expect(page.locator('#csvSource')).toBeVisible();
+}
+
 test('AI schema verification becomes accurate board rows before backend publication', async ({ page }) => {
   const pageErrors = [];
   page.on('pageerror', error => pageErrors.push(error.message));
   await installAdminMocks(page);
-  await openImport(page);
-  await page.locator('#tabCsv').click();
-  await expect(page.locator('#csvSource')).toBeVisible();
+  await openCsvImport(page);
 
   const weirdCsv = [
     'Mystery A,Mystery B,Mystery C,Mystery D,Mystery E,Mystery F',
@@ -155,11 +177,76 @@ test('AI schema verification becomes accurate board rows before backend publicat
   expect(pageErrors).toEqual([]);
 });
 
+test('Coach Lokesh canonical roster and match rows survive even if AI is unavailable', async ({ page }) => {
+  await installAdminMocks(page, { aiMode: 'unavailable' });
+  await openCsvImport(page);
+  const coachCsv = [
+    'Name,Gender,Division,Player 1,Player 2,Winner,Loser,Score,Date',
+    'Aiden Brooks,Boys,Singles,,,,,,',
+    'Maya Shah,Girls,Singles,,,,,,',
+    ',Boys,Singles,Aiden Brooks,Mateo Rivera,Aiden Brooks,Mateo Rivera,6-3,2026-08-01',
+  ].join('\n');
+
+  const saveRequest = page.waitForRequest(request => new URL(request.url()).pathname === '/api/records' && request.method() === 'POST');
+  await page.locator('#csvText').fill(coachCsv);
+  await page.locator('#useCsv').click();
+  const saved = bodyOf(await saveRequest);
+  expect(saved.rows).toHaveLength(3);
+  expect(saved.rows[0]).toMatchObject({ name: 'Aiden Brooks', gender: 'Boys', division: 'Singles' });
+  expect(saved.rows[0].winner || '').toBe('');
+  expect(saved.rows[1]).toMatchObject({ name: 'Maya Shah', gender: 'Girls', division: 'Singles' });
+  expect(saved.rows[2]).toMatchObject({
+    gender: 'Boys',
+    division: 'Singles',
+    player1: 'Aiden Brooks',
+    player2: 'Mateo Rivera',
+    winner: 'Aiden Brooks',
+    loser: 'Mateo Rivera',
+    score: '6-3',
+    date: '2026-08-01',
+  });
+  await expect(page.locator('#rankingTable')).toContainText('Aiden Brooks');
+  await expect(page.locator('#rankingTable')).toContainText('Maya Shah');
+  await expect(page.locator('#statusMessage')).toContainText(/saved|local parser|AI temporarily unavailable/i);
+});
+
+test('Coach Lokesh doubles teams remain one identity end to end', async ({ page }) => {
+  await installAdminMocks(page, { aiMode: 'unavailable' });
+  await openCsvImport(page);
+  const coachCsv = [
+    'Name,Gender,Division,Player 1,Player 2,Winner,Loser,Score,Date',
+    'Liam Chen & Oliver Davis,Boys,Doubles,,,,,,',
+    'Marcus Lee & James Park,Boys,Doubles,,,,,,',
+    ',Boys,Doubles,Liam Chen & Oliver Davis,Marcus Lee & James Park,Liam Chen & Oliver Davis,Marcus Lee & James Park,8-5,2026-08-01',
+  ].join('\n');
+  const saveRequest = page.waitForRequest(request => new URL(request.url()).pathname === '/api/records' && request.method() === 'POST');
+  await page.locator('#csvText').fill(coachCsv);
+  await page.locator('#useCsv').click();
+  const saved = bodyOf(await saveRequest);
+  expect(saved.rows).toHaveLength(3);
+  expect(saved.rows[0].name).toBe('Liam Chen & Oliver Davis');
+  expect(saved.rows[1].name).toBe('Marcus Lee & James Park');
+  expect(saved.rows[2].player1).toBe('Liam Chen & Oliver Davis');
+  expect(saved.rows[2].player2).toBe('Marcus Lee & James Park');
+  expect(saved.rows[2].winner).toBe('Liam Chen & Oliver Davis');
+});
+
+test('high-confidence AI rejection blocks unrelated data before publication', async ({ page }) => {
+  let saves = 0;
+  page.on('request', request => {
+    if (new URL(request.url()).pathname === '/api/records' && request.method() === 'POST') saves += 1;
+  });
+  await installAdminMocks(page, { aiMode: 'unsupported' });
+  await openCsvImport(page);
+  await page.locator('#csvText').fill('Coach,Location,Notes\nCoach Lee,Court 3,Bring water\nCoach Kim,Court 4,Conditioning');
+  await page.locator('#useCsv').click();
+  await expect(page.locator('#statusMessage')).toContainText(/does not look like usable tennis ranking data|could not confidently identify/i);
+  expect(saves).toBe(0);
+});
+
 test('selected CSV remains the source when the action button is clicked again', async ({ page }) => {
   await installAdminMocks(page);
-  await openImport(page);
-  await page.locator('#tabCsv').click();
-  await expect(page.locator('#csvSource')).toBeVisible();
+  await openCsvImport(page);
 
   const fileCsv = [
     'Opaque A,Opaque B,Opaque C,Opaque D,Opaque E,Opaque F',
@@ -173,8 +260,6 @@ test('selected CSV remains the source when the action button is clicked again', 
   expect(initialSave.rows[0]).toMatchObject({ name: 'Ravi Patel', opponent: 'Noah Chen', result: 'W' });
   await expect(page.locator('#useCsv span')).toContainText('coach-export.csv');
 
-  // Put intentionally unrelated text in the paste box. With a selected file,
-  // clicking the action button must reprocess the file rather than reset to it.
   await page.locator('#csvText').fill('Name,Notes\nWrong Person,This must not replace the selected file');
   const secondSave = page.waitForRequest(request => new URL(request.url()).pathname === '/api/records' && request.method() === 'POST');
   await page.locator('#useCsv').click();
