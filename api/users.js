@@ -1,5 +1,5 @@
 const { json, authenticatedContext, rest, allowApi, parseBody, serviceHeaders } = require("./_supabase");
-const { linkPlayerByName } = require("./_player-link");
+const { linkPlayerByName } = require("../lib/player-link");
 
 async function createAuthUser(context, email, password) {
   const response = await fetch(`${context.url}/auth/v1/admin/users`, {
@@ -89,8 +89,6 @@ module.exports = async function handler(req, res) {
             linkedPlayer = link.linkedPlayer || null;
             warning = linkWarning(link.reason, playerName);
           } catch (error) {
-            // The auth/profile account is already valid. Do not destroy it merely
-            // because the optional roster-link repair had a transient failure.
             warning = `Account created, but roster linking needs another try: ${error.message}`;
           }
         }
