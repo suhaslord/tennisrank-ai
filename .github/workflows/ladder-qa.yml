@@ -29,6 +29,7 @@ jobs:
           node --check auth.js
           node --check app.js
           node --check spreadsheet-ml.js
+          node --check spreadsheet-ai.js
           node --check spreadsheet-semantic-calibration.js
           node --check import-v2.js
           node --check import-v2-fixes.js
@@ -47,6 +48,7 @@ jobs:
           node --check api/challenges.js
           node --check api/match-score.js
           node --check api/sheet-proxy.js
+          node --check api/ai-analyze-sheet.js
           node --check api/admin/verify-match.js
           node --check api/admin/ladder.js
           node --check api/admin/seed-ladder.js
@@ -56,6 +58,7 @@ jobs:
           node --check qa/workbook-formats.test.js
           node --check qa/spreadsheet-ml.test.js
           node --check qa/spreadsheet-ml-benchmark.test.js
+          node --check qa/spreadsheet-ai.test.js
           node --check qa/browser.spec.js
           node --check qa/visual-stability.spec.js
           node --check playwright.config.js
@@ -69,6 +72,7 @@ jobs:
           node qa/workbook-formats.test.js
           node qa/spreadsheet-ml.test.js
           node qa/spreadsheet-ml-benchmark.test.js
+          node qa/spreadsheet-ai.test.js
       - name: Reconciliation guardrails
         run: |
           set -euo pipefail
@@ -87,11 +91,13 @@ jobs:
           test -f tesla-motion.js
           test -f production-stability.css
           test -f spreadsheet-ml.js
+          test -f spreadsheet-ai.js
           test -f spreadsheet-semantic-calibration.js
           test -f import-v2.js
           test -f import-v2-fixes.js
           test -f import-runtime-fixes.js
           test -f api/sheet-proxy.js
+          test -f api/ai-analyze-sheet.js
           test -f assets/team-court.jpg
           test -f assets/matchday-awards.jpg
           test -f assets/singles-spotlight.jpg
@@ -106,6 +112,10 @@ jobs:
           grep -q 'docs.google.com' api/sheet-proxy.js
           grep -q 'MAX_BYTES' api/sheet-proxy.js
           grep -q 'sheet-proxy' import-v2.js
+          grep -q 'GEMINI_API_KEY' api/ai-analyze-sheet.js
+          grep -q 'redactedBeforeProvider' api/ai-analyze-sheet.js
+          grep -q 'context.profile.role !== "admin"' api/ai-analyze-sheet.js
+          grep -q 'spreadsheet-ai.js' api/render.js
           grep -q 'tesla-authority.css' api/render.js
           grep -q 'tesla-finish.css' api/render.js
           grep -q 'tesla-motion.css' api/render.js
@@ -131,6 +141,8 @@ jobs:
         run: |
           set -euo pipefail
           ! grep -R --exclude-dir=.git --exclude=.env.example -E 'SUPABASE_SERVICE_ROLE_KEY[[:space:]]*=' .
+          ! grep -R --exclude-dir=.git --exclude=.env.example -E 'GEMINI_API_KEY[[:space:]]*=' .
+          ! grep -R --exclude-dir=.git -E 'AIza[0-9A-Za-z_-]{30,}' .
           ! grep -R --exclude-dir=.git -E 'sb_secret_[A-Za-z0-9_-]+' .
       - name: Install Playwright test runner
         run: npm install --no-save @playwright/test@1.55.0
