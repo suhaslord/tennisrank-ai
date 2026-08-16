@@ -1,0 +1,57 @@
+name: Coach core browser diagnostics
+
+on:
+  push:
+    branches:
+      - feature/coach-lokesh-core-flow
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  browser:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install browser test dependencies
+        run: |
+          npm install --no-save https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz
+          npm install --no-save @playwright/test@1.55.0
+      - name: Build browser QA runtime
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('index.html')
+          html = path.read_text()
+          html = html.replace('</head>', '<link rel="stylesheet" href="./player-dashboard-state.css" /></head>')
+          stack = '<script src="./ranking-policy.js"></script><script src="./import-runtime-fixes.js"></script><script src="./import-v2.js"></script><script src="./import-delimiter-fix.js"></script><script src="./spreadsheet-ml.js"></script><script src="./import-v2-fixes.js"></script><script src="./import-row-safety-fix.js"></script><script src="./import-multiblock-fix.js"></script><script src="./spreadsheet-semantic-calibration.js"></script><script src="./spreadsheet-ai.js"></script><script src="./ai-quota-guard.js"></script><script src="./import-auto-sync.js"></script><script src="./player-dashboard-state.js"></script>'
+          html = html.replace('<script src="./app.js"></script>', '<script src="./app.js"></script>' + stack)
+          path.write_text(html)
+          PY
+      - name: Run browser tests with JSON diagnostics
+        id: browser_tests
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          python3 -m http.server 4173 >/tmp/tennisrank-http.log 2>&1 &
+          SERVER_PID=$!
+          trap 'kill $SERVER_PID || true' EXIT
+          sleep 2
+          npx playwright test qa/auth-flow.spec.js qa/browser.spec.js qa/ai-import.spec.js qa/import-board-sync.spec.js qa/core-flow-browser.spec.js --reporter=json > playwright-results.json
+      - name: Upload browser diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coach-core-playwright-diagnostics
+          path: |
+            playwright-results.json
+            test-results/
+          if-no-files-found: warn
+          retention-days: 3
+      - name: Fail if browser tests failed
+        if: steps.browser_tests.outcome == 'failure'
+        run: exit 1
