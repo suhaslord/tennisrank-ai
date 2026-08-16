@@ -24,6 +24,13 @@ function parseAllowedUrl(value) {
   return url;
 }
 
+function isAllowedGoogleExportHost(hostname) {
+  const host = String(hostname || "").toLowerCase();
+  return host === "docs.google.com"
+    || host === "googleusercontent.com"
+    || host.endsWith(".googleusercontent.com");
+}
+
 async function readLimitedBody(response) {
   const declared = Number(response.headers.get("content-length") || 0);
   if (declared > MAX_BYTES) throw new Error("This sheet is too large. Keep the import under 5 MB.");
@@ -112,8 +119,8 @@ async function handleGoogleSheet(req, res) {
     });
 
     const finalUrl = new URL(response.url);
-    if (finalUrl.protocol !== "https:" || finalUrl.hostname.toLowerCase() !== "docs.google.com") {
-      return res.status(422).json({ error: "The sheet redirected away from Google Sheets. Check sharing permissions." });
+    if (finalUrl.protocol !== "https:" || !isAllowedGoogleExportHost(finalUrl.hostname)) {
+      return res.status(422).json({ error: "The sheet redirected outside Google’s spreadsheet export service. Check sharing permissions." });
     }
     if (!response.ok) {
       return res.status(422).json({ error: `Google Sheets returned ${response.status}. Set sharing to “Anyone with the link – Viewer” and try again.` });
@@ -143,6 +150,7 @@ module.exports = async function handler(req, res) {
 };
 
 module.exports.parseAllowedUrl = parseAllowedUrl;
+module.exports.isAllowedGoogleExportHost = isAllowedGoogleExportHost;
 module.exports.handleAiAnalysis = handleAiAnalysis;
 module.exports.buildRedactedPayload = aiAnalyzer.buildRedactedPayload;
 module.exports.validateAiResult = aiAnalyzer.validateAiResult;
