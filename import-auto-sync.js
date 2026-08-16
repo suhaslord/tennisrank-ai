@@ -49,7 +49,7 @@
     // keeps the official ladder, challenge eligibility, and roster controls in sync
     // without creating a second rendering path.
     const button = win.document?.querySelector?.(`[data-seed-team="${team}"]`);
-    if (button && typeof button.onclick === "function" && !button.disabled) {
+    if (button && typeof button.onclick === "function") {
       await button.onclick();
       return { team, count: players.length, mode: "coach-ui" };
     }
@@ -72,9 +72,26 @@
       results.push(await syncTeam(win, team, teams[team]));
     }
 
-    win.dispatchEvent?.(new CustomEvent("tennisrank:import-synced", {
-      detail: { teams, results, rowCount: rows.length },
-    }));
+    // If the coach console was not mounted yet, API fallback still persisted the
+    // ladder. Re-fire the existing auth-ready refresh hook so challenge-ui reloads
+    // its official ladder state without requiring a page refresh.
+    if (results.some(result => result.mode === "api") && win.dispatchEvent) {
+      const EventCtor = win.CustomEvent || (typeof CustomEvent !== "undefined" ? CustomEvent : null);
+      if (EventCtor) {
+        win.dispatchEvent(new EventCtor("tennisrank:auth-ready", {
+          detail: { profile, session: win.TennisRankAuth?.getSession?.() || null },
+        }));
+      }
+    }
+
+    if (win.dispatchEvent) {
+      const EventCtor = win.CustomEvent || (typeof CustomEvent !== "undefined" ? CustomEvent : null);
+      if (EventCtor) {
+        win.dispatchEvent(new EventCtor("tennisrank:import-synced", {
+          detail: { teams, results, rowCount: rows.length },
+        }));
+      }
+    }
     return { teams, results };
   }
 
