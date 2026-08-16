@@ -1,6 +1,17 @@
 (() => {
   let activeCoachTab = "approvals";
+  let rosterRefreshing = false;
   const pendingRankEdits = new Map();
+
+  function setRosterRefreshing(value) {
+    rosterRefreshing = Boolean(value);
+    const consoleEl = document.querySelector("#coachLadderConsole");
+    if (!consoleEl) return;
+    consoleEl.setAttribute("aria-busy", String(rosterRefreshing));
+    consoleEl.querySelectorAll("[data-new-rank], [data-move]").forEach(control => {
+      control.disabled = rosterRefreshing;
+    });
+  }
 
   function restoreCoachState() {
     const consoleEl = document.querySelector("#coachLadderConsole");
@@ -20,6 +31,7 @@
       const input = row?.querySelector("[data-new-rank]");
       if (input && input.value !== value) input.value = value;
     });
+    setRosterRefreshing(rosterRefreshing);
   }
 
   function captureRankEdit(input) {
@@ -77,6 +89,9 @@
     clearPendingRank(playerId) {
       pendingRankEdits.delete(playerId);
     },
+    isRefreshing() {
+      return rosterRefreshing;
+    },
   };
 
   document.addEventListener("click", event => {
@@ -95,6 +110,11 @@
   document.addEventListener("change", event => {
     const input = event.target.closest?.("[data-new-rank]");
     if (input) captureRankEdit(input);
+
+    // A status update causes challenge-ui to refresh and rebuild the roster.
+    // Lock rank actions until the new workflow snapshot is rendered so a coach
+    // cannot start editing a DOM node that is about to be replaced.
+    if (event.target.closest?.("[data-status]")) setRosterRefreshing(true);
   }, true);
 
   const observer = new MutationObserver(records => {
@@ -112,8 +132,12 @@
   window.addEventListener("tennisrank:auth-ready", installFetchGuard);
   window.addEventListener("tennisrank:ladder-workflow-ready", () => {
     installFetchGuard();
+    rosterRefreshing = false;
     restoreCoachState();
-    requestAnimationFrame(restoreCoachState);
+    requestAnimationFrame(() => {
+      rosterRefreshing = false;
+      restoreCoachState();
+    });
   });
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start, { once: true });
   else start();
