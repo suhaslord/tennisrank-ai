@@ -16,9 +16,9 @@
   function recordTier(player) {
     const wins = number(player?.wins);
     const losses = number(player?.losses);
-    if (wins > losses) return 0; // winning records first
-    if (wins === losses) return 1; // includes a new 0-0 player
-    return 2; // losing records last
+    if (wins > losses) return 0;
+    if (wins === losses) return 1;
+    return 2;
   }
 
   function normalizedName(value) {
@@ -56,15 +56,14 @@
     return [...(Array.isArray(rankings) ? rankings : [])].sort(comparePlayers);
   }
 
-  function installBrowser(win) {
-    if (!win || win.__tennisrankRankingPolicyInstalled) return false;
-    if (typeof win.calculateRankings !== "function") {
-      win?.setTimeout?.(() => installBrowser(win), 20);
-      return false;
+  function wrapFinalCalculator(win) {
+    const base = win?.calculateRankings;
+    if (typeof base !== "function") return false;
+    if (base.__coachRankingPolicy) {
+      win.__tennisrankRankingPolicyInstalled = true;
+      return true;
     }
 
-    const base = win.calculateRankings;
-    if (base.__coachRankingPolicy) return true;
     const wrapped = function () {
       const calculated = base.apply(this, arguments) || {};
       return { ...calculated, rankings: sortRankings(calculated.rankings) };
@@ -76,10 +75,34 @@
     return true;
   }
 
+  function installBrowser(win) {
+    if (!win || win.__tennisrankRankingPolicyScheduled) return false;
+    win.__tennisrankRankingPolicyScheduled = true;
+
+    const apply = () => {
+      // import-runtime-fixes installs its metadata guard in a zero-delay task.
+      // Schedule after that task so the coach policy wraps the final safe
+      // calculator rather than being replaced by it.
+      win.setTimeout?.(() => {
+        if (wrapFinalCalculator(win)) return;
+        win.__tennisrankRankingPolicyScheduled = false;
+        win.setTimeout?.(() => installBrowser(win), 20);
+      }, 0);
+    };
+
+    if (win.document?.readyState === "loading") {
+      win.document.addEventListener("DOMContentLoaded", apply, { once: true });
+    } else {
+      apply();
+    }
+    return true;
+  }
+
   return {
     recordTier,
     comparePlayers,
     sortRankings,
+    wrapFinalCalculator,
     installBrowser,
   };
 });
