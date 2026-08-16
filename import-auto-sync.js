@@ -12,18 +12,90 @@
     return String(value || "").replace(/\s+/g, " ").trim();
   }
 
-  function rankingsToTeams(rankings) {
+  function identityKey(value) {
+    return cleanName(value)
+      .normalize("NFKD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .replace(/[^a-z0-9]/g, "");
+  }
+
+  function normalizeKey(value) {
+    return String(value || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+  }
+
+  function normalizeRosterDivision(value) {
+    const text = String(value || "").trim().toLowerCase().replace(/[._-]+/g, " ");
+    if (!text) return null;
+    if (/\b(jv|junior\s+varsity)\b/.test(text)) return "jv";
+    if (/\bvarsity\b/.test(text) && !/junior\s+varsity/.test(text)) return "varsity";
+    return null;
+  }
+
+  function normalizeGradeLevel(value) {
+    const text = String(value || "").trim().toLowerCase();
+    if (!text) return null;
+    const number = Number(text.match(/\b(9|10|11|12)(?:th)?\b/)?.[1]);
+    if (Number.isInteger(number) && number >= 9 && number <= 12) return number;
+    if (/\b(freshman|freshmen|9th\s*grade)\b/.test(text)) return 9;
+    if (/\b(sophomore|sophomores|10th\s*grade)\b/.test(text)) return 10;
+    if (/\b(junior|juniors|11th\s*grade)\b/.test(text) && !/junior\s+varsity/.test(text)) return 11;
+    if (/\b(senior|seniors|12th\s*grade)\b/.test(text)) return 12;
+    return null;
+  }
+
+  function candidateNames(row) {
+    const entries = Object.entries(row || {}).filter(([key, value]) => !String(key).startsWith("__") && cleanName(value));
+    const preferred = entries
+      .filter(([key]) => /^(name|player|playername|athlete|student|roster|participant|competitor|displayname|teamname)$/i.test(normalizeKey(key)))
+      .map(([, value]) => cleanName(value));
+    return preferred.length ? preferred : entries.map(([, value]) => cleanName(value));
+  }
+
+  function rosterMetadata(rows, playerName) {
+    const target = identityKey(playerName);
+    if (!target) return {};
+    const matches = (Array.isArray(rows) ? rows : []).filter(row => candidateNames(row).some(value => identityKey(value) === target));
+    let division = null;
+    let gradeLevel = null;
+
+    for (const row of matches) {
+      const entries = Object.entries(row || {}).filter(([key]) => !String(key).startsWith("__"));
+      for (const [key, value] of entries) {
+        const normalizedKey = normalizeKey(key);
+        if (!division && /(level|squad|rosterdivision|teamdivision|teamlevel|classification|class)/.test(normalizedKey)) {
+          division = normalizeRosterDivision(value);
+        }
+        if (!gradeLevel && /(grade|gradelevel|schoolyear|classyear|yearinschool)/.test(normalizedKey)) {
+          gradeLevel = normalizeGradeLevel(value);
+        }
+      }
+      // Some coach sheets use a generic "Division" column for Varsity/JV, while
+      // others use the same header for Singles/Doubles. Only accept explicit
+      // Varsity/JV values here so match-format values cannot be confused.
+      if (!division) division = entries.map(([, value]) => normalizeRosterDivision(value)).find(Boolean) || null;
+      if (!gradeLevel) gradeLevel = entries.map(([, value]) => normalizeGradeLevel(value)).find(Boolean) || null;
+      if (division && gradeLevel) break;
+    }
+
+    return {
+      ...(division ? { division } : {}),
+      ...(gradeLevel ? { gradeLevel } : {}),
+    };
+  }
+
+  function rankingsToTeams(rankings, rows = []) {
     const teams = { boys: [], girls: [] };
     const seen = { boys: new Set(), girls: new Set() };
     for (const item of rankings || []) {
       const team = String(item?.gender || "").toLowerCase();
-      const division = String(item?.division || "").toLowerCase();
+      const matchFormat = String(item?.division || "").toLowerCase();
       const name = cleanName(item?.name);
-      if (!teams[team] || division !== "singles" || !name) continue;
-      const key = name.toLowerCase();
+      if (!teams[team] || matchFormat !== "singles" || !name) continue;
+      const key = identityKey(name);
       if (seen[team].has(key)) continue;
       seen[team].add(key);
-      teams[team].push({ name });
+      teams[team].push({ name, ...rosterMetadata(rows, name) });
     }
     return teams;
   }
@@ -61,7 +133,7 @@
     if (typeof win.calculateRankings !== "function") throw new Error("Ranking engine is not ready.");
 
     const calculated = win.calculateRankings(rows) || {};
-    const teams = rankingsToTeams(calculated.rankings || []);
+    const teams = rankingsToTeams(calculated.rankings || [], rows);
     const results = [];
     for (const team of ["boys", "girls"]) {
       if (!teams[team].length) continue;
@@ -129,6 +201,11 @@
 
   return {
     cleanName,
+    identityKey,
+    normalizeRosterDivision,
+    normalizeGradeLevel,
+    candidateNames,
+    rosterMetadata,
     rankingsToTeams,
     readJson,
     seedThroughApi,
