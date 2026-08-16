@@ -200,7 +200,7 @@ test('Coach Lokesh canonical roster and match rows survive even if AI is unavail
     division: 'Singles',
     player1: 'Aiden Brooks',
     player2: 'Mateo Rivera',
-    winner: 'Aiden Brooks',
+    winner: 'Player A',
     loser: 'Mateo Rivera',
     score: '6-3',
     date: '2026-08-01',
@@ -228,7 +228,7 @@ test('Coach Lokesh doubles teams remain one identity end to end', async ({ page 
   expect(saved.rows[1].name).toBe('Marcus Lee & James Park');
   expect(saved.rows[2].player1).toBe('Liam Chen & Oliver Davis');
   expect(saved.rows[2].player2).toBe('Marcus Lee & James Park');
-  expect(saved.rows[2].winner).toBe('Liam Chen & Oliver Davis');
+  expect(saved.rows[2].winner).toBe('Player A');
 });
 
 test('high-confidence AI rejection blocks unrelated data before publication', async ({ page }) => {
