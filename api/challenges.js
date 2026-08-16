@@ -1,5 +1,5 @@
 const { json, authenticatedContext, rest, rpc, allowApi, parseBody } = require("./_supabase");
-const { findLinkedPlayer } = require("./_player-link");
+const { findLinkedPlayer } = require("../lib/player-link");
 
 const MAX_SCHEDULE_DAYS = 90;
 const MAX_COURT_LOCATION_LENGTH = 160;
