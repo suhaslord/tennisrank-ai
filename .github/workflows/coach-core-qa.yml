@@ -1,0 +1,127 @@
+name: Coach Lokesh core flow QA
+
+on:
+  push:
+    branches:
+      - feature/coach-lokesh-core-flow
+  workflow_dispatch:
+
+concurrency:
+  group: coach-core-qa-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install spreadsheet test engine
+        run: npm install --no-save https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz
+
+      - name: Syntax check core flow
+        run: |
+          set -euo pipefail
+          node --check ranking-policy.js
+          node --check player-dashboard-state.js
+          node --check import-auto-sync.js
+          node --check lib/player-link.js
+          node --check lib/ladder-engine.js
+          node --check api/users.js
+          node --check api/ladder.js
+          node --check api/challenges.js
+          node --check api/admin/seed-ladder.js
+          node --check api/render.js
+          node --check qa/ranking-policy.test.js
+          node --check qa/player-dashboard-state.test.js
+          node --check qa/player-link.test.js
+          node --check qa/roster-metadata.test.js
+          node --check qa/core-flow-browser.spec.js
+
+      - name: Coach requirements unit tests
+        run: |
+          set -euo pipefail
+          node qa/ranking-policy.test.js
+          node qa/player-dashboard-state.test.js
+          node qa/player-link.test.js
+          node qa/roster-metadata.test.js
+          node qa/ladder-engine.test.js
+          node qa/challenge-api.test.js
+
+      - name: Import regression suite
+        run: |
+          set -euo pipefail
+          node qa/import-regression.test.js
+          node qa/import-v2.test.js
+          node qa/import-v2-diagnostics.js
+          node qa/delimiter-fuzz.test.js
+          node qa/row-safety.test.js
+          node qa/multiblock.test.js
+          node qa/workbook-formats.test.js
+          node qa/sheet-proxy.test.js
+          node qa/spreadsheet-ml.test.js
+          node qa/spreadsheet-ml-benchmark.test.js
+          node qa/spreadsheet-ai.test.js
+          node qa/import-auto-sync.test.js
+
+      - name: Deployment and security guardrails
+        run: |
+          set -euo pipefail
+          test -f lib/player-link.js
+          test ! -e api/_player-link.js
+          test ! -e lib/server-player-link.js
+          grep -q '../lib/player-link' api/users.js
+          grep -q '../lib/player-link' api/ladder.js
+          grep -q '../lib/player-link' api/challenges.js
+          grep -q 'ranking-policy.js' api/render.js
+          grep -q 'player-dashboard-state.js' api/render.js
+          grep -q 'player-dashboard-state.css' api/render.js
+          grep -q 'gradeLevel' api/admin/seed-ladder.js
+          grep -q 'division' api/admin/seed-ladder.js
+          grep -q 'metadata_preserved' supabase/ladder_roster_metadata.sql
+          COUNT=$(find api -type f -name '*.js' | wc -l)
+          echo "Serverless function candidates: $COUNT"
+          test "$COUNT" -le 12
+          ! grep -R --exclude-dir=.git --exclude=.env.example -E 'SUPABASE_SERVICE_ROLE_KEY[[:space:]]*=' .
+          ! grep -R --exclude-dir=.git --exclude=.env.example -E 'GEMINI_API_KEY[[:space:]]*=' .
+          ! grep -R --exclude-dir=.git -E 'sb_secret_[A-Za-z0-9_-]+' .
+
+      - name: Build browser QA runtime
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('index.html')
+          html = path.read_text()
+          html = html.replace('</head>', '<link rel="stylesheet" href="./player-dashboard-state.css" /></head>')
+          stack = '<script src="./ranking-policy.js"></script><script src="./import-runtime-fixes.js"></script><script src="./import-v2.js"></script><script src="./import-delimiter-fix.js"></script><script src="./spreadsheet-ml.js"></script><script src="./import-v2-fixes.js"></script><script src="./import-row-safety-fix.js"></script><script src="./import-multiblock-fix.js"></script><script src="./spreadsheet-semantic-calibration.js"></script><script src="./spreadsheet-ai.js"></script><script src="./ai-quota-guard.js"></script><script src="./import-auto-sync.js"></script><script src="./player-dashboard-state.js"></script>'
+          html = html.replace('<script src="./app.js"></script>', '<script src="./app.js"></script>' + stack)
+          path.write_text(html)
+          PY
+
+      - name: Install Playwright
+        run: npm install --no-save @playwright/test@1.55.0
+
+      - name: Browser regression QA
+        run: |
+          set -euo pipefail
+          google-chrome --version
+          python3 -m http.server 4173 >/tmp/tennisrank-http.log 2>&1 &
+          SERVER_PID=$!
+          trap 'kill $SERVER_PID || true' EXIT
+          sleep 2
+          npx playwright test qa/auth-flow.spec.js qa/browser.spec.js qa/ai-import.spec.js qa/import-board-sync.spec.js qa/core-flow-browser.spec.js --reporter=line --workers=1
+
+      - name: Visual stability QA
+        run: |
+          set -euo pipefail
+          python3 -m http.server 4174 >/tmp/tennisrank-visual-http.log 2>&1 &
+          SERVER_PID=$!
+          trap 'kill $SERVER_PID || true' EXIT
+          sleep 2
+          TENNISRANK_BASE_URL=http://127.0.0.1:4174 npx playwright test qa/visual-stability.spec.js --reporter=line --workers=1
