@@ -1,4 +1,4 @@
-const COMMIT = 'adcc5df59d6c795fe217725887393b2668e7d7f8';
+const COMMIT = 'a370f4090058da26bec7eb2d8a23dc11fbeddace';
 const CDN = `https://cdn.jsdelivr.net/gh/suhaslord/tennisrank-ai@${COMMIT}`;
 const SHEETJS = 'https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js';
 
@@ -26,9 +26,11 @@ function rewrite(html) {
   // The exact importer stack that passed local extreme-workbook testing and CI:
   // robust delimiter detection -> hybrid parser -> explicit row safety ->
   // multi-table isolation -> semantic calibration -> AI schema rescue/quota guard.
+  // The brand layer loads last so it only replaces logo surfaces and cannot
+  // interfere with auth, ranking, importer, challenge, or motion behavior.
   out = out.replace(
     `<script src="${CDN}/app.js"></script>`,
-    `<script src="${CDN}/app.js"></script><script src="${CDN}/import-runtime-fixes.js"></script><script src="${CDN}/import-v2.js"></script><script src="${CDN}/import-delimiter-fix.js"></script><script src="${CDN}/spreadsheet-ml.js"></script><script src="${CDN}/import-v2-fixes.js"></script><script src="${CDN}/import-row-safety-fix.js"></script><script src="${CDN}/import-multiblock-fix.js"></script><script src="${CDN}/spreadsheet-semantic-calibration.js"></script><script src="${CDN}/spreadsheet-ai.js"></script><script src="${CDN}/ai-quota-guard.js"></script><script src="${CDN}/tesla-motion.js"></script>`,
+    `<script src="${CDN}/app.js"></script><script src="${CDN}/import-runtime-fixes.js"></script><script src="${CDN}/import-v2.js"></script><script src="${CDN}/import-delimiter-fix.js"></script><script src="${CDN}/spreadsheet-ml.js"></script><script src="${CDN}/import-v2-fixes.js"></script><script src="${CDN}/import-row-safety-fix.js"></script><script src="${CDN}/import-multiblock-fix.js"></script><script src="${CDN}/spreadsheet-semantic-calibration.js"></script><script src="${CDN}/spreadsheet-ai.js"></script><script src="${CDN}/ai-quota-guard.js"></script><script src="${CDN}/tesla-motion.js"></script><script src="${CDN}/brand-assets.js"></script>`,
   );
 
   out = out.replace('<div class="cursor-ball" aria-hidden="true"><span class="cursor-ball-core"></span></div>', '');
