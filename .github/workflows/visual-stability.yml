@@ -27,7 +27,7 @@ jobs:
           from pathlib import Path
           html = Path('index.html').read_text()
           html = html.replace('</head>', '<link rel="stylesheet" href="./production-stability.css"><link rel="stylesheet" href="./tesla-authority.css"><link rel="stylesheet" href="./tesla-finish.css"><link rel="stylesheet" href="./tesla-motion.css"><style>#showBootstrap,.bootstrap-form{display:none!important}</style></head>')
-          html = html.replace('<script src="./ladder.js"></script>', '<script src="./import-runtime-fixes.js"></script><script src="./import-v2.js"></script><script src="./import-delimiter-fix.js"></script><script src="./spreadsheet-ml.js"></script><script src="./import-v2-fixes.js"></script><script src="./import-row-safety-fix.js"></script><script src="./import-multiblock-fix.js"></script><script src="./spreadsheet-semantic-calibration.js"></script><script src="./spreadsheet-ai.js"></script><script src="./ai-quota-guard.js"></script><script src="./tesla-motion.js"></script><script src="./ladder.js"></script>')
+          html = html.replace('<script src="./ladder.js"></script>', '<script src="./import-runtime-fixes.js"></script><script src="./import-v2.js"></script><script src="./import-delimiter-fix.js"></script><script src="./spreadsheet-ml.js"></script><script src="./import-v2-fixes.js"></script><script src="./import-row-safety-fix.js"></script><script src="./import-multiblock-fix.js"></script><script src="./spreadsheet-semantic-calibration.js"></script><script src="./spreadsheet-ai.js"></script><script src="./ai-quota-guard.js"></script><script src="./tesla-motion.js"></script><script src="./brand-assets.js"></script><script src="./ladder.js"></script>')
           html = html.replace('<div class="cursor-ball" aria-hidden="true"><span class="cursor-ball-core"></span></div>', '')
           Path('qa-index.html').write_text(html)
           PY
@@ -43,6 +43,7 @@ jobs:
           node --check spreadsheet-semantic-calibration.js
           node --check import-runtime-fixes.js
           node --check tesla-motion.js
+          node --check brand-assets.js
       - name: Install Playwright runner
         run: npm install --no-save @playwright/test@1.55.0
       - name: Run deep visual and motion checks
@@ -55,7 +56,7 @@ jobs:
           SERVER_PID=$!
           trap 'kill $SERVER_PID || true' EXIT
           sleep 2
-          npx playwright test qa/visual-stability.spec.js --reporter=line --workers=1
+          npx playwright test qa/visual-stability.spec.js qa/brand-logo.spec.js --reporter=line --workers=1
       - name: Upload visual QA screenshots
         if: always()
         uses: actions/upload-artifact@v4
