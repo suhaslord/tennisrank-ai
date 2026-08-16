@@ -32,7 +32,7 @@ function rewrite(html) {
   return out;
 }
 
-module.exports = async function handler(req, res) {
+async function handler(req, res) {
   if (req.method !== 'GET' && req.method !== 'HEAD') {
     res.status(405).setHeader('Allow', 'GET, HEAD').end();
     return;
@@ -51,4 +51,9 @@ module.exports = async function handler(req, res) {
     res.setHeader('Cache-Control', 'no-store');
     return res.status(503).send('<!doctype html><meta charset="utf-8"><title>TennisRank</title><p style="font-family:system-ui;padding:24px">TennisRank is temporarily unavailable. Please refresh.</p>');
   }
-};
+}
+
+module.exports = handler;
+module.exports.rewrite = rewrite;
+module.exports.CDN = CDN;
+module.exports.COMMIT = COMMIT;
