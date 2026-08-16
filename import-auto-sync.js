@@ -44,18 +44,14 @@
 
   async function syncTeam(win, team, players) {
     if (!players.length) return { team, skipped: true };
-
-    // The coach console owns refreshWorkflow(). Calling its existing async action
-    // keeps the official ladder, challenge eligibility, and roster controls in sync
-    // without creating a second rendering path.
-    const button = win.document?.querySelector?.(`[data-seed-team="${team}"]`);
-    if (button && typeof button.onclick === "function") {
-      await button.onclick();
-      return { team, count: players.length, mode: "coach-ui" };
-    }
-
     const payload = await seedThroughApi(win, team, players);
     return { team, count: players.length, mode: "api", payload };
+  }
+
+  function dispatch(win, name, detail) {
+    if (!win.dispatchEvent) return;
+    const EventCtor = win.CustomEvent || (typeof CustomEvent !== "undefined" ? CustomEvent : null);
+    if (EventCtor) win.dispatchEvent(new EventCtor(name, { detail }));
   }
 
   async function syncOfficialBoards(win, rows) {
@@ -72,26 +68,15 @@
       results.push(await syncTeam(win, team, teams[team]));
     }
 
-    // If the coach console was not mounted yet, API fallback still persisted the
-    // ladder. Re-fire the existing auth-ready refresh hook so challenge-ui reloads
-    // its official ladder state without requiring a page refresh.
-    if (results.some(result => result.mode === "api") && win.dispatchEvent) {
-      const EventCtor = win.CustomEvent || (typeof CustomEvent !== "undefined" ? CustomEvent : null);
-      if (EventCtor) {
-        win.dispatchEvent(new EventCtor("tennisrank:auth-ready", {
-          detail: { profile, session: win.TennisRankAuth?.getSession?.() || null },
-        }));
-      }
+    // Reuse challenge-ui's existing auth-ready listener as the single official
+    // workflow refresh path. app.js safely ignores duplicate initialization.
+    if (results.length) {
+      dispatch(win, "tennisrank:auth-ready", {
+        profile,
+        session: win.TennisRankAuth?.getSession?.() || null,
+      });
     }
-
-    if (win.dispatchEvent) {
-      const EventCtor = win.CustomEvent || (typeof CustomEvent !== "undefined" ? CustomEvent : null);
-      if (EventCtor) {
-        win.dispatchEvent(new EventCtor("tennisrank:import-synced", {
-          detail: { teams, results, rowCount: rows.length },
-        }));
-      }
-    }
+    dispatch(win, "tennisrank:import-synced", { teams, results, rowCount: rows.length });
     return { teams, results };
   }
 
@@ -145,8 +130,10 @@
   return {
     cleanName,
     rankingsToTeams,
+    readJson,
     seedThroughApi,
     syncTeam,
+    dispatch,
     syncOfficialBoards,
     installBrowser,
   };
