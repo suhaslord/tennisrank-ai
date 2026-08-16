@@ -1,9 +1,18 @@
+const crypto = require("node:crypto");
 const { json, authenticatedContext, allowApi, parseBody } = require("./_supabase");
 const aiAnalyzer = require("../lib/ai-sheet-analyzer");
 
 const MAX_BYTES = 5 * 1024 * 1024;
 const SHEET_TIMEOUT_MS = 12_000;
 const AI_TIMEOUT_MS = 30_000;
+const AI_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+const AI_RATE_WINDOW_MS = 60 * 1000;
+const MAX_PROVIDER_CALLS_PER_WINDOW = 4;
+const AI_CACHE_MAX = 64;
+
+const aiCache = new Map();
+const aiInflight = new Map();
+let providerCallTimes = [];
 
 function parseAllowedUrl(value) {
   let url;
@@ -57,6 +66,55 @@ async function readLimitedBody(response) {
   return output;
 }
 
+function pruneAiCache(now = Date.now()) {
+  for (const [key, entry] of aiCache.entries()) {
+    if (!entry || Number(entry.expiresAt) <= now) aiCache.delete(key);
+  }
+  while (aiCache.size > AI_CACHE_MAX) aiCache.delete(aiCache.keys().next().value);
+}
+
+function aiRequestKey(body) {
+  const rows = Array.isArray(body?.rows) ? body.rows : [];
+  const payload = aiAnalyzer.buildRedactedPayload(rows, body?.sourceName, body?.analysis || {});
+  const structural = JSON.stringify({
+    sourceContext: payload.sourceContext,
+    inputKeys: payload.inputKeys,
+    samples: payload.samples,
+    currentMapping: payload.currentMapping,
+  });
+  return crypto.createHash("sha256").update(structural).digest("hex");
+}
+
+function reserveProviderCall(now = Date.now()) {
+  providerCallTimes = providerCallTimes.filter(timestamp => now - timestamp < AI_RATE_WINDOW_MS);
+  if (providerCallTimes.length >= MAX_PROVIDER_CALLS_PER_WINDOW) return false;
+  providerCallTimes.push(now);
+  return true;
+}
+
+async function analyzeWithModelFallback({ apiKey, requestedModel, rows, sourceName, analysis, signal }) {
+  try {
+    return await aiAnalyzer.analyzeRows({
+      apiKey,
+      model: requestedModel,
+      rows,
+      sourceName,
+      analysis,
+      signal,
+    });
+  } catch (error) {
+    if (Number(error?.status) !== 429 || requestedModel === aiAnalyzer.FALLBACK_MODEL) throw error;
+    return aiAnalyzer.analyzeRows({
+      apiKey,
+      model: aiAnalyzer.FALLBACK_MODEL,
+      rows,
+      sourceName,
+      analysis,
+      signal,
+    });
+  }
+}
+
 async function handleAiAnalysis(req, res) {
   allowApi(res, "POST,OPTIONS");
   if (req.method === "OPTIONS") return res.status(204).end();
@@ -67,20 +125,51 @@ async function handleAiAnalysis(req, res) {
     if (context.profile.role !== "admin") return json(res, 403, { error: "Coach/admin access is required." });
 
     const body = parseBody(req);
+    const rows = Array.isArray(body.rows) ? body.rows : [];
+    const sourceName = body.sourceName;
+    const analysis = body.analysis || {};
+    const cacheKey = aiRequestKey({ rows, sourceName, analysis });
+    const now = Date.now();
+    pruneAiCache(now);
+
+    const cached = aiCache.get(cacheKey);
+    if (cached?.result && cached.expiresAt > now) {
+      return json(res, 200, { ...cached.result, cache: { hit: true, layer: "server-schema" } });
+    }
+
+    if (aiInflight.has(cacheKey)) {
+      const shared = await aiInflight.get(cacheKey);
+      return json(res, 200, { ...shared, cache: { hit: true, layer: "server-inflight" } });
+    }
+
+    if (!reserveProviderCall(now)) {
+      return json(res, 429, {
+        error: "AI schema verification is cooling down to stay within the Gemini request limit. TennisRank will keep using its local validator for this import.",
+        code: "AI_RATE_GUARD",
+      });
+    }
+
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), AI_TIMEOUT_MS);
+    const requestedModel = process.env.GEMINI_SPREADSHEET_MODEL || aiAnalyzer.DEFAULT_MODEL;
+    const work = analyzeWithModelFallback({
+      apiKey: String(process.env.GEMINI_API_KEY || "").trim(),
+      requestedModel,
+      rows,
+      sourceName,
+      analysis,
+      signal: controller.signal,
+    });
+    aiInflight.set(cacheKey, work);
+
     try {
-      const result = await aiAnalyzer.analyzeRows({
-        apiKey: String(process.env.GEMINI_API_KEY || "").trim(),
-        model: process.env.GEMINI_SPREADSHEET_MODEL || aiAnalyzer.DEFAULT_MODEL,
-        rows: Array.isArray(body.rows) ? body.rows : [],
-        sourceName: body.sourceName,
-        analysis: body.analysis || {},
-        signal: controller.signal,
-      });
-      return json(res, 200, result);
+      const result = await work;
+      aiCache.set(cacheKey, { result, expiresAt: Date.now() + AI_CACHE_TTL_MS });
+      pruneAiCache();
+      return json(res, 200, { ...result, cache: { hit: false, layer: "provider" } });
     } finally {
       clearTimeout(timeout);
+      aiInflight.delete(cacheKey);
     }
   } catch (error) {
     if (error?.name === "AbortError") {
@@ -156,3 +245,5 @@ module.exports.buildRedactedPayload = aiAnalyzer.buildRedactedPayload;
 module.exports.validateAiResult = aiAnalyzer.validateAiResult;
 module.exports.sourceContext = aiAnalyzer.sourceContext;
 module.exports.ALLOWED_TARGETS = aiAnalyzer.ALLOWED_TARGETS;
+module.exports.aiRequestKey = aiRequestKey;
+module.exports.reserveProviderCall = reserveProviderCall;
