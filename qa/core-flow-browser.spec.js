@@ -1,5 +1,7 @@
 const { test, expect } = require('@playwright/test');
 
+const APP_URL = 'http://127.0.0.1:4173/';
+
 test('ranking, import sync, and player dashboard modules load together', async ({ page }) => {
   await page.route('**/api/config', route => route.fulfill({
     status: 200,
@@ -7,7 +9,7 @@ test('ranking, import sync, and player dashboard modules load together', async (
     body: JSON.stringify({ supabaseUrl: 'https://example.supabase.co', publishableKey: 'test-key' }),
   }));
 
-  await page.goto('/');
+  await page.goto(APP_URL);
   await expect(page.locator('#authGate')).toBeVisible();
 
   const loaded = await page.evaluate(() => ({
