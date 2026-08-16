@@ -1,26 +1,43 @@
-/* Keep the story photography present, but let the content lead.
-   Desktop: reduce both player-photo columns to roughly 36% of each card.
-   Mobile: keep the stacked crop compact instead of letting it dominate the card. */
+/* Keep the two tennis photos as supporting editorial moments, not dominant panels.
+   Use smaller contained frames so faces/trophies remain visible instead of being aggressively cropped. */
 @media (min-width: 760px) {
   .story-card {
-    grid-template-columns: minmax(0, 0.72fr) minmax(0, 1.28fr) !important;
+    grid-template-columns: minmax(0, 0.62fr) minmax(0, 1.38fr) !important;
   }
 
   .spotlight-card {
-    grid-template-columns: minmax(0, 1.28fr) minmax(0, 0.72fr) !important;
+    grid-template-columns: minmax(0, 1.38fr) minmax(0, 0.62fr) !important;
   }
 
   .story-image,
   .spotlight-image {
     min-width: 0;
+    min-height: 0 !important;
+    height: 320px !important;
+    align-self: center;
+    background: #fff !important;
+  }
+
+  .story-image img,
+  .spotlight-image img {
+    object-fit: contain !important;
+    object-position: center !important;
   }
 }
 
 @media (max-width: 759px) {
   .story-image,
   .spotlight-image {
-    min-height: 150px !important;
-    height: 150px;
-    max-height: 150px;
+    width: 100%;
+    min-height: 180px !important;
+    height: 180px !important;
+    max-height: 180px !important;
+    background: #fff !important;
+  }
+
+  .story-image img,
+  .spotlight-image img {
+    object-fit: contain !important;
+    object-position: center !important;
   }
 }
