@@ -23,15 +23,25 @@
   function isRepeatedHeader(importer, values, expectedHeaders) {
     let compared = 0;
     let matches = 0;
+    let structuralMatches = 0;
     for (let i = 0; i < Math.max(values.length, expectedHeaders.length); i += 1) {
       const raw = String(values[i] ?? "").trim();
       if (!raw) continue;
       compared += 1;
       const incoming = importer.canonicalField(raw);
       const expected = String(expectedHeaders[i] || "").replace(/\d+$/, "");
-      if (incoming !== "column" && incoming === expected) matches += 1;
+      if (incoming !== "column" && incoming === expected) {
+        matches += 1;
+        if (STRUCTURAL_FIELDS.has(expected)) structuralMatches += 1;
+      }
     }
-    return compared >= 2 && matches >= Math.max(2, Math.ceil(compared * 0.6));
+    // Values like "Boys" and "Singles" are legitimate roster data even though
+    // canonicalField() maps them to gender/division. A repeated header must also
+    // repeat at least one identity/result/ranking field (Name, Opponent, Result,
+    // Rank, etc.) so Coach Lokesh-style 0-0 roster rows are never discarded.
+    return compared >= 2
+      && structuralMatches >= 1
+      && matches >= Math.max(2, Math.ceil(compared * 0.6));
   }
 
   function extractScore(value) {
