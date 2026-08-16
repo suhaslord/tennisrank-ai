@@ -30,8 +30,10 @@ jobs:
           node --check app.js
           node --check spreadsheet-ml.js
           node --check spreadsheet-ai.js
+          node --check ai-quota-guard.js
           node --check spreadsheet-semantic-calibration.js
           node --check import-v2.js
+          node --check import-delimiter-fix.js
           node --check import-v2-fixes.js
           node --check import-runtime-fixes.js
           node --check tesla-motion.js
@@ -55,6 +57,7 @@ jobs:
           node --check qa/import-regression.test.js
           node --check qa/import-v2.test.js
           node --check qa/import-v2-diagnostics.js
+          node --check qa/delimiter-fuzz.test.js
           node --check qa/workbook-formats.test.js
           node --check qa/sheet-proxy.test.js
           node --check qa/spreadsheet-ml.test.js
@@ -71,6 +74,7 @@ jobs:
           node qa/import-regression.test.js
           node qa/import-v2.test.js
           node qa/import-v2-diagnostics.js
+          node qa/delimiter-fuzz.test.js
           node qa/workbook-formats.test.js
           node qa/sheet-proxy.test.js
           node qa/spreadsheet-ml.test.js
@@ -95,8 +99,10 @@ jobs:
           test -f production-stability.css
           test -f spreadsheet-ml.js
           test -f spreadsheet-ai.js
+          test -f ai-quota-guard.js
           test -f spreadsheet-semantic-calibration.js
           test -f import-v2.js
+          test -f import-delimiter-fix.js
           test -f import-v2-fixes.js
           test -f import-runtime-fixes.js
           test -f api/sheet-proxy.js
@@ -120,6 +126,8 @@ jobs:
           grep -q 'redactedBeforeProvider' lib/ai-sheet-analyzer.js
           grep -q 'context.profile.role !== "admin"' api/sheet-proxy.js
           grep -q 'spreadsheet-ai.js' api/render.js
+          grep -q 'ai-quota-guard.js' api/render.js
+          grep -q 'import-delimiter-fix.js' api/render.js
           grep -q 'tesla-authority.css' api/render.js
           grep -q 'tesla-finish.css' api/render.js
           grep -q 'tesla-motion.css' api/render.js
@@ -156,7 +164,7 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
           html = Path('index.html').read_text()
-          scripts = '<script src="./import-runtime-fixes.js"></script><script src="./import-v2.js"></script><script src="./spreadsheet-ml.js"></script><script src="./import-v2-fixes.js"></script><script src="./spreadsheet-semantic-calibration.js"></script><script src="./spreadsheet-ai.js"></script>'
+          scripts = '<script src="./import-runtime-fixes.js"></script><script src="./import-v2.js"></script><script src="./import-delimiter-fix.js"></script><script src="./spreadsheet-ml.js"></script><script src="./import-v2-fixes.js"></script><script src="./spreadsheet-semantic-calibration.js"></script><script src="./spreadsheet-ai.js"></script><script src="./ai-quota-guard.js"></script>'
           html = html.replace('<script src="./ladder.js"></script>', scripts + '<script src="./ladder.js"></script>')
           Path('qa-ai-index.html').write_text(html)
           PY
