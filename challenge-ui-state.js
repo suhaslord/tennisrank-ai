@@ -10,7 +10,7 @@
     const consoleEl = document.querySelector("#coachLadderConsole");
     if (!consoleEl) return;
     consoleEl.setAttribute("aria-busy", String(rosterRefreshing));
-    consoleEl.querySelectorAll("[data-new-rank], [data-move]").forEach(control => {
+    consoleEl.querySelectorAll("[data-status], [data-new-rank], [data-move]").forEach(control => {
       control.disabled = rosterRefreshing;
     });
   }
@@ -59,13 +59,7 @@
     consoleEl.querySelectorAll("[data-roster-player]").forEach(row => {
       const playerId = row.dataset.rosterPlayer;
       const select = row.querySelector("[data-status]");
-      // A freshly rendered roster row is authoritative server state. Capture it
-      // before the user changes the control so a failed mutation can always roll
-      // back correctly, including programmatic/mobile select changes that do not
-      // produce a focus event first.
-      if (select && playerId && !pendingStatusEdits.has(playerId)) {
-        select.dataset.confirmedValue = select.value;
-      }
+      if (select && playerId && !pendingStatusEdits.has(playerId)) select.dataset.confirmedValue = select.value;
     });
 
     pendingRankEdits.forEach((value, playerId) => {
@@ -120,10 +114,7 @@
     const playerId = row?.dataset.rosterPlayer;
     if (!playerId) return;
     const previous = select.dataset.confirmedValue || "active";
-    pendingStatusEdits.set(playerId, {
-      previous,
-      next: select.value,
-    });
+    pendingStatusEdits.set(playerId, { previous, next: select.value });
   }
 
   function resolveStatusMutation(playerId, ok) {
@@ -136,7 +127,6 @@
       const resolved = ok ? pending.next : pending.previous;
       select.value = resolved;
       select.dataset.confirmedValue = resolved;
-      select.disabled = false;
       if (!ok) select.setAttribute("aria-invalid", "true");
       else select.removeAttribute("aria-invalid");
     }
@@ -251,10 +241,14 @@
 
       try {
         const response = await baseFetch(path, nextOptions);
-        if (response?.ok && movedPlayerId) pendingRankEdits.delete(movedPlayerId);
+        if (movedPlayerId) {
+          if (response?.ok) pendingRankEdits.delete(movedPlayerId);
+          else setRosterRefreshing(false);
+        }
         if (statusPlayerId) resolveStatusMutation(statusPlayerId, Boolean(response?.ok));
         return response;
       } catch (error) {
+        if (movedPlayerId) setRosterRefreshing(false);
         if (statusPlayerId) resolveStatusMutation(statusPlayerId, false);
         throw error;
       }
@@ -282,11 +276,18 @@
 
     const move = event.target.closest?.("[data-move]");
     if (move) {
+      if (rosterRefreshing || move.disabled) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        return;
+      }
       restoreRankBeforeMove(move);
       if (!validateRankMove(move)) {
         event.preventDefault();
         event.stopImmediatePropagation();
+        return;
       }
+      setRosterRefreshing(true);
     }
   }, true);
 
@@ -338,8 +339,14 @@
 
     const statusSelect = event.target.closest?.("[data-status]");
     if (statusSelect) {
+      if (rosterRefreshing) {
+        const previous = statusSelect.dataset.confirmedValue;
+        if (previous) statusSelect.value = previous;
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        return;
+      }
       rememberStatusBeforeChange(statusSelect);
-      statusSelect.disabled = true;
       setRosterRefreshing(true);
     }
   }, true);
