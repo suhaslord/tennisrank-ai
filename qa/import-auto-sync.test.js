@@ -49,27 +49,21 @@ async function testNonAdminDoesNotMutateLadder() {
   assert.equal(fetchCalls, 0);
 }
 
-async function testCoachUiPathUsesCurrentRankingOrder() {
-  const invoked = [];
-  let directApiCalls = 0;
-  const buttons = {
-    boys: { onclick: async () => { invoked.push('boys'); } },
-    girls: { onclick: async () => { invoked.push('girls'); } },
-  };
+async function testAuthoritativeApiUsesCurrentRankingOrder() {
+  const requests = [];
+  const events = [];
   const rows = [{ id: 1 }, { id: 2 }];
+  const profile = { role: 'admin', id: 'coach' };
+  const session = { access_token: 'test' };
   const win = {
     CustomEvent: fakeEvent,
-    document: {
-      querySelector(selector) {
-        if (selector.includes('boys')) return buttons.boys;
-        if (selector.includes('girls')) return buttons.girls;
-        return null;
-      },
-    },
     TennisRankAuth: {
-      getProfile: () => ({ role: 'admin', id: 'coach' }),
-      getSession: () => ({ access_token: 'test' }),
-      fetch: async () => { directApiCalls += 1; return jsonResponse(true, {}); },
+      getProfile: () => profile,
+      getSession: () => session,
+      async fetch(path, options) {
+        requests.push({ path, body: JSON.parse(options.body) });
+        return jsonResponse(true, { seeded: true });
+      },
     },
     calculateRankings(receivedRows) {
       assert.equal(receivedRows, rows);
@@ -82,89 +76,72 @@ async function testCoachUiPathUsesCurrentRankingOrder() {
         ],
       };
     },
-    dispatched: [],
-    dispatchEvent(event) { this.dispatched.push(event); },
-  };
-
-  const result = await autoSync.syncOfficialBoards(win, rows);
-  assert.deepEqual(invoked, ['boys', 'girls']);
-  assert.equal(directApiCalls, 0);
-  assert.deepEqual(result.teams.boys, [{ name: 'Boys #1' }, { name: 'Boys #2' }]);
-  assert.deepEqual(result.teams.girls, [{ name: 'Girls #1' }]);
-  assert.equal(win.dispatched.some(event => event.type === 'tennisrank:import-synced'), true);
-  assert.equal(win.dispatched.some(event => event.type === 'tennisrank:auth-ready'), false);
-}
-
-async function testApiFallbackAndImmediateWorkflowRefresh() {
-  const requests = [];
-  const events = [];
-  const profile = { role: 'admin', id: 'coach' };
-  const session = { access_token: 'token' };
-  const win = {
-    CustomEvent: fakeEvent,
-    document: { querySelector: () => null },
-    TennisRankAuth: {
-      getProfile: () => profile,
-      getSession: () => session,
-      async fetch(path, options) {
-        requests.push({ path, body: JSON.parse(options.body) });
-        return jsonResponse(true, { seeded: options.body.length });
-      },
-    },
-    calculateRankings: () => ({
-      rankings: [
-        { name: 'B One', gender: 'boys', division: 'singles' },
-        { name: 'B Two', gender: 'boys', division: 'singles' },
-        { name: 'G One', gender: 'girls', division: 'singles' },
-      ],
-    }),
     dispatchEvent(event) { events.push(event); },
   };
 
-  await autoSync.syncOfficialBoards(win, [{ source: 'csv' }]);
+  const result = await autoSync.syncOfficialBoards(win, rows);
+  assert.deepEqual(result.teams.boys, [{ name: 'Boys #1' }, { name: 'Boys #2' }]);
+  assert.deepEqual(result.teams.girls, [{ name: 'Girls #1' }]);
   assert.equal(requests.length, 2);
-  assert.equal(requests[0].path, '/api/admin/seed-ladder');
-  assert.deepEqual(requests[0].body, {
-    teamGender: 'boys',
-    players: [{ name: 'B One' }, { name: 'B Two' }],
+  assert.deepEqual(requests[0], {
+    path: '/api/admin/seed-ladder',
+    body: { teamGender: 'boys', players: [{ name: 'Boys #1' }, { name: 'Boys #2' }] },
   });
-  assert.deepEqual(requests[1].body, {
-    teamGender: 'girls',
-    players: [{ name: 'G One' }],
+  assert.deepEqual(requests[1], {
+    path: '/api/admin/seed-ladder',
+    body: { teamGender: 'girls', players: [{ name: 'Girls #1' }] },
   });
 
   const authReady = events.find(event => event.type === 'tennisrank:auth-ready');
   const importSynced = events.find(event => event.type === 'tennisrank:import-synced');
-  assert.ok(authReady, 'fallback API sync should trigger existing workflow refresh hook');
+  assert.ok(authReady, 'successful sync should trigger the existing workflow refresh hook');
   assert.equal(authReady.detail.profile, profile);
   assert.equal(authReady.detail.session, session);
   assert.ok(importSynced, 'import completion event should be emitted');
 }
 
+async function testOnlyPresentSinglesTeamsAreSynced() {
+  const requests = [];
+  const win = {
+    CustomEvent: fakeEvent,
+    dispatchEvent() {},
+    TennisRankAuth: {
+      getProfile: () => ({ role: 'admin' }),
+      getSession: () => ({}),
+      async fetch(path, options) {
+        requests.push(JSON.parse(options.body));
+        return jsonResponse(true, {});
+      },
+    },
+    calculateRankings: () => ({
+      rankings: [
+        { name: 'Girls A', gender: 'girls', division: 'singles' },
+        { name: 'Girls Pair', gender: 'girls', division: 'doubles' },
+        { name: 'Boys Pair', gender: 'boys', division: 'doubles' },
+      ],
+    }),
+  };
+
+  await autoSync.syncOfficialBoards(win, [{ source: 'girls-only' }]);
+  assert.deepEqual(requests, [{ teamGender: 'girls', players: [{ name: 'Girls A' }] }]);
+}
+
 async function testPublishHookUsesMostRecentlyLoadedRows() {
   const calls = [];
-  const buttonCalls = [];
+  const posted = [];
   const rows = [{ sourceRow: 1 }, { sourceRow: 2 }];
-  const buttons = {
-    boys: { onclick: async () => { buttonCalls.push('boys'); } },
-    girls: { onclick: async () => { buttonCalls.push('girls'); } },
-  };
   const win = {
     CustomEvent: fakeEvent,
     __events: [],
     setTimeout(callback) { callback(); return 1; },
     dispatchEvent(event) { this.__events.push(event); },
-    document: {
-      querySelector(selector) {
-        if (selector.includes('boys')) return buttons.boys;
-        if (selector.includes('girls')) return buttons.girls;
-        return null;
-      },
-    },
     TennisRankAuth: {
       getProfile: () => ({ role: 'admin' }),
       getSession: () => ({ access_token: 'token' }),
-      fetch: async () => jsonResponse(true, {}),
+      async fetch(path, options) {
+        posted.push({ path, body: JSON.parse(options.body) });
+        return jsonResponse(true, {});
+      },
     },
     calculateRankings(received) {
       assert.equal(received, rows, 'official board must be calculated from the just-loaded file rows');
@@ -193,7 +170,11 @@ async function testPublishHookUsesMostRecentlyLoadedRows() {
   assert.equal(calls[0].type, 'load');
   assert.equal(calls[1].type, 'save');
   assert.equal(calls[1].explicitRows, undefined, 'real importer calls sync without explicitly re-passing rows');
-  assert.deepEqual(buttonCalls, ['boys', 'girls']);
+  assert.deepEqual(posted.map(request => request.body), [
+    { teamGender: 'boys', players: [{ name: 'Imported Boy' }] },
+    { teamGender: 'girls', players: [{ name: 'Imported Girl' }] },
+  ]);
+  assert.equal(win.__events.some(event => event.type === 'tennisrank:auth-ready'), true);
   assert.equal(win.__events.some(event => event.type === 'tennisrank:import-synced'), true);
 }
 
@@ -204,7 +185,6 @@ async function testExplicitRowsAlsoSync() {
     CustomEvent: fakeEvent,
     setTimeout(callback) { callback(); return 1; },
     dispatchEvent() {},
-    document: { querySelector: () => null },
     TennisRankAuth: {
       getProfile: () => ({ role: 'admin' }),
       getSession: () => ({}),
@@ -237,7 +217,6 @@ async function testBoardFailureIsNotSilentlyReportedAsSuccess() {
     CustomEvent: fakeEvent,
     setTimeout(callback) { callback(); return 1; },
     dispatchEvent() {},
-    document: { querySelector: () => null },
     TennisRankAuth: {
       getProfile: () => ({ role: 'admin' }),
       getSession: () => ({}),
@@ -262,14 +241,40 @@ async function testBoardFailureIsNotSilentlyReportedAsSuccess() {
   assert.equal(rawSaveCompleted, true, 'raw records save should have happened before board sync failed');
 }
 
+async function testFirstTeamFailureStopsSecondTeamPublish() {
+  const requests = [];
+  const win = {
+    CustomEvent: fakeEvent,
+    dispatchEvent() {},
+    TennisRankAuth: {
+      getProfile: () => ({ role: 'admin' }),
+      getSession: () => ({}),
+      async fetch(path, options) {
+        requests.push(JSON.parse(options.body));
+        return jsonResponse(false, { error: 'boys sync failed' });
+      },
+    },
+    calculateRankings: () => ({
+      rankings: [
+        { name: 'Boy', gender: 'boys', division: 'singles' },
+        { name: 'Girl', gender: 'girls', division: 'singles' },
+      ],
+    }),
+  };
+
+  await assert.rejects(() => autoSync.syncOfficialBoards(win, [{ source: 'csv' }]), /boys sync failed/);
+  assert.equal(requests.length, 1, 'do not claim or attempt a later team sync after an earlier authoritative write failed');
+}
+
 (async () => {
   await testRankingExtraction();
   await testNonAdminDoesNotMutateLadder();
-  await testCoachUiPathUsesCurrentRankingOrder();
-  await testApiFallbackAndImmediateWorkflowRefresh();
+  await testAuthoritativeApiUsesCurrentRankingOrder();
+  await testOnlyPresentSinglesTeamsAreSynced();
   await testPublishHookUsesMostRecentlyLoadedRows();
   await testExplicitRowsAlsoSync();
   await testBoardFailureIsNotSilentlyReportedAsSuccess();
+  await testFirstTeamFailureStopsSecondTeamPublish();
   console.log('import auto-sync tests passed');
 })().catch(error => {
   console.error(error);
