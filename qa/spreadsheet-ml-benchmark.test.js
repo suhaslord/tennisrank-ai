@@ -9,6 +9,28 @@ calibration.wrapImporter(importer, ml);
 
 const validFixtures = [
   {
+    name: "Coach Lokesh canonical Tennis Results",
+    source: "Tennis Results",
+    text: "Name,Gender,Division,Player 1,Player 2,Winner,Loser,Score,Date\nAiden Brooks,Boys,Singles,,,,,,\nMaya Shah,Girls,Singles,,,,,,\n,,Boys,Singles,Aiden Brooks,Mateo Rivera,Aiden Brooks,Mateo Rivera,6-3,2026-08-01",
+    check: rows => rows.length === 3
+      && rows[0].name === "Aiden Brooks"
+      && rows[0].gender === "Boys"
+      && rows[0].division === "Singles"
+      && !rows[0].winner
+      && rows[2].winner === "Aiden Brooks"
+      && rows[2].loser === "Mateo Rivera",
+  },
+  {
+    name: "Coach Lokesh canonical doubles identity",
+    source: "Tennis Results",
+    text: "Name,Gender,Division,Player 1,Player 2,Winner,Loser,Score,Date\nLiam Chen & Oliver Davis,Boys,Doubles,,,,,,\nMarcus Lee & James Park,Boys,Doubles,,,,,,\n,,Boys,Doubles,Liam Chen & Oliver Davis,Marcus Lee & James Park,Liam Chen & Oliver Davis,Marcus Lee & James Park,8-5,2026-08-01",
+    check: rows => rows.length === 3
+      && rows[0].name === "Liam Chen & Oliver Davis"
+      && rows[2].player1 === "Liam Chen & Oliver Davis"
+      && rows[2].player2 === "Marcus Lee & James Park"
+      && rows[2].winner === "Liam Chen & Oliver Davis",
+  },
+  {
     name: "standard match log",
     source: "Varsity Match Log",
     text: "Player,Opponent,Result,Score,Date\nAiden Shah,Leo Kim,W,6-3 6-4,2026-08-10\nMaya Lee,Zoe Rivera,L,4-6 3-6,2026-08-11",
@@ -120,6 +142,7 @@ const rejectedFixtures = [
   { name: "practice notes", source: "Practice", text: "Coach,Location,Notes\nCoach Lee,Court 3,Bring water\nCoach Kim,Court 4,New balls" },
   { name: "student contacts", source: "Contacts", text: "Student,Email,Phone\nAiden Shah,aiden@example.com,5550001\nLeo Kim,leo@example.com,5550002" },
   { name: "equipment inventory", source: "Inventory", text: "Item,Count,Location\nBalls,48,Shed\nRackets,12,Locker" },
+  { name: "availability is not a result", source: "Roster Status", text: "Player,Availability,Coach Note\nAiden Brooks,active,cleared\nMateo Rivera,injured,rehab" },
   { name: "random colors", source: "Misc", text: "Alpha,Beta,Gamma\nred,blue,green\none,two,three" },
   { name: "calendar only", source: "Schedule", text: "Date,Court,Notes\n2026-08-20,1,Practice\n2026-08-21,2,Conditioning" },
   { name: "grades", source: "Class", text: "Name,Assignment,Grade\nAiden Shah,Quiz 1,92\nLeo Kim,Quiz 1,88" },
