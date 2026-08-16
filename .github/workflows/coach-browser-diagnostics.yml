@@ -28,9 +28,10 @@ jobs:
           path = Path('index.html')
           html = path.read_text()
           html = html.replace('</head>', '<link rel="stylesheet" href="./player-dashboard-state.css" /></head>')
-          stack = '<script src="./ranking-policy.js"></script><script src="./import-runtime-fixes.js"></script><script src="./import-v2.js"></script><script src="./import-delimiter-fix.js"></script><script src="./spreadsheet-ml.js"></script><script src="./import-v2-fixes.js"></script><script src="./import-row-safety-fix.js"></script><script src="./import-multiblock-fix.js"></script><script src="./spreadsheet-semantic-calibration.js"></script><script src="./spreadsheet-ai.js"></script><script src="./ai-quota-guard.js"></script><script src="./import-auto-sync.js"></script><script src="./player-dashboard-state.js"></script>'
+          stack = '<script src="./import-runtime-fixes.js"></script><script src="./import-v2.js"></script><script src="./import-delimiter-fix.js"></script><script src="./spreadsheet-ml.js"></script><script src="./import-v2-fixes.js"></script><script src="./import-row-safety-fix.js"></script><script src="./import-multiblock-fix.js"></script><script src="./spreadsheet-semantic-calibration.js"></script><script src="./spreadsheet-ai.js"></script><script src="./ai-quota-guard.js"></script><script src="./import-auto-sync.js"></script><script src="./ranking-policy.js"></script><script src="./player-dashboard-state.js"></script>'
           html = html.replace('<script src="./app.js"></script>', '<script src="./app.js"></script>' + stack)
           path.write_text(html)
+          Path('qa-ai-index.html').write_text(html)
           PY
       - name: Run browser tests with JSON diagnostics
         id: browser_tests
