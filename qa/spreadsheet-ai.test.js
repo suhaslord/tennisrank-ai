@@ -1,5 +1,5 @@
 const assert = require("node:assert/strict");
-const server = require("../api/ai-analyze-sheet.js");
+const server = require("../api/sheet-proxy.js");
 const client = require("../spreadsheet-ai.js");
 const ml = require("../spreadsheet-ml.js");
 const importer = require("../import-v2.js");
