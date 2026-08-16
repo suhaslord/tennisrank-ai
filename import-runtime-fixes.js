@@ -83,10 +83,6 @@
   function structuralHeaderIndex(matrix, importer) {
     const semantic = typeof importer?.detectHeaderRow === "function" ? importer.detectHeaderRow(matrix) : null;
     const semanticStructural = (semantic?.mapping || []).filter(field => STRUCTURAL_HEADER_FIELDS.has(field)).length;
-    // Values such as W, Boys and Singles are legitimate data and can also look
-    // like result/gender/division headers. Never let those value-like semantics
-    // alone select a data row as the header. A semantic header needs at least
-    // two structural labels (Player/Opponent, Winner/Loser, Rank/Player, etc.).
     if (semanticStructural >= 2 && Number.isInteger(semantic.index)) return semantic.index;
 
     let best = { index: 0, score: -Infinity };
@@ -304,6 +300,36 @@
     return ` Ignored ${ignored.length} non-tennis/unsafe worksheet${ignored.length === 1 ? "" : "s"}${names ? ` (${names}${ignored.length > 3 ? ", …" : ""})` : ""}.`;
   }
 
+  function rankingSafeRows(rows) {
+    const safe = (rows || []).map(row => {
+      const copy = {};
+      Object.entries(row || {}).forEach(([key, value]) => {
+        if (!key.startsWith("__")) copy[key] = value;
+      });
+      const context = String(row?.__sheetName || "");
+      if (!copy.gender && /\b(girls?|women|female)\b/i.test(context)) copy.gender = "Girls";
+      else if (!copy.gender && /\b(boys?|men|male)\b/i.test(context)) copy.gender = "Boys";
+      if (!copy.division && /\b(doubles?|pairs?|2v2)\b/i.test(context)) copy.division = "Doubles";
+      else if (!copy.division && /\b(singles?)\b/i.test(context)) copy.division = "Singles";
+      if (Number.isFinite(row?.__aggregateWins)) copy.__aggregateWins = row.__aggregateWins;
+      if (Number.isFinite(row?.__aggregateLosses)) copy.__aggregateLosses = row.__aggregateLosses;
+      if (Number.isFinite(row?.__sourceRank)) copy.__sourceRank = row.__sourceRank;
+      if (row?.__sourceRow !== undefined) copy.__sourceRow = row.__sourceRow;
+      return copy;
+    });
+    if (rows?.__analysis) safe.__analysis = rows.__analysis;
+    return safe;
+  }
+
+  function installRankingMetadataGuard(win) {
+    const base = win.calculateRankings;
+    if (typeof base !== "function" || base.__metadataSafe) return;
+    const guarded = rows => base(rankingSafeRows(rows));
+    guarded.__metadataSafe = true;
+    guarded.__baseCalculate = base;
+    win.calculateRankings = guarded;
+  }
+
   async function importSelectedFile(win, file) {
     if (!file) throw new Error("Choose a spreadsheet file first.");
     const importer = win.TennisRankImportV2;
@@ -460,6 +486,7 @@
         importer.mergeWorksheetRows = (...args) => normalizeRows(baseMerge(...args));
         win.parseCSV = importer.parseText;
         win.googleCsvUrl = importer.googleCsvProxyUrl;
+        installRankingMetadataGuard(win);
         win.fetchSheet = async () => {
           const inputUrl = String(doc.querySelector("#sheetUrl")?.value || localStorage.getItem("tennisRankSheetUrl") || "").trim();
           if (!inputUrl) throw new Error("Paste a Google Sheet link first.");
@@ -511,6 +538,8 @@
     isWorkbook,
     aiLabel,
     ignoredSheetSummary,
+    rankingSafeRows,
+    installRankingMetadataGuard,
     importSelectedFile,
     importPastedText,
     fetchGoogleSheetRows,
