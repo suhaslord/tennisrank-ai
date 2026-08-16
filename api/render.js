@@ -1,4 +1,4 @@
-const COMMIT = 'a370f4090058da26bec7eb2d8a23dc11fbeddace';
+const COMMIT = 'd1b09c13855a32ff28879bf87d72026db141c393';
 const CDN = `https://cdn.jsdelivr.net/gh/suhaslord/tennisrank-ai@${COMMIT}`;
 const SHEETJS = 'https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js';
 
@@ -20,7 +20,7 @@ function rewrite(html) {
 
   out = out.replace(
     '</head>',
-    `<script defer src="${SHEETJS}"></script><link rel="stylesheet" href="${CDN}/production-stability.css"><link rel="stylesheet" href="${CDN}/tesla-authority.css"><link rel="stylesheet" href="${CDN}/tesla-finish.css"><link rel="stylesheet" href="${CDN}/tesla-motion.css"><style>#showBootstrap,.bootstrap-form{display:none!important}</style></head>`,
+    `<script defer src="${SHEETJS}"></script><link rel="stylesheet" href="${CDN}/production-stability.css"><link rel="stylesheet" href="${CDN}/tesla-authority.css"><link rel="stylesheet" href="${CDN}/tesla-finish.css"><link rel="stylesheet" href="${CDN}/tesla-motion.css"><link rel="stylesheet" href="${CDN}/story-photo-scale.css"><style>#showBootstrap,.bootstrap-form{display:none!important}</style></head>`,
   );
 
   // The exact importer stack that passed local extreme-workbook testing and CI:
