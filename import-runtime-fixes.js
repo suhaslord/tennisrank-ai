@@ -18,12 +18,44 @@
     return raw;
   }
 
-  function normalizeRows(rows) {
-    for (const row of rows || []) {
-      if (row && row.winner) row.winner = sidePointer(row.winner);
-      if (row && row.loser) row.loser = sidePointer(row.loser);
-      if (row && row.result) row.result = sidePointer(row.result);
+  function normalizeResult(value) {
+    const pointed = sidePointer(value);
+    if (pointed === "Player A" || pointed === "Player B") return pointed;
+    const text = String(pointed || "").trim();
+    if (/^(?:w|win|won|winner)$/i.test(text)) return "W";
+    if (/^(?:l|loss|lost|loser)$/i.test(text)) return "L";
+    return text;
+  }
+
+  function normalizeCanonicalRow(row) {
+    if (!row) return row;
+    if (row.winner) row.winner = sidePointer(row.winner);
+    if (row.loser) row.loser = sidePointer(row.loser);
+    if (row.result) row.result = normalizeResult(row.result);
+    if (row.record) {
+      const match = String(row.record).match(/(\d+)\s*[-–/]\s*(\d+)/);
+      if (match) {
+        row.__aggregateWins = Number(match[1]);
+        row.__aggregateLosses = Number(match[2]);
+      }
     }
+    if (row.wins !== undefined && String(row.wins).trim() !== "") {
+      const wins = Number(String(row.wins).replace(/[^\d.-]/g, ""));
+      if (Number.isFinite(wins) && wins >= 0) row.__aggregateWins = wins;
+    }
+    if (row.losses !== undefined && String(row.losses).trim() !== "") {
+      const losses = Number(String(row.losses).replace(/[^\d.-]/g, ""));
+      if (Number.isFinite(losses) && losses >= 0) row.__aggregateLosses = losses;
+    }
+    if (row.rank !== undefined && String(row.rank).trim() !== "") {
+      const rank = Number(String(row.rank).replace(/[^\d.]/g, ""));
+      if (Number.isFinite(rank) && rank > 0) row.__sourceRank = rank;
+    }
+    return row;
+  }
+
+  function normalizeRows(rows) {
+    for (const row of rows || []) normalizeCanonicalRow(row);
     return rows;
   }
 
@@ -39,6 +71,110 @@
     return review;
   }
 
+  function reviewWithoutThrow(rows, importer) {
+    try {
+      return validateRows(rows, importer);
+    } catch (error) {
+      return { valid: false, confidence: Number(rows?.__analysis?.review?.confidence || 0), level: "LOW", reason: error.message };
+    }
+  }
+
+  function structuralHeaderIndex(matrix, importer) {
+    const semantic = typeof importer?.detectHeaderRow === "function" ? importer.detectHeaderRow(matrix) : null;
+    const semanticRecognized = (semantic?.mapping || []).filter(field => field !== "column").length;
+    if (semanticRecognized >= 2 && Number.isInteger(semantic.index)) return semantic.index;
+
+    let best = { index: 0, score: -Infinity };
+    for (let index = 0; index < Math.min(matrix.length, 40); index += 1) {
+      const row = matrix[index] || [];
+      const nonEmpty = row.filter(value => String(value || "").trim()).length;
+      if (nonEmpty < 2) continue;
+      const width = row.length;
+      const followers = matrix.slice(index + 1, index + 7).filter(candidate => (candidate || []).some(value => String(value || "").trim()));
+      const similar = followers.filter(candidate => Math.abs(candidate.length - width) <= 1 && candidate.filter(value => String(value || "").trim()).length >= Math.max(2, Math.floor(nonEmpty * 0.55))).length;
+      const unique = new Set(row.map(value => String(value || "").trim().toLowerCase()).filter(Boolean)).size;
+      const score = nonEmpty * 2 + similar * 3 + Math.min(unique, nonEmpty) * 0.35 - index * 0.08;
+      if (score > best.score) best = { index, score };
+    }
+    return best.index;
+  }
+
+  function uniqueRawHeaders(values) {
+    const seen = new Map();
+    return (values || []).map((value, index) => {
+      const base = String(value || "").trim() || `Column ${index + 1}`;
+      const count = seen.get(base) || 0;
+      seen.set(base, count + 1);
+      return count ? `${base} (${count + 1})` : base;
+    });
+  }
+
+  function rawRowsFromText(text, sourceName, importer) {
+    if (!importer || typeof importer.parseDelimited !== "function") return [];
+    const parsed = importer.parseDelimited(String(text || "").replace(/^\uFEFF/, ""));
+    const matrix = parsed.matrix || [];
+    if (!matrix.length) return [];
+    const headerIndex = structuralHeaderIndex(matrix, importer);
+    const headers = uniqueRawHeaders(matrix[headerIndex] || []);
+    const rows = matrix.slice(headerIndex + 1).map((values, offset) => {
+      const row = Object.fromEntries(headers.map((header, index) => [header, String(values[index] ?? "").trim()]));
+      row.__sourceRow = headerIndex + offset + 2;
+      if (sourceName) row.__sheetName = sourceName;
+      return row;
+    }).filter(row => Object.entries(row).some(([key, value]) => !key.startsWith("__") && String(value || "").trim()));
+    rows.__analysis = {
+      headerRow: headerIndex + 1,
+      delimiter: parsed.delimiter === "\t" ? "tab" : parsed.delimiter === "|" ? "pipe" : parsed.delimiter,
+      columns: headers,
+      mapping: headers.map(header => ({ source: header, field: header, method: "raw-source", confidence: 1 })),
+      sourceName: sourceName || "",
+      engine: "raw-source-for-ai",
+    };
+    return rows;
+  }
+
+  async function processTextWithAi(win, text, source, sourceName) {
+    const importer = win?.TennisRankImportV2 || (typeof globalThis !== "undefined" ? globalThis.TennisRankImportV2 : null);
+    if (!importer || typeof importer.parseText !== "function") throw new Error("The TennisRank spreadsheet importer is not ready yet.");
+    const localRows = normalizeRows(importer.parseText(String(text || ""), sourceName || "Tennis spreadsheet"));
+    const localReview = reviewWithoutThrow(localRows, importer);
+    const ai = win?.TennisRankSpreadsheetAI || (typeof globalThis !== "undefined" ? globalThis.TennisRankSpreadsheetAI : null);
+    if (!ai || typeof ai.enhanceRows !== "function") {
+      validateRows(localRows, importer);
+      return localRows;
+    }
+
+    const rawRows = rawRowsFromText(text, sourceName, importer);
+    if (!rawRows.length) {
+      validateRows(localRows, importer);
+      return localRows;
+    }
+
+    try {
+      let aiRows = await ai.enhanceRows(rawRows, {
+        source: source || "file",
+        sourceName: sourceName || "Tennis spreadsheet",
+        importer,
+        auth: win?.TennisRankAuth || (typeof globalThis !== "undefined" ? globalThis.TennisRankAuth : null),
+      });
+      aiRows = normalizeRows(aiRows);
+      const aiReview = reviewWithoutThrow(aiRows, importer);
+      if (aiReview.valid) {
+        if (aiRows.__analysis) aiRows.__analysis.review = aiReview;
+        return aiRows;
+      }
+      if (localReview.valid) return localRows;
+      throw new Error(aiReview.reason || localReview.reason || "The spreadsheet could not be interpreted safely.");
+    } catch (error) {
+      // Provider outages/configuration issues may safely fall back to a local
+      // interpretation that independently passed TennisRank validation. A high-
+      // confidence AI rejection still throws from enhanceRows and is preserved.
+      const fallbackCodes = new Set(["AI_NOT_CONFIGURED", "AI_AUTH_UNAVAILABLE"]);
+      if (localReview.valid && (fallbackCodes.has(error?.code) || error?.status === 429 || Number(error?.status) >= 500)) return localRows;
+      throw error;
+    }
+  }
+
   async function maybeEnhanceRows(rows, importer, sourceName) {
     const ai = typeof globalThis !== "undefined" ? globalThis.TennisRankSpreadsheetAI : null;
     if (!ai || typeof ai.enhanceRows !== "function") return rows;
@@ -50,34 +186,26 @@
     });
   }
 
-  function reviewWithoutThrow(rows, importer) {
-    try {
-      return validateRows(rows, importer);
-    } catch (error) {
-      return { valid: false, confidence: Number(rows?.__analysis?.review?.confidence || 0), level: "LOW", reason: error.message };
-    }
-  }
-
   async function prepareWorksheet(sheet, importer, options = {}) {
     const name = String(sheet?.name || "Sheet");
     const text = String(sheet?.text || "");
     if (!text.trim()) return { accepted: false, name, reason: "Empty worksheet." };
     if (!importer || typeof importer.parseText !== "function") throw new Error("The TennisRank spreadsheet importer is not ready yet.");
 
-    let rows = normalizeRows(importer.parseText(text, name));
-    if (!rows.length) return { accepted: false, name, reason: "No usable rows." };
-
-    let review = reviewWithoutThrow(rows, importer);
-    const shouldAskAi = options.useAi !== false && (!review.valid || Number(review.confidence || 0) < 0.72);
-    if (shouldAskAi) {
+    let rows;
+    const browserLike = typeof globalThis !== "undefined" && globalThis.TennisRankSpreadsheetAI && globalThis.TennisRankImportV2;
+    if (options.useAi !== false && browserLike) {
       try {
-        rows = normalizeRows(await maybeEnhanceRows(rows, importer, name));
-        review = reviewWithoutThrow(rows, importer);
+        rows = await processTextWithAi(globalThis, text, "file", name);
       } catch (error) {
         return { accepted: false, name, reason: error.message || "AI verification rejected this worksheet." };
       }
+    } else {
+      rows = normalizeRows(importer.parseText(text, name));
     }
 
+    if (!rows.length) return { accepted: false, name, reason: "No usable rows." };
+    const review = reviewWithoutThrow(rows, importer);
     if (!review.valid) return { accepted: false, name, reason: review.reason || "Worksheet did not pass tennis validation." };
     if (rows.__analysis) rows.__analysis.review = review;
     return { accepted: true, name, rows, review };
@@ -109,7 +237,7 @@
       sheets: accepted.map(item => item.name),
       rejectedSheets: rejected.map(item => ({ name: item.name, reason: item.reason })),
       sheetAnalyses,
-      engine: "v3-workbook-isolated",
+      engine: "v4-workbook-isolated-raw-ai",
       mlConfidence: averageConfidence,
     };
     const finalReview = validateRows(merged, importer);
@@ -138,8 +266,10 @@
     if (!importer || typeof importer.parseText !== "function") throw new Error("The TennisRank spreadsheet importer is not ready yet.");
     const text = await file.text();
     if (!String(text || "").trim()) throw new Error("This file is empty.");
-    let rows = normalizeRows(importer.parseText(text, file.name || "Uploaded file"));
-    rows = normalizeRows(await maybeEnhanceRows(rows, importer, file?.name || "Uploaded text file"));
+    const browserLike = typeof globalThis !== "undefined" && globalThis.TennisRankSpreadsheetAI && globalThis.TennisRankImportV2;
+    const rows = browserLike
+      ? await processTextWithAi(globalThis, text, "file", file.name || "Uploaded file")
+      : normalizeRows(importer.parseText(text, file.name || "Uploaded file"));
     validateRows(rows, importer);
     return rows;
   }
@@ -203,6 +333,59 @@
     }
   }
 
+  async function importPastedText(win) {
+    const text = String(win.document.querySelector("#csvText")?.value || "");
+    if (!text.trim()) throw new Error("Paste spreadsheet data first.");
+    const button = win.document.querySelector("#useCsv");
+    if (typeof win.setBusy === "function") win.setBusy(button, true);
+    try {
+      if (typeof win.setStatus === "function") win.setStatus("Reading the original columns, then asking TennisRank AI to verify the schema...");
+      const rows = await processTextWithAi(win, text, "csv", "Pasted tennis data");
+      win.loadRows(rows, "csv");
+      if (typeof win.setStatus === "function") win.setStatus(`Loaded ${rows.length} verified rows. Saving...`);
+      if (typeof win.syncToBackend === "function") await win.syncToBackend();
+      if (typeof win.setStatus === "function") win.setStatus(`Loaded, verified, and saved ${rows.length} rows.`);
+      return rows;
+    } finally {
+      if (typeof win.setBusy === "function") win.setBusy(button, false);
+    }
+  }
+
+  async function fetchGoogleSheetRows(win, input) {
+    const importer = win.TennisRankImportV2;
+    if (!importer?.googleCsvProxyUrl) throw new Error("Google Sheet support is still loading.");
+    const proxyUrl = importer.googleCsvProxyUrl(input);
+    const response = await fetch(proxyUrl, { cache: "no-store" });
+    const text = await response.text();
+    if (!response.ok) {
+      let message = `The sheet could not be loaded (${response.status}).`;
+      try { message = JSON.parse(text).error || message; } catch {}
+      throw new Error(message);
+    }
+    return processTextWithAi(win, text, "sheet", "Google Sheet tennis data");
+  }
+
+  async function connectGoogleSheet(win) {
+    const doc = win.document;
+    const button = doc.querySelector("#connectSheet");
+    if (typeof win.setBusy === "function") win.setBusy(button, true);
+    try {
+      const input = String(doc.querySelector("#sheetUrl")?.value || localStorage.getItem("tennisRankSheetUrl") || "").trim();
+      if (!input) throw new Error("Paste a Google Sheet link first.");
+      if (typeof win.setStatus === "function") win.setStatus("Loading the Google Sheet through the secure server proxy, then validating its original columns...");
+      const rows = await fetchGoogleSheetRows(win, input);
+      localStorage.setItem("tennisRankSheetUrl", input);
+      win.loadRows(rows, "sheet");
+      if (typeof win.setStatus === "function") win.setStatus(`Loaded ${rows.length} verified Google Sheet rows. Saving...`);
+      if (typeof win.syncToBackend === "function") await win.syncToBackend();
+      if (typeof win.startRefresh === "function") win.startRefresh();
+      if (typeof win.setStatus === "function") win.setStatus("Google Sheet verified and saved.");
+      return rows;
+    } finally {
+      if (typeof win.setBusy === "function") win.setBusy(button, false);
+    }
+  }
+
   function setFileButtonLabel(doc, file) {
     const button = doc.querySelector("#useCsv");
     const label = button?.querySelector("span");
@@ -236,15 +419,29 @@
       }
 
       const useButton = doc.querySelector("#useCsv");
-      if (useButton && !useButton.dataset.selectedFileGuard) {
-        useButton.dataset.selectedFileGuard = "true";
+      if (useButton && !useButton.dataset.importRuntimeActionBound) {
+        useButton.dataset.importRuntimeActionBound = "true";
         useButton.addEventListener("click", async event => {
-          const file = doc.querySelector("#csvFile")?.files?.[0];
-          if (!file) return;
           event.preventDefault();
           event.stopImmediatePropagation();
           try {
-            await importSelectedFile(win, file);
+            const file = doc.querySelector("#csvFile")?.files?.[0];
+            if (file) await importSelectedFile(win, file);
+            else await importPastedText(win);
+          } catch (error) {
+            if (typeof win.setStatus === "function") win.setStatus(error.message, true);
+          }
+        }, true);
+      }
+
+      const sheetButton = doc.querySelector("#connectSheet");
+      if (sheetButton && !sheetButton.dataset.importRuntimeActionBound) {
+        sheetButton.dataset.importRuntimeActionBound = "true";
+        sheetButton.addEventListener("click", async event => {
+          event.preventDefault();
+          event.stopImmediatePropagation();
+          try {
+            await connectGoogleSheet(win);
           } catch (error) {
             if (typeof win.setStatus === "function") win.setStatus(error.message, true);
           }
@@ -261,6 +458,13 @@
         importer.mergeWorksheetRows = (...args) => normalizeRows(baseMerge(...args));
         win.parseCSV = importer.parseText;
         win.googleCsvUrl = importer.googleCsvProxyUrl;
+        win.fetchSheet = async () => {
+          const inputUrl = String(doc.querySelector("#sheetUrl")?.value || localStorage.getItem("tennisRankSheetUrl") || "").trim();
+          if (!inputUrl) throw new Error("Paste a Google Sheet link first.");
+          const rows = await fetchGoogleSheetRows(win, inputUrl);
+          win.loadRows(rows, "sheet");
+          return rows;
+        };
 
         if (typeof win.loadRows === "function" && !win.loadRows.__tennisrankValidated) {
           const baseLoadRows = win.loadRows;
@@ -286,9 +490,15 @@
   return {
     WORKBOOK_ACCEPT,
     sidePointer,
+    normalizeResult,
+    normalizeCanonicalRow,
     normalizeRows,
     validateRows,
     reviewWithoutThrow,
+    structuralHeaderIndex,
+    uniqueRawHeaders,
+    rawRowsFromText,
+    processTextWithAi,
     maybeEnhanceRows,
     prepareWorksheet,
     mergeAcceptedWorksheets,
@@ -299,6 +509,9 @@
     aiLabel,
     ignoredSheetSummary,
     importSelectedFile,
+    importPastedText,
+    fetchGoogleSheetRows,
+    connectGoogleSheet,
     setFileButtonLabel,
     installBrowser,
   };
