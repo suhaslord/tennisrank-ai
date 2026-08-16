@@ -4,6 +4,7 @@
     { "source": "/api/config", "destination": "/api/auth-api?route=config" },
     { "source": "/api/session", "destination": "/api/auth-api?route=session" },
     { "source": "/api/bootstrap", "destination": "/api/auth-api?route=bootstrap" },
+    { "source": "/api/ai-analyze-sheet", "destination": "/api/sheet-proxy?mode=ai" },
     { "source": "/", "destination": "/api/render" },
     { "source": "/player", "destination": "/api/render" },
     { "source": "/admin", "destination": "/api/render" },
