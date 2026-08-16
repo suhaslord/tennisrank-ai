@@ -11,21 +11,27 @@ const validFixtures = [
   {
     name: "Coach Lokesh canonical Tennis Results",
     source: "Tennis Results",
-    text: "Name,Gender,Division,Player 1,Player 2,Winner,Loser,Score,Date\nAiden Brooks,Boys,Singles,,,,,,\nMaya Shah,Girls,Singles,,,,,,\n,,Boys,Singles,Aiden Brooks,Mateo Rivera,Aiden Brooks,Mateo Rivera,6-3,2026-08-01",
+    text: "Name,Gender,Division,Player 1,Player 2,Winner,Loser,Score,Date\nAiden Brooks,Boys,Singles,,,,,,\nMaya Shah,Girls,Singles,,,,,,\n,Boys,Singles,Aiden Brooks,Mateo Rivera,Aiden Brooks,Mateo Rivera,6-3,2026-08-01",
     check: rows => rows.length === 3
       && rows[0].name === "Aiden Brooks"
       && rows[0].gender === "Boys"
       && rows[0].division === "Singles"
       && !rows[0].winner
+      && rows[2].gender === "Boys"
+      && rows[2].division === "Singles"
+      && rows[2].player1 === "Aiden Brooks"
+      && rows[2].player2 === "Mateo Rivera"
       && rows[2].winner === "Aiden Brooks"
       && rows[2].loser === "Mateo Rivera",
   },
   {
     name: "Coach Lokesh canonical doubles identity",
     source: "Tennis Results",
-    text: "Name,Gender,Division,Player 1,Player 2,Winner,Loser,Score,Date\nLiam Chen & Oliver Davis,Boys,Doubles,,,,,,\nMarcus Lee & James Park,Boys,Doubles,,,,,,\n,,Boys,Doubles,Liam Chen & Oliver Davis,Marcus Lee & James Park,Liam Chen & Oliver Davis,Marcus Lee & James Park,8-5,2026-08-01",
+    text: "Name,Gender,Division,Player 1,Player 2,Winner,Loser,Score,Date\nLiam Chen & Oliver Davis,Boys,Doubles,,,,,,\nMarcus Lee & James Park,Boys,Doubles,,,,,,\n,Boys,Doubles,Liam Chen & Oliver Davis,Marcus Lee & James Park,Liam Chen & Oliver Davis,Marcus Lee & James Park,8-5,2026-08-01",
     check: rows => rows.length === 3
       && rows[0].name === "Liam Chen & Oliver Davis"
+      && rows[2].gender === "Boys"
+      && rows[2].division === "Doubles"
       && rows[2].player1 === "Liam Chen & Oliver Davis"
       && rows[2].player2 === "Marcus Lee & James Park"
       && rows[2].winner === "Liam Chen & Oliver Davis",
