@@ -7,16 +7,16 @@ function rewrite(html) {
   out = out
     .replaceAll('src="/assets/', `src="${CDN}/assets/`)
     .replaceAll('href="/assets/', `href="${CDN}/assets/`)
-    .replaceAll('href="./style.css"', `href="${CDN}/style.css`)
-    .replaceAll('href="./ladder.css"', `href="${CDN}/ladder.css`)
-    .replaceAll('href="./challenge-ui.css"', `href="${CDN}/challenge-ui.css`)
-    .replaceAll('href="./challenge-ui-fixes.css"', `href="${CDN}/challenge-ui-fixes.css`)
-    .replaceAll('src="./auth.js"', `src="${CDN}/auth.js`)
-    .replaceAll('src="./lib/ladder-engine.js"', `src="${CDN}/lib/ladder-engine.js`)
-    .replaceAll('src="./app.js"', `src="${CDN}/app.js`)
-    .replaceAll('src="./ladder.js"', `src="${CDN}/ladder.js`)
-    .replaceAll('src="./challenge-ui.js"', `src="${CDN}/challenge-ui.js`)
-    .replaceAll('src="./challenge-ui-state.js"', `src="${CDN}/challenge-ui-state.js`);
+    .replaceAll('href="./style.css"', `href="${CDN}/style.css"`)
+    .replaceAll('href="./ladder.css"', `href="${CDN}/ladder.css"`)
+    .replaceAll('href="./challenge-ui.css"', `href="${CDN}/challenge-ui.css"`)
+    .replaceAll('href="./challenge-ui-fixes.css"', `href="${CDN}/challenge-ui-fixes.css"`)
+    .replaceAll('src="./auth.js"', `src="${CDN}/auth.js"`)
+    .replaceAll('src="./lib/ladder-engine.js"', `src="${CDN}/lib/ladder-engine.js"`)
+    .replaceAll('src="./app.js"', `src="${CDN}/app.js"`)
+    .replaceAll('src="./ladder.js"', `src="${CDN}/ladder.js"`)
+    .replaceAll('src="./challenge-ui.js"', `src="${CDN}/challenge-ui.js"`)
+    .replaceAll('src="./challenge-ui-state.js"', `src="${CDN}/challenge-ui-state.js"`);
 
   out = out.replace(
     '</head>',
