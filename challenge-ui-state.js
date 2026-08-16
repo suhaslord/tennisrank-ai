@@ -56,6 +56,18 @@
       });
     }
 
+    consoleEl.querySelectorAll("[data-roster-player]").forEach(row => {
+      const playerId = row.dataset.rosterPlayer;
+      const select = row.querySelector("[data-status]");
+      // A freshly rendered roster row is authoritative server state. Capture it
+      // before the user changes the control so a failed mutation can always roll
+      // back correctly, including programmatic/mobile select changes that do not
+      // produce a focus event first.
+      if (select && playerId && !pendingStatusEdits.has(playerId)) {
+        select.dataset.confirmedValue = select.value;
+      }
+    });
+
     pendingRankEdits.forEach((value, playerId) => {
       const row = consoleEl.querySelector(`[data-roster-player="${CSS.escape(playerId)}"]`);
       const input = row?.querySelector("[data-new-rank]");
@@ -107,9 +119,9 @@
     const row = select.closest("[data-roster-player]");
     const playerId = row?.dataset.rosterPlayer;
     if (!playerId) return;
-    if (!select.dataset.confirmedValue) select.dataset.confirmedValue = select.value;
+    const previous = select.dataset.confirmedValue || "active";
     pendingStatusEdits.set(playerId, {
-      previous: select.dataset.confirmedValue,
+      previous,
       next: select.value,
     });
   }
@@ -121,8 +133,9 @@
     const row = document.querySelector(`[data-roster-player="${CSS.escape(playerId)}"]`);
     const select = row?.querySelector("[data-status]");
     if (select) {
-      select.value = ok ? pending.next : pending.previous;
-      select.dataset.confirmedValue = ok ? pending.next : pending.previous;
+      const resolved = ok ? pending.next : pending.previous;
+      select.value = resolved;
+      select.dataset.confirmedValue = resolved;
       select.disabled = false;
       if (!ok) select.setAttribute("aria-invalid", "true");
       else select.removeAttribute("aria-invalid");
