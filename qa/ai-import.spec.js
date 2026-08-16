@@ -1,6 +1,11 @@
 const { test, expect } = require('@playwright/test');
 
 const BASE = 'http://127.0.0.1:4173/qa-ai-index.html';
+const GOOGLE_SHEET_CSV = [
+  'Odd Player,Other Human,Outcome,Final,Team Sex,Event Type',
+  'Aiden Shah,Leo Kim,W,6-3 6-4,Boys,Singles',
+  'Maya Lee,Zoe Rivera,L,4-6 3-6,Girls,Singles',
+].join('\n');
 
 function bodyOf(request) {
   try { return request.postDataJSON() || {}; }
@@ -61,6 +66,9 @@ async function installAdminMocks(page) {
     if (path === '/api/users') return route.fulfill(ok({ profiles: [] }));
     if (path === '/api/ladder') return route.fulfill(ok(emptyLadder()));
     if (path === '/api/challenges') return route.fulfill(ok({ challenges: [] }));
+    if (path === '/api/sheet-proxy' && request.method() === 'GET') {
+      return route.fulfill({ status: 200, contentType: 'text/csv', body: GOOGLE_SHEET_CSV });
+    }
     if (path === '/api/records' && request.method() === 'GET') return route.fulfill(ok({ rows: [], count: 0 }));
     if (path === '/api/records' && request.method() === 'POST') {
       const body = bodyOf(request);
@@ -69,7 +77,7 @@ async function installAdminMocks(page) {
     if (path === '/api/ai-analyze-sheet' && request.method() === 'POST') {
       const body = bodyOf(request);
       return route.fulfill(ok({
-        model: 'gemini-2.5-flash-qa',
+        model: 'gemini-3.6-flash-qa',
         privacy: { redactedBeforeProvider: true },
         ai: {
           supported: true,
@@ -86,15 +94,18 @@ async function installAdminMocks(page) {
   });
 }
 
+async function openImport(page) {
+  await page.goto(BASE, { waitUntil: 'domcontentloaded' });
+  await expect(page.locator('#appShell')).toBeVisible();
+  await page.locator('#openSettings').click();
+  await expect(page.locator('#settingsPanel')).toBeVisible();
+}
+
 test('AI schema verification becomes accurate board rows before backend publication', async ({ page }) => {
   const pageErrors = [];
   page.on('pageerror', error => pageErrors.push(error.message));
   await installAdminMocks(page);
-  await page.goto(BASE, { waitUntil: 'domcontentloaded' });
-  await expect(page.locator('#appShell')).toBeVisible();
-
-  await page.locator('#openSettings').click();
-  await expect(page.locator('#settingsPanel')).toBeVisible();
+  await openImport(page);
   await page.locator('#tabCsv').click();
   await expect(page.locator('#csvSource')).toBeVisible();
 
@@ -142,4 +153,57 @@ test('AI schema verification becomes accurate board rows before backend publicat
   await expect(page.locator('#matchesList .match-row')).toHaveCount(2);
   await expect(page.locator('#statusMessage')).toContainText(/verified|saved/i);
   expect(pageErrors).toEqual([]);
+});
+
+test('selected CSV remains the source when the action button is clicked again', async ({ page }) => {
+  await installAdminMocks(page);
+  await openImport(page);
+  await page.locator('#tabCsv').click();
+  await expect(page.locator('#csvSource')).toBeVisible();
+
+  const fileCsv = [
+    'Opaque A,Opaque B,Opaque C,Opaque D,Opaque E,Opaque F',
+    'Ravi Patel,Noah Chen,W,6-2 6-4,Boys,Singles',
+  ].join('\n');
+
+  const firstSave = page.waitForRequest(request => new URL(request.url()).pathname === '/api/records' && request.method() === 'POST');
+  await page.locator('#csvFile').setInputFiles({ name: 'coach-export.csv', mimeType: 'text/csv', buffer: Buffer.from(fileCsv) });
+  const initialSave = bodyOf(await firstSave);
+  expect(initialSave.rows).toHaveLength(1);
+  expect(initialSave.rows[0]).toMatchObject({ name: 'Ravi Patel', opponent: 'Noah Chen', result: 'W' });
+  await expect(page.locator('#useCsv span')).toContainText('coach-export.csv');
+
+  // Put intentionally unrelated text in the paste box. With a selected file,
+  // clicking the action button must reprocess the file rather than reset to it.
+  await page.locator('#csvText').fill('Name,Notes\nWrong Person,This must not replace the selected file');
+  const secondSave = page.waitForRequest(request => new URL(request.url()).pathname === '/api/records' && request.method() === 'POST');
+  await page.locator('#useCsv').click();
+  const repeatedSave = bodyOf(await secondSave);
+  expect(repeatedSave.rows).toHaveLength(1);
+  expect(repeatedSave.rows[0]).toMatchObject({ name: 'Ravi Patel', opponent: 'Noah Chen', result: 'W' });
+  expect(JSON.stringify(repeatedSave.rows)).not.toContain('Wrong Person');
+});
+
+test('Google Sheet Connect uses the server proxy and publishes verified CSV rows', async ({ page }) => {
+  await installAdminMocks(page);
+  await openImport(page);
+  await page.locator('#tabSheet').click();
+  await expect(page.locator('#sheetSource')).toBeVisible();
+
+  const proxyRequest = page.waitForRequest(request => new URL(request.url()).pathname === '/api/sheet-proxy' && request.method() === 'GET');
+  const saveRequest = page.waitForRequest(request => new URL(request.url()).pathname === '/api/records' && request.method() === 'POST');
+  await page.locator('#sheetUrl').fill('https://docs.google.com/spreadsheets/d/fake-sheet-id/edit?gid=401074214#gid=401074214');
+  await page.locator('#connectSheet').click();
+
+  const proxy = await proxyRequest;
+  const proxyUrl = new URL(proxy.url());
+  expect(proxyUrl.searchParams.get('url')).toContain('docs.google.com/spreadsheets/d/fake-sheet-id/export');
+  expect(proxyUrl.searchParams.get('url')).toContain('gid=401074214');
+
+  const saved = bodyOf(await saveRequest);
+  expect(saved.rows).toHaveLength(2);
+  expect(saved.rows[0]).toMatchObject({ name: 'Aiden Shah', opponent: 'Leo Kim', result: 'W' });
+  expect(saved.rows[1]).toMatchObject({ name: 'Maya Lee', opponent: 'Zoe Rivera', result: 'L' });
+  await expect(page.locator('#statusMessage')).toContainText(/Google Sheet verified|saved/i);
+  await expect(page.locator('#analyzerTitle')).toContainText('2 matches recognized from 2 rows');
 });
