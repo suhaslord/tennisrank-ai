@@ -67,6 +67,7 @@ jobs:
           node --check qa/spreadsheet-ml.test.js
           node --check qa/spreadsheet-ml-benchmark.test.js
           node --check qa/spreadsheet-ai.test.js
+          node --check qa/challenge-api.test.js
           node --check qa/ai-import.spec.js
           node --check qa/browser.spec.js
           node --check qa/auth-flow.spec.js
@@ -74,6 +75,8 @@ jobs:
           node --check playwright.config.js
       - name: Ladder behavior tests
         run: node qa/ladder-engine.test.js
+      - name: Challenge API validation
+        run: node qa/challenge-api.test.js
       - name: Spreadsheet intelligence and import compatibility
         run: |
           node qa/import-regression.test.js
