@@ -101,16 +101,23 @@ async function openCsvImport(page) {
   await expect(page.locator('#csvSource')).toBeVisible();
 }
 
+async function ladderNames(page) {
+  return page.locator('#ladderList .ladder-player-name').allTextContents();
+}
+
 test('CSV import updates visible rankings and the official boys/girls ladder without a reload', async ({ page }) => {
   const pageErrors = [];
   page.on('pageerror', error => pageErrors.push(error.message));
   const state = await installImportSyncMocks(page);
   await openCsvImport(page);
 
+  // Canonical match-log headers exercise the real ranking calculation: the winner
+  // should rank ahead of the opponent, and that calculated order is what the
+  // official ladder must mirror.
   const csv = [
-    'Gender,Division,Player 1,Player 2,Winner,Loser,Score,Date',
-    'Boys,Singles,Noah Williams,Ethan Kim,Noah Williams,Ethan Kim,6-3,2026-08-15',
-    'Girls,Singles,Ava Patel,Mia Rodriguez,Ava Patel,Mia Rodriguez,6-4,2026-08-15',
+    'Name,Opponent,Result,Score,Gender,Division',
+    'Noah Williams,Ethan Kim,W,6-3,Boys,Singles',
+    'Ava Patel,Mia Rodriguez,W,6-4,Girls,Singles',
   ].join('\n');
 
   await page.locator('#csvText').fill(csv);
@@ -119,10 +126,12 @@ test('CSV import updates visible rankings and the official boys/girls ladder wit
   await expect.poll(() => state.savedRows.length).toBe(2);
   await expect.poll(() => state.seedBodies.length).toBe(2);
 
-  expect(state.seedBodies[0].teamGender).toBe('boys');
-  expect(state.seedBodies[0].players.map(player => player.name)).toEqual(['Noah Williams', 'Ethan Kim']);
-  expect(state.seedBodies[1].teamGender).toBe('girls');
-  expect(state.seedBodies[1].players.map(player => player.name)).toEqual(['Ava Patel', 'Mia Rodriguez']);
+  const boysSeed = state.seedBodies.find(body => body.teamGender === 'boys');
+  const girlsSeed = state.seedBodies.find(body => body.teamGender === 'girls');
+  expect(boysSeed).toBeTruthy();
+  expect(girlsSeed).toBeTruthy();
+  expect(boysSeed.players.map(player => player.name)).toEqual(['Noah Williams', 'Ethan Kim']);
+  expect(girlsSeed.players.map(player => player.name)).toEqual(['Ava Patel', 'Mia Rodriguez']);
 
   // Main ranking surfaces refresh from the same imported rows.
   await expect(page.locator('#rankingTable')).toContainText('Noah Williams');
@@ -130,15 +139,14 @@ test('CSV import updates visible rankings and the official boys/girls ladder wit
   await expect(page.locator('#rankingTable')).toContainText('Ava Patel');
   await expect(page.locator('#rankingTable')).toContainText('Mia Rodriguez');
 
-  // The separate official ladder must also switch from preview data to the API-backed board.
+  // The separate official ladder must switch from preview data to the API-backed
+  // board in exactly the same calculated order, with no page reload.
   await expect(page.locator('#ladderBoardNote')).toContainText('Official coach-managed ladder');
-  await expect(page.locator('#ladderList .ladder-player-name').nth(0)).toHaveText('Noah Williams');
-  await expect(page.locator('#ladderList .ladder-player-name').nth(1)).toHaveText('Ethan Kim');
+  await expect.poll(() => ladderNames(page)).toEqual(boysSeed.players.map(player => player.name));
 
   await page.locator('[data-ladder-team="girls"]').click();
   await expect(page.locator('#ladderBoardTitle')).toHaveText('Girls singles');
-  await expect(page.locator('#ladderList .ladder-player-name').nth(0)).toHaveText('Ava Patel');
-  await expect(page.locator('#ladderList .ladder-player-name').nth(1)).toHaveText('Mia Rodriguez');
+  await expect.poll(() => ladderNames(page)).toEqual(girlsSeed.players.map(player => player.name));
 
   await expect(page.locator('#statusMessage')).toContainText(/saved|local parser|AI temporarily unavailable/i);
   expect(pageErrors).toEqual([]);
@@ -148,6 +156,9 @@ test('selected CSV file follows the same automatic official-board path', async (
   const state = await installImportSyncMocks(page);
   await openCsvImport(page);
 
+  // Roster-only players can tie at 0-0, so the ranking engine's deterministic
+  // tie-breaker—not raw CSV row order—is authoritative. This test proves the
+  // official board mirrors that calculated order.
   const csv = [
     'Name,Gender,Division',
     'Jordan Lee,Boys,Singles',
@@ -162,10 +173,12 @@ test('selected CSV file follows the same automatic official-board path', async (
 
   await expect.poll(() => state.savedRows.length).toBe(2);
   await expect.poll(() => state.seedBodies.length).toBe(1);
-  expect(state.seedBodies[0].teamGender).toBe('boys');
-  expect(state.seedBodies[0].players.map(player => player.name)).toEqual(['Jordan Lee', 'Cameron Shah']);
+  const boysSeed = state.seedBodies[0];
+  expect(boysSeed.teamGender).toBe('boys');
+  expect(boysSeed.players.map(player => player.name).sort()).toEqual(['Cameron Shah', 'Jordan Lee']);
+
   await expect(page.locator('#rankingTable')).toContainText('Jordan Lee');
+  await expect(page.locator('#rankingTable')).toContainText('Cameron Shah');
   await expect(page.locator('#ladderBoardNote')).toContainText('Official coach-managed ladder');
-  await expect(page.locator('#ladderList')).toContainText('Jordan Lee');
-  await expect(page.locator('#ladderList')).toContainText('Cameron Shah');
+  await expect.poll(() => ladderNames(page)).toEqual(boysSeed.players.map(player => player.name));
 });
