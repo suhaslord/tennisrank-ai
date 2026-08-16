@@ -9,7 +9,12 @@ const {
   parseBody,
 } = require("./_supabase");
 
-const DEFAULT_SUPABASE_PUBLISHABLE_KEY = "sb_publishable_BZji9SdA4yiH9Yv7NAv2Xg_trv0KYxx";
+// The frontend currently talks to GoTrue with direct fetch calls instead of
+// supabase-js. Use the active legacy anon JWT for those browser auth requests;
+// it is intentionally public and remains supported alongside publishable keys.
+// This avoids the "Invalid API key" failure seen with the newer opaque key in
+// this raw-fetch path while keeping server-side service credentials unchanged.
+const LEGACY_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVuYXBqcXNudnZsZ3NvcnpsZmRjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU4ODAyMjMsImV4cCI6MjEwMTQ1NjIyM30.mWb0RKzsg-6j7eUZSm1PNplGx1E7sxdLawXR_gR1YI8";
 
 function safeEqual(a, b) {
   const left = Buffer.from(String(a || ""));
@@ -27,9 +32,7 @@ async function configRoute(req, res) {
   if (req.method !== "GET") return json(res, 405, { error: "Method not allowed." });
 
   const supabaseUrl = String(process.env.SUPABASE_URL || "").replace(/\/$/, "");
-  const publishableKey = process.env.SUPABASE_PUBLISHABLE_KEY
-    || process.env.SUPABASE_ANON_KEY
-    || DEFAULT_SUPABASE_PUBLISHABLE_KEY;
+  const publishableKey = process.env.SUPABASE_ANON_KEY || LEGACY_ANON_KEY;
   if (!supabaseUrl || !publishableKey) return json(res, 503, { error: "Login is not configured yet." });
   return json(res, 200, { supabaseUrl, publishableKey });
 }
