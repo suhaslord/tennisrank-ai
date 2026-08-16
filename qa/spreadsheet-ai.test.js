@@ -1,5 +1,6 @@
 const assert = require("node:assert/strict");
 const server = require("../api/sheet-proxy.js");
+const analyzer = require("../lib/ai-sheet-analyzer.js");
 const client = require("../spreadsheet-ai.js");
 const ml = require("../spreadsheet-ml.js");
 const importer = require("../import-v2.js");
@@ -24,6 +25,36 @@ calibration.wrapImporter(importer, ml);
   assert.equal(payload.samples[0].opaque1, payload.samples[2].opaque1, "the same person gets the same token so relationships remain inferable");
   assert.equal(payload.sourceContext.includes("boys"), true, "only useful tennis context survives from the source name");
   assert.equal(payload.sourceContext.toLowerCase().includes("aiden"), false, "source-name PII is removed");
+  const resultProfile = payload.columnProfiles.find(profile => profile.inputKey === "opaque3");
+  assert.equal(resultProfile.patterns.result, 1, "AI receives a privacy-safe W/L pattern profile instead of guessing from samples alone");
+  const genderProfile = payload.columnProfiles.find(profile => profile.inputKey === "opaque4");
+  assert.equal(genderProfile.patterns.gender, 1, "AI receives a privacy-safe gender pattern profile");
+  const divisionProfile = payload.columnProfiles.find(profile => profile.inputKey === "opaque5");
+  assert.equal(divisionProfile.patterns.division, 1, "AI receives a privacy-safe Singles/Doubles pattern profile");
+}
+
+{
+  const canonicalRows = [{
+    Name: "Aiden Brooks",
+    Gender: "Boys",
+    Division: "Singles",
+    "Player 1": "Aiden Brooks",
+    "Player 2": "Mateo Rivera",
+    Winner: "Aiden Brooks",
+    Loser: "Mateo Rivera",
+    Score: "6-3",
+    Date: "2026-08-01",
+  }];
+  const payload = analyzer.buildRedactedPayload(canonicalRows, "Tennis Results", {});
+  assert.equal(payload.coachSchema.sourceLooksCanonical, true, "Tennis Results is recognized as the coach-authoritative source shape");
+  assert.equal(payload.coachSchema.exactCanonicalHeaders.length, 9, "all nine Coach Lokesh fields are carried as exact schema evidence");
+  assert.equal(payload.coachSchema.canonicalCoverage, 1, "canonical Coach Lokesh sheet gets full schema coverage");
+  const prompt = analyzer.systemInstruction();
+  assert.match(prompt, /Coach Lokesh's Tennis Results document is the authoritative product contract/i);
+  assert.match(prompt, /Boys Singles, Girls Singles, Boys Doubles, and Girls Doubles/i);
+  assert.match(prompt, /0-0 entries/i, "roster-only newcomer behavior is frozen into the AI contract");
+  assert.match(prompt, /one team identity/i, "doubles teams cannot be split by the AI verifier");
+  assert.match(prompt, /must never override explicit Coach Lokesh-style match rows/i, "aggregate standings cannot supersede explicit match evidence");
 }
 
 {
@@ -143,7 +174,7 @@ calibration.wrapImporter(importer, ml);
   const review = importer.validateInterpretation(enhanced);
   assert.equal(review.valid, true, "AI-assisted rows still pass the independent local validator");
   assert.ok(["applied-and-validated", "verified-kept-local"].includes(enhanced.__analysis.ai.status));
-  console.log("Spreadsheet AI privacy + schema verification suite passed.");
+  console.log("Spreadsheet AI privacy + Coach Lokesh schema verification suite passed.");
 })().catch(error => {
   console.error(error);
   process.exitCode = 1;
