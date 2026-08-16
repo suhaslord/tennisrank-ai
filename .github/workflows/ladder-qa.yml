@@ -59,6 +59,7 @@ jobs:
           node --check qa/spreadsheet-ml.test.js
           node --check qa/spreadsheet-ml-benchmark.test.js
           node --check qa/spreadsheet-ai.test.js
+          node --check qa/ai-import.spec.js
           node --check qa/browser.spec.js
           node --check qa/visual-stability.spec.js
           node --check playwright.config.js
@@ -147,6 +148,15 @@ jobs:
           ! grep -R --exclude-dir=.git --exclude=.env.example -E 'GEMINI_API_KEY[[:space:]]*=' .
           ! grep -R --exclude-dir=.git -E 'AIza[0-9A-Za-z_-]{30,}' .
           ! grep -R --exclude-dir=.git -E 'sb_secret_[A-Za-z0-9_-]+' .
+      - name: Build AI integration QA shell
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          html = Path('index.html').read_text()
+          scripts = '<script src="./import-runtime-fixes.js"></script><script src="./import-v2.js"></script><script src="./spreadsheet-ml.js"></script><script src="./import-v2-fixes.js"></script><script src="./spreadsheet-semantic-calibration.js"></script><script src="./spreadsheet-ai.js"></script>'
+          html = html.replace('<script src="./ladder.js"></script>', scripts + '<script src="./ladder.js"></script>')
+          Path('qa-ai-index.html').write_text(html)
+          PY
       - name: Install Playwright test runner
         run: npm install --no-save @playwright/test@1.55.0
       - name: Browser QA — real app, mocked network only
@@ -157,4 +167,4 @@ jobs:
           SERVER_PID=$!
           trap 'kill $SERVER_PID || true' EXIT
           sleep 2
-          npx playwright test qa/browser.spec.js --reporter=line --workers=1
+          npx playwright test qa/browser.spec.js qa/ai-import.spec.js --reporter=line --workers=1
