@@ -93,6 +93,11 @@ test('AI schema verification becomes accurate board rows before backend publicat
   await page.goto(BASE, { waitUntil: 'domcontentloaded' });
   await expect(page.locator('#appShell')).toBeVisible();
 
+  await page.locator('#openSettings').click();
+  await expect(page.locator('#settingsPanel')).toBeVisible();
+  await page.locator('#tabCsv').click();
+  await expect(page.locator('#csvSource')).toBeVisible();
+
   const weirdCsv = [
     'Mystery A,Mystery B,Mystery C,Mystery D,Mystery E,Mystery F',
     'Aiden Shah,Leo Kim,W,6-3 6-4,Boys,Singles',
