@@ -38,6 +38,7 @@ jobs:
           node --check import-row-safety-fix.js
           node --check import-multiblock-fix.js
           node --check import-runtime-fixes.js
+          node --check import-auto-sync.js
           node --check tesla-motion.js
           node --check lib/ladder-engine.js
           node --check lib/ai-sheet-analyzer.js
@@ -67,6 +68,7 @@ jobs:
           node --check qa/spreadsheet-ml.test.js
           node --check qa/spreadsheet-ml-benchmark.test.js
           node --check qa/spreadsheet-ai.test.js
+          node --check qa/import-auto-sync.test.js
           node --check qa/challenge-api.test.js
           node --check qa/ai-import.spec.js
           node --check qa/browser.spec.js
@@ -90,6 +92,7 @@ jobs:
           node qa/spreadsheet-ml.test.js
           node qa/spreadsheet-ml-benchmark.test.js
           node qa/spreadsheet-ai.test.js
+          node qa/import-auto-sync.test.js
       - name: Reconciliation guardrails
         run: |
           set -euo pipefail
@@ -117,6 +120,7 @@ jobs:
           test -f import-row-safety-fix.js
           test -f import-multiblock-fix.js
           test -f import-runtime-fixes.js
+          test -f import-auto-sync.js
           test -f api/sheet-proxy.js
           test -f lib/ai-sheet-analyzer.js
           test -f assets/team-court.jpg
@@ -142,6 +146,7 @@ jobs:
           grep -q 'import-delimiter-fix.js' api/render.js
           grep -q 'import-row-safety-fix.js' api/render.js
           grep -q 'import-multiblock-fix.js' api/render.js
+          grep -q 'import-auto-sync.js' api/render.js
           grep -q 'tesla-authority.css' api/render.js
           grep -q 'tesla-finish.css' api/render.js
           grep -q 'tesla-motion.css' api/render.js
@@ -178,7 +183,7 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
           html = Path('index.html').read_text()
-          scripts = '<script src="./import-runtime-fixes.js"></script><script src="./import-v2.js"></script><script src="./import-delimiter-fix.js"></script><script src="./spreadsheet-ml.js"></script><script src="./import-v2-fixes.js"></script><script src="./import-row-safety-fix.js"></script><script src="./import-multiblock-fix.js"></script><script src="./spreadsheet-semantic-calibration.js"></script><script src="./spreadsheet-ai.js"></script><script src="./ai-quota-guard.js"></script>'
+          scripts = '<script src="./import-runtime-fixes.js"></script><script src="./import-v2.js"></script><script src="./import-delimiter-fix.js"></script><script src="./spreadsheet-ml.js"></script><script src="./import-v2-fixes.js"></script><script src="./import-row-safety-fix.js"></script><script src="./import-multiblock-fix.js"></script><script src="./spreadsheet-semantic-calibration.js"></script><script src="./spreadsheet-ai.js"></script><script src="./ai-quota-guard.js"></script><script src="./import-auto-sync.js"></script>'
           html = html.replace('<script src="./ladder.js"></script>', scripts + '<script src="./ladder.js"></script>')
           Path('qa-ai-index.html').write_text(html)
           PY
