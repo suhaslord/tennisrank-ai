@@ -1,5 +1,15 @@
 const { json, authenticatedContext, rpc, allowApi, parseBody } = require("../_supabase");
 
+function cleanDivision(value) {
+  const division = String(value || "").trim().toLowerCase();
+  return new Set(["varsity", "jv"]).has(division) ? division : null;
+}
+
+function cleanGradeLevel(value) {
+  const grade = Number(value);
+  return Number.isInteger(grade) && grade >= 9 && grade <= 12 ? grade : null;
+}
+
 module.exports = async function handler(req, res) {
   allowApi(res, "POST,OPTIONS");
   if (req.method === "OPTIONS") return res.status(204).end();
@@ -15,7 +25,13 @@ module.exports = async function handler(req, res) {
     if (!new Set(["boys", "girls"]).has(teamGender)) return json(res, 400, { error: "Team must be boys or girls." });
     if (!players.length) return json(res, 400, { error: "At least one player is required." });
 
-    const cleanPlayers = players.slice(0, 100).map(player => ({ name: String(player?.name || "").trim() })).filter(player => player.name);
+    const cleanPlayers = players.slice(0, 100).map(player => ({
+      name: String(player?.name || "").replace(/\s+/g, " ").trim(),
+      division: cleanDivision(player?.division),
+      gradeLevel: cleanGradeLevel(player?.gradeLevel),
+    })).filter(player => player.name);
+    if (!cleanPlayers.length) return json(res, 400, { error: "At least one valid player name is required." });
+
     const result = await rpc(context, "admin_seed_ladder", {
       p_coach_profile_id: context.profile.id,
       p_team_gender: teamGender,
@@ -28,3 +44,6 @@ module.exports = async function handler(req, res) {
     return json(res, error.status || 500, { error: error.message || "Unexpected ladder initialization error." });
   }
 };
+
+module.exports.cleanDivision = cleanDivision;
+module.exports.cleanGradeLevel = cleanGradeLevel;
