@@ -101,6 +101,23 @@
     return best.text;
   }
 
+  function headerLikeParsedRow(row, importer) {
+    if (!row || typeof row !== "object" || typeof importer?.canonicalField !== "function") return false;
+    let compared = 0;
+    let positionalMatches = 0;
+    for (const [rawField, value] of Object.entries(row)) {
+      if (rawField.startsWith("__") || !text(value)) continue;
+      compared += 1;
+      const field = String(rawField).replace(/\d+$/, "");
+      const incoming = importer.canonicalField(value);
+      if (incoming !== "column" && incoming === field) positionalMatches += 1;
+    }
+    // Real match rows can legitimately contain two self-describing values such
+    // as Boys + Singles. Three or more same-position semantic labels is a much
+    // stronger signal that a repeated header row was parsed as data.
+    return compared >= 3 && positionalMatches >= 3 && positionalMatches / compared >= 0.4;
+  }
+
   function attachAnalysis(rows, blocks, sourceName) {
     const confidences = blocks.map(block => Number(block.review?.confidence || 0)).filter(Number.isFinite);
     rows.__analysis = {
@@ -165,8 +182,20 @@
         }
       }
 
-      // Never replace a fuller safe parse with a fragmented one.
-      if (merged.length <= fullResult.length) return fullResult;
+      const suspiciousFullRows = fullResult.filter(row => headerLikeParsedRow(row, importer)).length;
+      const usableFullRows = Math.max(0, fullResult.length - suspiciousFullRows);
+      const blockReview = typeof importer.validateInterpretation === "function"
+        ? importer.validateInterpretation(merged)
+        : { valid: merged.length > 0 };
+
+      // Prefer isolated blocks when they preserve at least as much actual data
+      // after subtracting repeated headers that the one-schema parser treated as
+      // rows. Otherwise retain the fuller parse to avoid fragmenting normal data.
+      const blocksAreBetter = blockReview.valid && (
+        merged.length > fullResult.length
+        || (suspiciousFullRows > 0 && merged.length >= usableFullRows)
+      );
+      if (!blocksAreBetter) return fullResult;
       return attachAnalysis(merged, blocks, sourceName || "");
     };
 
@@ -174,5 +203,5 @@
     return importer;
   }
 
-  return { valueLike, findTableStarts, matrixToCsv, sparseContext, attachAnalysis, wrapImporter };
+  return { valueLike, findTableStarts, matrixToCsv, sparseContext, headerLikeParsedRow, attachAnalysis, wrapImporter };
 });
