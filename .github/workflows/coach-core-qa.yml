@@ -42,6 +42,7 @@ jobs:
           node --check qa/player-dashboard-state.test.js
           node --check qa/player-link.test.js
           node --check qa/roster-metadata.test.js
+          node --check qa/render-rewrite.test.js
           node --check qa/core-flow-browser.spec.js
 
       - name: Coach requirements unit tests
@@ -51,6 +52,7 @@ jobs:
           node qa/player-dashboard-state.test.js
           node qa/player-link.test.js
           node qa/roster-metadata.test.js
+          node qa/render-rewrite.test.js
           node qa/ladder-engine.test.js
           node qa/challenge-api.test.js
 
