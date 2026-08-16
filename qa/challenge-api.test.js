@@ -6,7 +6,8 @@ function futureIso(days) {
 }
 
 {
-  const values = challenges.normalizeProposedTimes([futureIso(2), futureIso(3), futureIso(2)]);
+  const duplicate = futureIso(2);
+  const values = challenges.normalizeProposedTimes([duplicate, futureIso(3), duplicate]);
   assert.equal(values.length, 2, 'duplicate challenge options are deduplicated');
 }
 
