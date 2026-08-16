@@ -50,6 +50,12 @@
     }[char]));
   }
 
+  function setText(element, value) {
+    if (!element) return;
+    const next = String(value ?? "");
+    if (element.textContent !== next) element.textContent = next;
+  }
+
   function installBrowser(win) {
     if (!win || win.__tennisrankPlayerDashboardInstalled) return;
     win.__tennisrankPlayerDashboardInstalled = true;
@@ -74,27 +80,26 @@
 
       if (!summary.linked) {
         strip.className = "player-identity-strip is-unlinked";
-        strip.innerHTML = `<div><span class="player-identity-kicker">Roster connection</span><strong>Waiting for your roster link</strong><small>Your match stats remain read only. Ask the coach to make sure your account name exactly matches the imported roster.</small></div>`;
+        const markup = `<div><span class="player-identity-kicker">Roster connection</span><strong>Waiting for your roster link</strong><small>Your match stats remain read only. Ask the coach to make sure your account name exactly matches the imported roster.</small></div>`;
+        if (strip.innerHTML !== markup) strip.innerHTML = markup;
         return;
       }
 
       strip.className = "player-identity-strip";
-      strip.innerHTML = `
+      const markup = `
         <div class="player-identity-rank"><span>Official singles rank</span><strong>#${escapeHtml(summary.rank)}</strong><small class="movement ${escapeHtml(summary.movement.direction)}">${escapeHtml(summary.movement.label)} since last official position</small></div>
         <div class="player-identity-meta"><span>${escapeHtml(summary.teamGender === "girls" ? "Girls" : "Boys")}</span><span>${escapeHtml(summary.rosterDivision === "jv" ? "JV" : "Varsity")}</span>${summary.gradeLevel ? `<span>Grade ${summary.gradeLevel}</span>` : ""}<span>${escapeHtml(titleCase(summary.status || "available"))}</span></div>`;
+      if (strip.innerHTML !== markup) strip.innerHTML = markup;
 
       // app.js owns record/match calculations. Replace only the rank card with
-      // the authoritative challenge-ladder position so spreadsheet refreshes and
-      // coach-approved challenges cannot disagree on the player's visible rank.
+      // the authoritative challenge-ladder position. setText avoids turning the
+      // grid observer into a self-triggering feedback loop.
       const cards = [...dashboard.querySelectorAll("#playerStatGrid .player-stat")];
       const rankCard = cards[2];
       if (rankCard) {
-        const label = rankCard.querySelector("span");
-        const value = rankCard.querySelector("strong");
-        const detail = rankCard.querySelector("small");
-        if (label) label.textContent = "Official rank";
-        if (value) value.textContent = `#${summary.rank}`;
-        if (detail) detail.textContent = `${summary.teamGender === "girls" ? "Girls" : "Boys"} singles · ${summary.rosterDivision === "jv" ? "JV" : "Varsity"}`;
+        setText(rankCard.querySelector("span"), "Official rank");
+        setText(rankCard.querySelector("strong"), `#${summary.rank}`);
+        setText(rankCard.querySelector("small"), `${summary.teamGender === "girls" ? "Girls" : "Boys"} singles · ${summary.rosterDivision === "jv" ? "JV" : "Varsity"}`);
       }
     }
 
@@ -110,12 +115,12 @@
       const grid = win.document.querySelector("#playerStatGrid");
       if (grid && win.MutationObserver && !observer) {
         observer = new win.MutationObserver(() => render());
-        observer.observe(grid, { childList: true });
+        observer.observe(grid, { childList: true, subtree: true });
       }
     };
     if (win.document.readyState === "loading") win.document.addEventListener("DOMContentLoaded", start, { once: true });
     else start();
   }
 
-  return { titleCase, movement, summaryFromWorkflow, installBrowser };
+  return { titleCase, movement, summaryFromWorkflow, setText, installBrowser };
 });
