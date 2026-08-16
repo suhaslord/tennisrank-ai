@@ -1,4 +1,4 @@
-const COMMIT = '2d57c30fad7fb75aa3113bf0794f3d1b6ee3c171';
+const COMMIT = 'ee0d41183bf6a20f8172253fea5a75df99ba605c';
 const CDN = `https://cdn.jsdelivr.net/gh/suhaslord/tennisrank-ai@${COMMIT}`;
 const SHEETJS = 'https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js';
 
@@ -23,13 +23,12 @@ function rewrite(html) {
     `<script defer src="${SHEETJS}"></script><link rel="stylesheet" href="${CDN}/production-stability.css"><link rel="stylesheet" href="${CDN}/tesla-authority.css"><link rel="stylesheet" href="${CDN}/tesla-finish.css"><link rel="stylesheet" href="${CDN}/tesla-motion.css"><style>#showBootstrap,.bootstrap-form{display:none!important}</style></head>`,
   );
 
-  // Runtime interception initializes first. Deterministic parsing remains the
-  // fail-safe; the trained schema model rescues unfamiliar layouts; global
-  // semantic calibration then rejects unsupported/non-tennis interpretations
-  // before any data is allowed to publish.
+  // Local parsing and ML run first. The Gemini layer receives only a redacted
+  // structural sample, proposes a schema, and TennisRank applies that schema
+  // deterministically. The local semantic validator still has final authority.
   out = out.replace(
     `<script src="${CDN}/app.js"></script>`,
-    `<script src="${CDN}/app.js"></script><script src="${CDN}/import-runtime-fixes.js"></script><script src="${CDN}/import-v2.js"></script><script src="${CDN}/spreadsheet-ml.js"></script><script src="${CDN}/import-v2-fixes.js"></script><script src="${CDN}/spreadsheet-semantic-calibration.js"></script><script src="${CDN}/tesla-motion.js"></script>`,
+    `<script src="${CDN}/app.js"></script><script src="${CDN}/import-runtime-fixes.js"></script><script src="${CDN}/import-v2.js"></script><script src="${CDN}/spreadsheet-ml.js"></script><script src="${CDN}/import-v2-fixes.js"></script><script src="${CDN}/spreadsheet-semantic-calibration.js"></script><script src="${CDN}/spreadsheet-ai.js"></script><script src="${CDN}/tesla-motion.js"></script>`,
   );
 
   out = out.replace('<div class="cursor-ball" aria-hidden="true"><span class="cursor-ball-core"></span></div>', '');
