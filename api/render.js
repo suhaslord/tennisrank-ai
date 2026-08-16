@@ -1,4 +1,4 @@
-const COMMIT = '0e44d0afc0718ebd77e501e93b498e54f55a2012';
+const COMMIT = '13917e432fdced09d3ddfac0888a9164ccceb614';
 const CDN = `https://cdn.jsdelivr.net/gh/suhaslord/tennisrank-ai@${COMMIT}`;
 const SHEETJS = 'https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js';
 
