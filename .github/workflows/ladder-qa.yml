@@ -69,6 +69,7 @@ jobs:
           node --check qa/spreadsheet-ai.test.js
           node --check qa/ai-import.spec.js
           node --check qa/browser.spec.js
+          node --check qa/auth-flow.spec.js
           node --check qa/visual-stability.spec.js
           node --check playwright.config.js
       - name: Ladder behavior tests
@@ -188,4 +189,4 @@ jobs:
           SERVER_PID=$!
           trap 'kill $SERVER_PID || true' EXIT
           sleep 2
-          npx playwright test qa/browser.spec.js qa/ai-import.spec.js --reporter=line --workers=1
+          npx playwright test qa/auth-flow.spec.js qa/browser.spec.js qa/ai-import.spec.js --reporter=line --workers=1
