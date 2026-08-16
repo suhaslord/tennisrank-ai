@@ -1,4 +1,5 @@
 const { json, authenticatedContext, rest, rpc, allowApi, parseBody } = require("./_supabase");
+const { findLinkedPlayer } = require("./_player-link");
 
 const MAX_SCHEDULE_DAYS = 90;
 const MAX_COURT_LOCATION_LENGTH = 160;
@@ -10,21 +11,15 @@ function badRequest(message) {
   return Object.assign(new Error(message), { status: 400 });
 }
 
-async function findLinkedPlayer(context) {
-  const result = await rest(context, `players?profile_id=eq.${encodeURIComponent(context.profile.id)}&select=id,display_name,team_gender,active_status&limit=1`);
-  if (!result.response.ok) throw Object.assign(new Error(result.payload.message || "Player link lookup failed."), { status: result.response.status });
-  return Array.isArray(result.payload) ? result.payload[0] || null : null;
-}
-
 async function listChallenges(context) {
+  const linked = context.profile.role === "admin" ? { linkedPlayer: null } : await findLinkedPlayer(context);
   const result = await rest(context, "challenges?select=id,challenger_id,defender_id,team_gender,status,proposed_times,scheduled_for,court_location,created_at,responded_at,completed_at&order=created_at.desc&limit=100");
   if (!result.response.ok) throw Object.assign(new Error(result.payload.message || "Challenges could not be loaded."), { status: result.response.status });
 
   let challenges = Array.isArray(result.payload) ? result.payload : [];
   if (context.profile.role !== "admin") {
-    const linkedPlayer = await findLinkedPlayer(context);
-    if (!linkedPlayer) return { challenges: [], linkedPlayer: null, matches: [] };
-    challenges = challenges.filter(challenge => challenge.challenger_id === linkedPlayer.id || challenge.defender_id === linkedPlayer.id);
+    if (!linked.linkedPlayer) return { challenges: [], linkedPlayer: null, linkState: linked.reason, matches: [] };
+    challenges = challenges.filter(challenge => challenge.challenger_id === linked.linkedPlayer.id || challenge.defender_id === linked.linkedPlayer.id);
   }
 
   const playerIds = [...new Set(challenges.flatMap(challenge => [challenge.challenger_id, challenge.defender_id]))];
@@ -46,6 +41,8 @@ async function listChallenges(context) {
   const playersById = new Map(players.map(player => [player.id, player]));
   const matchesByChallenge = new Map(matches.map(match => [match.challenge_id, match]));
   return {
+    linkedPlayer: linked.linkedPlayer || null,
+    linkState: linked.reason || null,
     challenges: challenges.map(challenge => ({
       ...challenge,
       challenger: playersById.get(challenge.challenger_id) || null,
@@ -105,6 +102,12 @@ async function handler(req, res) {
     if (req.method === "POST") {
       const defenderPlayerId = String(body.defenderPlayerId || "").trim();
       if (!defenderPlayerId) return json(res, 400, { error: "Choose a defender to challenge." });
+      if (context.profile.role === "player") {
+        const linked = await findLinkedPlayer(context);
+        if (!linked.linkedPlayer) {
+          return json(res, 409, { error: "Your account is not linked to a unique roster player yet. Ask the coach to confirm the spreadsheet name." });
+        }
+      }
       const proposedTimes = normalizeProposedTimes(body.proposedTimes);
       const result = await rpc(context, "create_ladder_challenge", {
         p_challenger_profile_id: context.profile.id,
