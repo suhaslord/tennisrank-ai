@@ -46,7 +46,7 @@ const cases = [
   { name: "separate wins and losses", text: "Standing,Athlete,Wins,Losses,Sex,Event\n1,Maya Shah,9,2,F,Singles\n2,Zoe Lee,7,4,F,Singles", players: 2, matches: 0, top: "Maya Shah", topWins: 9 },
   { name: "source standing preserved", text: "Position,Player,Record,Gender,Division\n2,Leo Kim,5-2,Boys,Singles\n1,Aiden Shah,5-2,Boys,Singles", players: 2, matches: 0, top: "Aiden Shah" },
   { name: "semicolon coaching export", text: "Student;Against;W/L;Sex;Category\nAiden;Leo;W;M;Singles", players: 2, matches: 1 },
-  { name: "TSV with commas inside cells", text: "Player\tOpponent\tResult\tScore\tNote\nSmith, Alex\tKim, Leo\tW\t6-3, 6-4\tWindy, late", players: 2, matches: 1, delimiter: "tab", score: "6-3, 6-4" },
+  { name: "TSV with commas inside cells", text: "Player\tOpponent\tResult\tScore\tGender\tNote\nSmith, Alex\tKim, Leo\tW\t6-3, 6-4\tBoys\tWindy, late", players: 2, matches: 1, delimiter: "tab", score: "6-3, 6-4" },
   { name: "doubles home away pairs", text: "Home,Away,Winner,Gender,Event\nAlex & Ben,Chris & Dan,Home,Boys,Doubles", players: 2, matches: 1 },
 ];
 
