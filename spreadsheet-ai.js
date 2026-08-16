@@ -25,7 +25,7 @@
     };
   }
 
-  function sampleRows(rows, limit = 80) {
+  function sampleRows(rows, limit = 120) {
     if (!Array.isArray(rows) || rows.length <= limit) return Array.isArray(rows) ? rows.map(row => ({ ...row })) : [];
     const selected = [];
     const seen = new Set();
@@ -34,10 +34,11 @@
       seen.add(index);
       selected.push({ ...rows[index] });
     };
-    for (let i = 0; i < Math.min(20, rows.length); i += 1) add(i);
-    const middleSlots = Math.max(0, limit - 40);
+    const edgeSlots = Math.min(30, Math.max(12, Math.floor(limit / 4)));
+    for (let i = 0; i < Math.min(edgeSlots, rows.length); i += 1) add(i);
+    const middleSlots = Math.max(0, limit - edgeSlots * 2);
     for (let i = 1; i <= middleSlots; i += 1) add(Math.floor((i * (rows.length - 1)) / (middleSlots + 1)));
-    for (let i = Math.max(0, rows.length - 20); i < rows.length; i += 1) add(i);
+    for (let i = Math.max(0, rows.length - edgeSlots); i < rows.length; i += 1) add(i);
     return selected.slice(0, limit);
   }
 
@@ -59,7 +60,7 @@
     const keys = [...new Set(rows.flatMap(row => Object.keys(row || {}).filter(key => !key.startsWith("__"))))].sort();
     return keys.map(key => {
       const counts = {};
-      rows.slice(0, 24).forEach(row => {
+      rows.slice(0, 36).forEach(row => {
         const type = valueType(row?.[key]);
         counts[type] = (counts[type] || 0) + 1;
       });
