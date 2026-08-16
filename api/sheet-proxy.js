@@ -1,3 +1,6 @@
+const { json, authenticatedContext, allowApi, parseBody } = require("./_supabase");
+const aiAnalyzer = require("../lib/ai-sheet-analyzer");
+
 const MAX_BYTES = 5 * 1024 * 1024;
 const TIMEOUT_MS = 12_000;
 
@@ -46,7 +49,43 @@ async function readLimitedBody(response) {
   return output;
 }
 
-module.exports = async function handler(req, res) {
+async function handleAiAnalysis(req, res) {
+  allowApi(res, "POST,OPTIONS");
+  if (req.method === "OPTIONS") return res.status(204).end();
+  if (req.method !== "POST") return json(res, 405, { error: "Method not allowed." });
+
+  try {
+    const context = await authenticatedContext(req);
+    if (context.profile.role !== "admin") return json(res, 403, { error: "Coach/admin access is required." });
+
+    const body = parseBody(req);
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS);
+    try {
+      const result = await aiAnalyzer.analyzeRows({
+        apiKey: String(process.env.GEMINI_API_KEY || "").trim(),
+        model: process.env.GEMINI_SPREADSHEET_MODEL || aiAnalyzer.DEFAULT_MODEL,
+        rows: Array.isArray(body.rows) ? body.rows : [],
+        sourceName: body.sourceName,
+        analysis: body.analysis || {},
+        signal: controller.signal,
+      });
+      return json(res, 200, result);
+    } finally {
+      clearTimeout(timeout);
+    }
+  } catch (error) {
+    if (error?.name === "AbortError") {
+      return json(res, 504, { error: "AI spreadsheet analysis timed out. TennisRank can still use its local parser." });
+    }
+    const status = Number(error.status) || 500;
+    const body = { error: error.message || "Unexpected AI analysis error." };
+    if (error.code) body.code = error.code;
+    return json(res, status >= 400 && status < 600 ? status : 500, body);
+  }
+}
+
+async function handleGoogleSheet(req, res) {
   res.setHeader("Cache-Control", "no-store");
   res.setHeader("X-Content-Type-Options", "nosniff");
   if (req.method !== "GET") {
@@ -95,6 +134,16 @@ module.exports = async function handler(req, res) {
   } finally {
     clearTimeout(timeout);
   }
+}
+
+module.exports = async function handler(req, res) {
+  if (String(req.query?.mode || "").toLowerCase() === "ai") return handleAiAnalysis(req, res);
+  return handleGoogleSheet(req, res);
 };
 
 module.exports.parseAllowedUrl = parseAllowedUrl;
+module.exports.handleAiAnalysis = handleAiAnalysis;
+module.exports.buildRedactedPayload = aiAnalyzer.buildRedactedPayload;
+module.exports.validateAiResult = aiAnalyzer.validateAiResult;
+module.exports.sourceContext = aiAnalyzer.sourceContext;
+module.exports.ALLOWED_TARGETS = aiAnalyzer.ALLOWED_TARGETS;
