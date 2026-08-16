@@ -1,4 +1,5 @@
 const { json, authenticatedContext, rest, allowApi } = require("./_supabase");
+const { findLinkedPlayer } = require("./_player-link");
 
 module.exports = async function handler(req, res) {
   allowApi(res, "GET,OPTIONS");
@@ -7,6 +8,12 @@ module.exports = async function handler(req, res) {
 
   try {
     const context = await authenticatedContext(req);
+    // Repair legacy accounts before loading the roster so the payload below is
+    // immediately consistent for both the player dashboard and challenge UI.
+    const link = context.profile.role === "player"
+      ? await findLinkedPlayer(context)
+      : { linkedPlayer: null, reason: "admin" };
+
     const [entriesResult, playersResult, settingsResult] = await Promise.all([
       rest(context, "ladder_entries?select=player_id,team_gender,rank_position,previous_rank_position,status,updated_at&order=team_gender.asc,rank_position.asc"),
       rest(context, "players?select=id,profile_id,display_name,team_gender,grade_level,division,active_status"),
@@ -25,10 +32,20 @@ module.exports = async function handler(req, res) {
       player: players.get(entry.player_id) || null,
     })).filter(entry => entry.player);
 
+    const linkedPlayer = link.linkedPlayer || null;
     return json(res, 200, {
       ladder,
       settings: settingsResult.payload || [],
-      viewer: { profileId: context.profile.id, role: context.profile.role, playerName: context.profile.player_name || null },
+      viewer: {
+        profileId: context.profile.id,
+        role: context.profile.role,
+        playerName: context.profile.player_name || null,
+        playerId: linkedPlayer?.id || null,
+        teamGender: linkedPlayer?.team_gender || null,
+        rosterDivision: linkedPlayer?.division || null,
+        gradeLevel: linkedPlayer?.grade_level || null,
+        linkState: link.reason || null,
+      },
     });
   } catch (error) {
     return json(res, error.status || 500, { error: error.message || "Unexpected ladder error." });
