@@ -36,6 +36,7 @@ jobs:
           node --check import-runtime-fixes.js
           node --check tesla-motion.js
           node --check lib/ladder-engine.js
+          node --check lib/ai-sheet-analyzer.js
           node --check ladder.js
           node --check challenge-ui.js
           node --check challenge-ui-state.js
@@ -48,7 +49,6 @@ jobs:
           node --check api/challenges.js
           node --check api/match-score.js
           node --check api/sheet-proxy.js
-          node --check api/ai-analyze-sheet.js
           node --check api/admin/verify-match.js
           node --check api/admin/ladder.js
           node --check api/admin/seed-ladder.js
@@ -97,7 +97,7 @@ jobs:
           test -f import-v2-fixes.js
           test -f import-runtime-fixes.js
           test -f api/sheet-proxy.js
-          test -f api/ai-analyze-sheet.js
+          test -f lib/ai-sheet-analyzer.js
           test -f assets/team-court.jpg
           test -f assets/matchday-awards.jpg
           test -f assets/singles-spotlight.jpg
@@ -112,9 +112,9 @@ jobs:
           grep -q 'docs.google.com' api/sheet-proxy.js
           grep -q 'MAX_BYTES' api/sheet-proxy.js
           grep -q 'sheet-proxy' import-v2.js
-          grep -q 'GEMINI_API_KEY' api/ai-analyze-sheet.js
-          grep -q 'redactedBeforeProvider' api/ai-analyze-sheet.js
-          grep -q 'context.profile.role !== "admin"' api/ai-analyze-sheet.js
+          grep -q 'GEMINI_API_KEY' api/sheet-proxy.js
+          grep -q 'redactedBeforeProvider' lib/ai-sheet-analyzer.js
+          grep -q 'context.profile.role !== "admin"' api/sheet-proxy.js
           grep -q 'spreadsheet-ai.js' api/render.js
           grep -q 'tesla-authority.css' api/render.js
           grep -q 'tesla-finish.css' api/render.js
@@ -131,9 +131,12 @@ jobs:
           grep -q '"source": "/api/config"' vercel.json
           grep -q '"source": "/api/session"' vercel.json
           grep -q '"source": "/api/bootstrap"' vercel.json
+          grep -q '"source": "/api/ai-analyze-sheet"' vercel.json
+          grep -q '"destination": "/api/sheet-proxy?mode=ai"' vercel.json
           test ! -e api/config.js
           test ! -e api/session.js
           test ! -e api/bootstrap.js
+          test ! -e api/ai-analyze-sheet.js
           COUNT=$(find api -type f -name '*.js' | wc -l)
           echo "Serverless function candidates: $COUNT"
           test "$COUNT" -le 12
