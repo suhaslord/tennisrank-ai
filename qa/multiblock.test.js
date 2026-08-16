@@ -54,4 +54,36 @@ assert.equal(girls.length, 3, "girls split-name standings should remain independ
 assert.deepEqual(girls.map(row => row.name), ["Priya Nair", "Maya Lee", "Zoe Rivera"]);
 assert.ok(rows.every(row => !["active", "injured", "inactive"].includes(String(row.name || "").toLowerCase())), "status values must never become player names");
 
-console.log("Multi-block import suite passed: mixed match + boys standings + girls standings preserved as three validated tables.");
+const synonymSections = [
+  "OLD COACH SHEET — MULTIPLE MINI TABLES,,,,,,",
+  "BOYS — SINGLES,,,,,,",
+  "Player,Opponent,Result,Score,Date,Court,Note",
+  "Aiden Shah,Omar Khan,W,6-2 6-1,8/15/26,1,",
+  "Leo Kim,Daniel Brooks,W,6-4 6-3,8/15/26,2,",
+  "Ravi Patel,Ethan Park,L,5-7 4-6,8/15/26,3,",
+  "GIRLS — SINGLES,,,,,,",
+  "Athlete,Versus,Outcome,Line,Played,Court,Note",
+  "Maya Lee,Emma Wilson,W,6-1 6-2,8/15/26,1,",
+  "Priya Nair,Chloe Martin,W,6-0 6-2,8/15/26,2,",
+  "Zoe Rivera,Lily Nguyen,L,4-6 6-7,8/15/26,3,",
+  "BOYS — DOUBLES,,,,,,",
+  "Team,Other Team,W/L,Score,Date,Court,Note",
+  "Aiden Shah / Leo Kim,Ravi Patel / Noah Chen,W,6-4 6-4,8/15/26,1,",
+  "Mateo Ruiz / Ethan Park,Daniel Brooks / Omar Khan,L,5-7 3-6,8/15/26,2,",
+].join("\n");
+
+const synonymRows = importer.parseText(synonymSections, "Old Coach Sheet");
+const synonymReview = importer.validateInterpretation(synonymRows);
+assert.equal(synonymReview.valid, true, synonymReview.reason);
+assert.equal(synonymRows.__analysis.engine, "v5-multi-block");
+assert.equal(synonymRows.__analysis.blocks.length, 3);
+assert.equal(synonymRows.length, 8, "only eight match rows should remain after section headers are isolated");
+assert.ok(!synonymRows.some(row => ["Athlete", "Team", "Player"].includes(String(row.name || ""))), "synonym/repeated headers must never become player names");
+assert.deepEqual(
+  synonymRows.map(row => row.name),
+  ["Aiden Shah", "Leo Kim", "Ravi Patel", "Maya Lee", "Priya Nair", "Zoe Rivera", "Aiden Shah / Leo Kim", "Mateo Ruiz / Ethan Park"],
+);
+assert.deepEqual(synonymRows.slice(3, 6).map(row => row.gender), ["Girls", "Girls", "Girls"]);
+assert.deepEqual(synonymRows.slice(6).map(row => row.division), ["Doubles", "Doubles"]);
+
+console.log("Multi-block import suite passed: mixed schemas and synonym section headers stay isolated without fake player rows.");
