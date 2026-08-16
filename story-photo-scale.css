@@ -1,16 +1,26 @@
-/* Small, Tesla-MD-aligned photography balance adjustment.
-   Keep the current cards and crops; only give story copy slightly more room. */
+/* Keep the story photography present, but let the content lead.
+   Desktop: reduce both player-photo columns to roughly 36% of each card.
+   Mobile: keep the stacked crop compact instead of letting it dominate the card. */
 @media (min-width: 760px) {
   .story-card {
-    grid-template-columns: minmax(0, 0.93fr) minmax(0, 1.07fr) !important;
+    grid-template-columns: minmax(0, 0.72fr) minmax(0, 1.28fr) !important;
   }
 
   .spotlight-card {
-    grid-template-columns: minmax(0, 1.07fr) minmax(0, 0.93fr) !important;
+    grid-template-columns: minmax(0, 1.28fr) minmax(0, 0.72fr) !important;
   }
 
   .story-image,
   .spotlight-image {
     min-width: 0;
+  }
+}
+
+@media (max-width: 759px) {
+  .story-image,
+  .spotlight-image {
+    min-height: 150px !important;
+    height: 150px;
+    max-height: 150px;
   }
 }
