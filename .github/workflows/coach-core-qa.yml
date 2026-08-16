@@ -98,13 +98,16 @@ jobs:
         run: |
           python3 - <<'PY'
           from pathlib import Path
-          path = Path('index.html')
-          html = path.read_text()
-          html = html.replace('</head>', '<link rel="stylesheet" href="./player-dashboard-state.css" /></head>')
+          source = Path('index.html').read_text()
+          html = source.replace('</head>', '<link rel="stylesheet" href="./player-dashboard-state.css" /></head>')
           stack = '<script src="./import-runtime-fixes.js"></script><script src="./import-v2.js"></script><script src="./import-delimiter-fix.js"></script><script src="./spreadsheet-ml.js"></script><script src="./import-v2-fixes.js"></script><script src="./import-row-safety-fix.js"></script><script src="./import-multiblock-fix.js"></script><script src="./spreadsheet-semantic-calibration.js"></script><script src="./spreadsheet-ai.js"></script><script src="./ai-quota-guard.js"></script><script src="./import-auto-sync.js"></script><script src="./ranking-policy.js"></script><script src="./player-dashboard-state.js"></script>'
           html = html.replace('<script src="./app.js"></script>', '<script src="./app.js"></script>' + stack)
-          path.write_text(html)
           Path('qa-ai-index.html').write_text(html)
+
+          visual = html.replace('</head>', '<link rel="stylesheet" href="./production-stability.css"><link rel="stylesheet" href="./tesla-authority.css"><link rel="stylesheet" href="./tesla-finish.css"><link rel="stylesheet" href="./tesla-motion.css"><link rel="stylesheet" href="./story-photo-scale.css"><style>#showBootstrap,.bootstrap-form{display:none!important}</style></head>')
+          visual = visual.replace('<script src="./ladder.js"></script>', '<script src="./tesla-motion.js"></script><script src="./brand-assets.js"></script><script src="./ladder.js"></script>')
+          visual = visual.replace('<div class="cursor-ball" aria-hidden="true"><span class="cursor-ball-core"></span></div>', '')
+          Path('qa-index.html').write_text(visual)
           PY
 
       - name: Install Playwright
@@ -121,10 +124,12 @@ jobs:
           npx playwright test qa/auth-flow.spec.js qa/browser.spec.js qa/ai-import.spec.js qa/import-board-sync.spec.js qa/core-flow-browser.spec.js --reporter=line --workers=1
 
       - name: Visual stability QA
+        env:
+          QA_BASE: http://127.0.0.1:4174/qa-index.html
         run: |
           set -euo pipefail
           python3 -m http.server 4174 >/tmp/tennisrank-visual-http.log 2>&1 &
           SERVER_PID=$!
           trap 'kill $SERVER_PID || true' EXIT
           sleep 2
-          TENNISRANK_BASE_URL=http://127.0.0.1:4174 npx playwright test qa/visual-stability.spec.js --reporter=line --workers=1
+          npx playwright test qa/visual-stability.spec.js qa/brand-logo.spec.js qa/story-photo-scale.spec.js --reporter=line --workers=1
