@@ -3,7 +3,11 @@
   if (typeof module === "object" && module.exports) module.exports = api;
   if (root) {
     root.TennisRankRowSafetyFix = api;
-    if (root.TennisRankImportV2) api.wrapImporter(root.TennisRankImportV2);
+    if (root.document) {
+      const install = () => root.TennisRankImportV2 && api.wrapImporter(root.TennisRankImportV2);
+      if (root.document.readyState === "loading") root.document.addEventListener("DOMContentLoaded", install, { once: true });
+      else install();
+    }
   }
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
   "use strict";
@@ -46,8 +50,6 @@
     const start = Math.min(matrix.length - 1, Math.max(0, Number(sourceRow) - 2));
     for (let index = start; index >= Math.max(0, start - 14); index -= 1) {
       const values = (matrix[index] || []).map(text).filter(Boolean);
-      // Section headings are sparse. Dense match/data rows may contain Boys or
-      // Girls values too, but they must never become context for later rows.
       if (!values.length || values.length > 3) continue;
       const joined = values.join(" ");
       const genderValue = /\b(?:girls?|women|female)\b/i.test(joined)
@@ -63,13 +65,9 @@
 
   function repairRow(row, mapping, context = {}) {
     if (!row || typeof row !== "object") return row;
-
-    // Deterministic First/Surname columns are stronger evidence than an ML name
-    // guess. This prevents values like "active" from becoming player names.
     const splitName = [text(row.firstName), text(row.lastName)].filter(Boolean).join(" ");
     if (splitName) row.name = splitName;
 
-    // Recover semantic values from generic headers such as Squad / Group / Type.
     for (const [field, value] of Object.entries(row)) {
       if (field.startsWith("__")) continue;
       const normalizedKey = key(field);
@@ -80,8 +78,6 @@
       if (!row.date && DATE.test(text(value)) && /^(?:when|played|playedon|matchdate|date)$/i.test(normalizedKey)) row.date = text(value);
     }
 
-    // A broad Group/Division mapping can contain Boys/Girls rather than an event
-    // type. Move that evidence to gender and recover the event from another cell.
     const divisionAsGender = gender(row.division);
     if (divisionAsGender) {
       row.gender = divisionAsGender;
@@ -97,15 +93,11 @@
 
     if (STATUS.test(text(row.name)) && !splitName) delete row.name;
 
-    // A row-centric match sometimes comes back from ML as player1 + opponent.
-    // That structure is unambiguous: player1 is the row player, not a team side.
     if (text(row.player1) && text(row.opponent) && /^(?:w|l|win|loss)$/i.test(text(row.result)) && !text(row.player2)) {
       row.name = text(row.player1);
       delete row.player1;
     }
 
-    // Natural-language headers intentionally left raw by the conservative base
-    // mapper can still be normalized from their explicit values.
     if (!text(row.winner)) {
       for (const [field, value] of Object.entries(row)) {
         if (/^(?:whowon|wonby|winneris|winningteam|winningplayer)$/i.test(key(field)) && text(value)) {
@@ -117,13 +109,9 @@
     if (text(row.winner) && text(row.player1) && text(row.winner).toLowerCase() === text(row.player1).toLowerCase()) row.winner = "Player A";
     else if (text(row.winner) && text(row.player2) && text(row.winner).toLowerCase() === text(row.player2).toLowerCase()) row.winner = "Player B";
 
-    // Sparse nearby section titles are authoritative only when the schema did
-    // not already contain an explicit mapped Gender/Division field.
     if (context.gender && !hasExplicitMapping(mapping, "gender")) row.gender = context.gender;
     if (context.division && !hasExplicitMapping(mapping, "division")) row.division = context.division;
 
-    // Do not let weak aggregate guesses hitchhike onto an individual match row
-    // (e.g. Court -> losses). Explicit/rule-based aggregate fields are retained.
     const matchLike = (text(row.name) && text(row.opponent) && /^(?:w|l|win|loss)$/i.test(text(row.result)))
       || (text(row.player1) && text(row.player2) && (text(row.winner) || text(row.result)));
     if (matchLike) {
