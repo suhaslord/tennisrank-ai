@@ -1,12 +1,16 @@
 (function (root, factory) {
   const api = factory();
   if (typeof module === "object" && module.exports) module.exports = api;
-  if (root) root.TennisRankSpreadsheetAI = api;
+  if (root) {
+    root.TennisRankSpreadsheetAI = api;
+    if (root.document) api.installBrowser(root);
+  }
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
   "use strict";
 
   const APPLY_THRESHOLD = 0.62;
   const BLOCK_UNSUPPORTED_THRESHOLD = 0.86;
+  const schemaCache = new Map();
 
   function nonEmpty(value) {
     return String(value ?? "").trim() !== "";
@@ -35,6 +39,32 @@
     for (let i = 1; i <= middleSlots; i += 1) add(Math.floor((i * (rows.length - 1)) / (middleSlots + 1)));
     for (let i = Math.max(0, rows.length - 20); i < rows.length; i += 1) add(i);
     return selected.slice(0, limit);
+  }
+
+  function valueType(value) {
+    const text = String(value ?? "").trim();
+    if (!text) return "empty";
+    if (/^(?:w|l|win|loss|won|lost|home|away|player\s*[ab12]|team\s*[ab12])$/i.test(text)) return "result";
+    if (/^(?:boys?|girls?|male|female|m|f|men|women)$/i.test(text)) return "gender";
+    if (/\b(?:singles?|doubles?|2v2)\b/i.test(text)) return "division";
+    if (/^(?:\d{1,2}\s*[-–]\s*\d{1,2})(?:\s*[,;/]\s*\d{1,2}\s*[-–]\s*\d{1,2}){0,4}$/.test(text)) return "score";
+    if (/^\d{4}-\d{1,2}-\d{1,2}/.test(text) || /^\d{1,2}[\/-]\d{1,2}[\/-]\d{2,4}$/.test(text)) return "date";
+    if (/^-?\d+(?:\.\d+)?$/.test(text)) return "number";
+    if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(text)) return "email";
+    return "text";
+  }
+
+  function schemaSignature(rows) {
+    if (!Array.isArray(rows) || !rows.length) return "";
+    const keys = [...new Set(rows.flatMap(row => Object.keys(row || {}).filter(key => !key.startsWith("__"))))].sort();
+    return keys.map(key => {
+      const counts = {};
+      rows.slice(0, 24).forEach(row => {
+        const type = valueType(row?.[key]);
+        counts[type] = (counts[type] || 0) + 1;
+      });
+      return `${key}:${Object.entries(counts).sort().map(([type, count]) => `${type}${count}`).join(".")}`;
+    }).join("|");
   }
 
   function normalizeAi(ai) {
@@ -114,7 +144,6 @@
       if (!nonEmpty(output.name) && (first || last)) output.name = [first, last].filter(Boolean).join(" ");
       delete output.firstName;
       delete output.lastName;
-
       if (!nonEmpty(output.gender) && normalized.globalGender !== "unknown") output.gender = normalized.globalGender;
       if (!nonEmpty(output.division) && normalized.globalDivision !== "unknown") output.division = normalized.globalDivision;
       return output;
@@ -161,6 +190,29 @@
     return !new Set(["sample", "backend", "local", "restored"]).has(String(source || "").toLowerCase());
   }
 
+  function cacheSchema(rows, ai, model) {
+    const signature = schemaSignature(rows);
+    if (!signature || !ai?.supported) return;
+    schemaCache.set(signature, { ai: normalizeAi(ai), model: String(model || "Gemini"), savedAt: Date.now() });
+    while (schemaCache.size > 12) schemaCache.delete(schemaCache.keys().next().value);
+  }
+
+  function applyCachedMapping(rows) {
+    const signature = schemaSignature(rows);
+    const cached = signature ? schemaCache.get(signature) : null;
+    if (!cached?.ai) return rows;
+    const mapped = applyAiMapping(rows, cached.ai);
+    if (mapped?.__analysis) {
+      mapped.__analysis.ai = {
+        ...(mapped.__analysis.ai || {}),
+        status: "cached-schema",
+        model: cached.model,
+        cached: true,
+      };
+    }
+    return mapped;
+  }
+
   async function requestAnalysis(rows, options = {}) {
     const auth = options.auth || (typeof window !== "undefined" ? window.TennisRankAuth : null);
     if (!auth?.fetch) throw Object.assign(new Error("AI analysis requires an authenticated admin session."), { code: "AI_AUTH_UNAVAILABLE" });
@@ -185,6 +237,17 @@
   async function enhanceRows(rows, options = {}) {
     if (!Array.isArray(rows) || !rows.length || !shouldUseAi(options.source)) return rows;
     const importer = options.importer || (typeof window !== "undefined" ? window.TennisRankImportV2 : null);
+    const cached = schemaCache.get(schemaSignature(rows));
+    if (cached?.ai) {
+      const mapped = applyCachedMapping(rows);
+      const cachedReview = reviewRows(mapped, importer);
+      if (cachedReview.valid) {
+        if (mapped.__analysis) mapped.__analysis.review = cachedReview;
+        return mapped;
+      }
+      schemaCache.delete(schemaSignature(rows));
+    }
+
     const before = reviewRows(rows, importer);
     let response;
     try {
@@ -220,6 +283,7 @@
       });
     }
 
+    const rawSignatureRows = rows;
     const remapped = applyAiMapping(rows, ai);
     const after = reviewRows(remapped, importer);
     if (!after.valid) {
@@ -245,6 +309,7 @@
       });
     }
 
+    cacheSchema(rawSignatureRows, ai, response.model);
     if (remapped.__analysis) {
       remapped.__analysis.review = after;
       remapped.__analysis.ai = {
@@ -257,16 +322,116 @@
     return remapped;
   }
 
+  function aiSummary(rows) {
+    const ai = rows?.__analysis?.ai;
+    if (!ai) return "local parser";
+    if (ai.status === "applied-and-validated") return `${ai.model || "Gemini"} + local validation`;
+    if (ai.status === "cached-schema") return `${ai.model || "Gemini"} cached schema + local validation`;
+    if (ai.status === "not-configured") return "local parser (AI key not configured)";
+    if (ai.status === "unavailable") return "local parser (AI temporarily unavailable)";
+    if (ai.status === "verified-kept-local" || ai.status === "disagreed-kept-local") return `${ai.model || "Gemini"} verified; local mapping kept`;
+    return "AI verification";
+  }
+
+  async function processTextImport(win, text, source, sourceName) {
+    const importer = win.TennisRankImportV2;
+    if (!importer?.parseText) throw new Error("The TennisRank spreadsheet importer is still loading.");
+    let rows = importer.parseText(String(text || ""), sourceName || "Tennis spreadsheet");
+    rows = await enhanceRows(rows, { source, sourceName, importer, auth: win.TennisRankAuth });
+    const runtime = win.TennisRankImportRuntime;
+    if (runtime?.normalizeRows) rows = runtime.normalizeRows(rows);
+    if (runtime?.validateRows) runtime.validateRows(rows, importer);
+    else {
+      const review = reviewRows(rows, importer);
+      if (!review.valid) throw new Error(review.reason || "The spreadsheet interpretation is not safe to publish.");
+    }
+    return rows;
+  }
+
+  function installBrowser(win) {
+    const doc = win.document;
+    const bind = () => {
+      const pasteButton = doc.querySelector("#useCsv");
+      if (pasteButton && !pasteButton.dataset.aiImportBound) {
+        pasteButton.dataset.aiImportBound = "true";
+        pasteButton.addEventListener("click", async event => {
+          event.preventDefault();
+          event.stopImmediatePropagation();
+          if (typeof win.setBusy === "function") win.setBusy(pasteButton, true);
+          try {
+            if (typeof win.setStatus === "function") win.setStatus("Parsing pasted data, then asking TennisRank AI to verify the schema...");
+            const rows = await processTextImport(win, doc.querySelector("#csvText")?.value || "", "csv", "Pasted tennis data");
+            if (typeof win.loadRows !== "function") throw new Error("The TennisRank board is not ready yet.");
+            win.loadRows(rows, "csv");
+            if (typeof win.setStatus === "function") win.setStatus(`Loaded ${rows.length} rows using ${aiSummary(rows)}. Saving...`);
+            if (typeof win.syncToBackend === "function") await win.syncToBackend();
+            if (typeof win.setStatus === "function") win.setStatus(`Loaded, verified, and saved ${rows.length} rows using ${aiSummary(rows)}.`);
+          } catch (error) {
+            if (typeof win.setStatus === "function") win.setStatus(error.message, true);
+          } finally {
+            if (typeof win.setBusy === "function") win.setBusy(pasteButton, false);
+          }
+        }, true);
+      }
+
+      const sheetButton = doc.querySelector("#connectSheet");
+      if (sheetButton && !sheetButton.dataset.aiImportBound) {
+        sheetButton.dataset.aiImportBound = "true";
+        sheetButton.addEventListener("click", async event => {
+          event.preventDefault();
+          event.stopImmediatePropagation();
+          if (typeof win.setBusy === "function") win.setBusy(sheetButton, true);
+          try {
+            const input = String(doc.querySelector("#sheetUrl")?.value || "").trim();
+            if (!input) throw new Error("Paste a Google Sheet link first.");
+            const importer = win.TennisRankImportV2;
+            if (!importer?.googleCsvProxyUrl) throw new Error("Google Sheet support is still loading.");
+            if (typeof win.setStatus === "function") win.setStatus("Loading the Google Sheet, then verifying its structure with TennisRank AI...");
+            const response = await fetch(importer.googleCsvProxyUrl(input), { cache: "no-store" });
+            const text = await response.text();
+            if (!response.ok) {
+              let message = `The sheet could not be loaded (${response.status}).`;
+              try { message = JSON.parse(text).error || message; } catch {}
+              throw new Error(message);
+            }
+            const rows = await processTextImport(win, text, "sheet", "Google Sheet tennis data");
+            localStorage.setItem("tennisRankSheetUrl", input);
+            if (typeof win.loadRows !== "function") throw new Error("The TennisRank board is not ready yet.");
+            win.loadRows(rows, "sheet");
+            if (typeof win.setStatus === "function") win.setStatus(`Loaded ${rows.length} Google Sheet rows using ${aiSummary(rows)}. Saving...`);
+            if (typeof win.syncToBackend === "function") await win.syncToBackend();
+            if (typeof win.startRefresh === "function") win.startRefresh();
+            if (typeof win.setStatus === "function") win.setStatus(`Google Sheet verified and saved using ${aiSummary(rows)}.`);
+          } catch (error) {
+            if (typeof win.setStatus === "function") win.setStatus(error.message, true);
+          } finally {
+            if (typeof win.setBusy === "function") win.setBusy(sheetButton, false);
+          }
+        }, true);
+      }
+    };
+
+    if (doc.readyState === "loading") doc.addEventListener("DOMContentLoaded", () => setTimeout(bind, 0), { once: true });
+    else setTimeout(bind, 0);
+  }
+
   return {
     APPLY_THRESHOLD,
     BLOCK_UNSUPPORTED_THRESHOLD,
     sampleRows,
+    valueType,
+    schemaSignature,
     normalizeAi,
     mappingPlan,
     applyAiMapping,
     reviewRows,
     shouldUseAi,
+    cacheSchema,
+    applyCachedMapping,
     requestAnalysis,
     enhanceRows,
+    aiSummary,
+    processTextImport,
+    installBrowser,
   };
 });
