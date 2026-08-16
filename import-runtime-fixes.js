@@ -90,6 +90,7 @@
     const ai = rows?.__analysis?.ai;
     if (!ai) return "local parser verified";
     if (ai.status === "applied-and-validated") return `${ai.model || "AI"} + local validation`;
+    if (ai.status === "cached-schema") return `${ai.model || "AI"} cached schema + local validation`;
     if (ai.status === "verified-kept-local" || ai.status === "disagreed-kept-local") return `${ai.model || "AI"} checked; local interpretation kept`;
     if (ai.status === "not-configured") return "local parser verified; AI key not configured";
     if (ai.status === "unavailable") return "local parser verified; AI temporarily unavailable";
@@ -151,8 +152,13 @@
         if (typeof win.loadRows === "function" && !win.loadRows.__tennisrankValidated) {
           const baseLoadRows = win.loadRows;
           const validatedLoadRows = function (rows, source) {
-            if (source !== "sample") validateRows(rows, importer);
-            return baseLoadRows(rows, source);
+            let candidate = rows;
+            if (source !== "sample" && win.TennisRankSpreadsheetAI?.applyCachedMapping) {
+              candidate = win.TennisRankSpreadsheetAI.applyCachedMapping(candidate);
+              candidate = normalizeRows(candidate);
+            }
+            if (source !== "sample") validateRows(candidate, importer);
+            return baseLoadRows(candidate, source);
           };
           validatedLoadRows.__tennisrankValidated = true;
           win.loadRows = validatedLoadRows;
