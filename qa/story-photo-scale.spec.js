@@ -13,7 +13,7 @@ async function showApp(page) {
   await page.waitForTimeout(160);
 }
 
-test('story photography is slightly smaller without breaking Tesla-MD layout', async ({ page }) => {
+test('story photography is compact and balanced on desktop', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto(BASE, { waitUntil: 'networkidle' });
   await showApp(page);
@@ -31,20 +31,31 @@ test('story photography is slightly smaller without breaking Tesla-MD layout', a
     };
   });
 
-  expect(metrics.storyRatio).toBeGreaterThan(0.40);
-  expect(metrics.storyRatio).toBeLessThan(0.49);
-  expect(metrics.spotlightRatio).toBeGreaterThan(0.40);
-  expect(metrics.spotlightRatio).toBeLessThan(0.49);
+  expect(metrics.storyRatio).toBeGreaterThan(0.33);
+  expect(metrics.storyRatio).toBeLessThan(0.40);
+  expect(metrics.spotlightRatio).toBeGreaterThan(0.33);
+  expect(metrics.spotlightRatio).toBeLessThan(0.40);
   expect(metrics.overflow).toBeLessThanOrEqual(2);
 
   await page.screenshot({ path: 'qa-artifacts/story-photos-desktop.png', fullPage: false });
 });
 
-test('photo adjustment does not change the mobile stacking', async ({ page }) => {
+test('story photography stays compact on mobile without overflow', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto(BASE, { waitUntil: 'networkidle' });
   await showApp(page);
 
-  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
-  expect(overflow).toBeLessThanOrEqual(2);
+  const metrics = await page.evaluate(() => {
+    const storyImage = document.querySelector('.story-card .story-image').getBoundingClientRect();
+    const spotlightImage = document.querySelector('.spotlight-card .spotlight-image').getBoundingClientRect();
+    return {
+      storyHeight: storyImage.height,
+      spotlightHeight: spotlightImage.height,
+      overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    };
+  });
+
+  expect(metrics.storyHeight).toBeLessThanOrEqual(160);
+  expect(metrics.spotlightHeight).toBeLessThanOrEqual(160);
+  expect(metrics.overflow).toBeLessThanOrEqual(2);
 });
