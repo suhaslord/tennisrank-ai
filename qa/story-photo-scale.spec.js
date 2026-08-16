@@ -37,6 +37,8 @@ test('story photography is compact and balanced on desktop', async ({ page }) =>
   expect(metrics.spotlightRatio).toBeLessThan(0.40);
   expect(metrics.overflow).toBeLessThanOrEqual(2);
 
+  await page.locator('.story-rail').scrollIntoViewIfNeeded();
+  await page.waitForTimeout(220);
   await page.screenshot({ path: 'qa-artifacts/story-photos-desktop.png', fullPage: false });
 });
 
@@ -58,4 +60,8 @@ test('story photography stays compact on mobile without overflow', async ({ page
   expect(metrics.storyHeight).toBeLessThanOrEqual(160);
   expect(metrics.spotlightHeight).toBeLessThanOrEqual(160);
   expect(metrics.overflow).toBeLessThanOrEqual(2);
+
+  await page.locator('.story-rail').scrollIntoViewIfNeeded();
+  await page.waitForTimeout(220);
+  await page.screenshot({ path: 'qa-artifacts/story-photos-mobile.png', fullPage: false });
 });
