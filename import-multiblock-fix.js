@@ -3,7 +3,11 @@
   if (typeof module === "object" && module.exports) module.exports = api;
   if (root) {
     root.TennisRankMultiBlockFix = api;
-    if (root.TennisRankImportV2) api.wrapImporter(root.TennisRankImportV2);
+    if (root.document) {
+      const install = () => root.TennisRankImportV2 && api.wrapImporter(root.TennisRankImportV2);
+      if (root.document.readyState === "loading") root.document.addEventListener("DOMContentLoaded", install, { once: true });
+      else install();
+    }
   }
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
   "use strict";
@@ -49,10 +53,6 @@
         && new Set(values.map(value => value.toLowerCase())).size === nonEmpty
         && followers >= 2;
 
-      // Data rows can contain W/Boys/Singles and therefore look semantic to a
-      // header alias system. Requiring a low data-value ratio keeps those rows
-      // from becoming false table boundaries while still allowing opaque X01
-      // or Field 1 style headers.
       if ((recognized >= 2 || hints >= 2 || (hints >= 1 && nonEmpty >= 4) || opaqueHeader) && dataRatio <= 0.34) {
         candidates.push(index);
       }
@@ -112,9 +112,6 @@
       const incoming = importer.canonicalField(value);
       if (incoming !== "column" && incoming === field) positionalMatches += 1;
     }
-    // Real match rows can legitimately contain two self-describing values such
-    // as Boys + Singles. Three or more same-position semantic labels is a much
-    // stronger signal that a repeated header row was parsed as data.
     return compared >= 3 && positionalMatches >= 3 && positionalMatches / compared >= 0.4;
   }
 
@@ -187,10 +184,6 @@
       const blockReview = typeof importer.validateInterpretation === "function"
         ? importer.validateInterpretation(merged)
         : { valid: merged.length > 0 };
-
-      // Prefer isolated blocks when they preserve at least as much actual data
-      // after subtracting repeated headers that the one-schema parser treated as
-      // rows. Otherwise retain the fuller parse to avoid fragmenting normal data.
       const blocksAreBetter = blockReview.valid && (
         merged.length > fullResult.length
         || (suspiciousFullRows > 0 && merged.length >= usableFullRows)
