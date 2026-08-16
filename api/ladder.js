@@ -1,5 +1,5 @@
 const { json, authenticatedContext, rest, allowApi } = require("./_supabase");
-const { findLinkedPlayer } = require("./_player-link");
+const { findLinkedPlayer } = require("../lib/player-link");
 
 module.exports = async function handler(req, res) {
   allowApi(res, "GET,OPTIONS");
@@ -8,8 +8,6 @@ module.exports = async function handler(req, res) {
 
   try {
     const context = await authenticatedContext(req);
-    // Repair legacy accounts before loading the roster so the payload below is
-    // immediately consistent for both the player dashboard and challenge UI.
     const link = context.profile.role === "player"
       ? await findLinkedPlayer(context)
       : { linkedPlayer: null, reason: "admin" };
