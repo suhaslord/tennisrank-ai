@@ -1,0 +1,201 @@
+name: TennisRank ladder QA
+
+on:
+  push:
+    branches:
+      - feature/tesla-ladder-dashboard
+  workflow_dispatch:
+
+concurrency:
+  group: tennisrank-ladder-qa-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install spreadsheet test engine
+        run: npm install --no-save https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz
+      - name: JavaScript syntax
+        run: |
+          set -euo pipefail
+          node --check auth.js
+          node --check app.js
+          node --check spreadsheet-ml.js
+          node --check spreadsheet-ai.js
+          node --check ai-quota-guard.js
+          node --check spreadsheet-semantic-calibration.js
+          node --check import-v2.js
+          node --check import-delimiter-fix.js
+          node --check import-v2-fixes.js
+          node --check import-row-safety-fix.js
+          node --check import-multiblock-fix.js
+          node --check import-runtime-fixes.js
+          node --check import-auto-sync.js
+          node --check tesla-motion.js
+          node --check lib/ladder-engine.js
+          node --check lib/ai-sheet-analyzer.js
+          node --check ladder.js
+          node --check challenge-ui.js
+          node --check challenge-ui-state.js
+          node --check api/render.js
+          node --check api/_supabase.js
+          node --check api/auth-api.js
+          node --check api/users.js
+          node --check api/records.js
+          node --check api/ladder.js
+          node --check api/challenges.js
+          node --check api/match-score.js
+          node --check api/sheet-proxy.js
+          node --check api/admin/verify-match.js
+          node --check api/admin/ladder.js
+          node --check api/admin/seed-ladder.js
+          node --check qa/import-regression.test.js
+          node --check qa/import-v2.test.js
+          node --check qa/import-v2-diagnostics.js
+          node --check qa/delimiter-fuzz.test.js
+          node --check qa/row-safety.test.js
+          node --check qa/multiblock.test.js
+          node --check qa/workbook-formats.test.js
+          node --check qa/sheet-proxy.test.js
+          node --check qa/spreadsheet-ml.test.js
+          node --check qa/spreadsheet-ml-benchmark.test.js
+          node --check qa/spreadsheet-ai.test.js
+          node --check qa/import-auto-sync.test.js
+          node --check qa/import-board-sync.spec.js
+          node --check qa/challenge-api.test.js
+          node --check qa/ai-import.spec.js
+          node --check qa/browser.spec.js
+          node --check qa/auth-flow.spec.js
+          node --check qa/visual-stability.spec.js
+          node --check playwright.config.js
+      - name: Ladder behavior tests
+        run: node qa/ladder-engine.test.js
+      - name: Challenge API validation
+        run: node qa/challenge-api.test.js
+      - name: Spreadsheet intelligence and import compatibility
+        run: |
+          node qa/import-regression.test.js
+          node qa/import-v2.test.js
+          node qa/import-v2-diagnostics.js
+          node qa/delimiter-fuzz.test.js
+          node qa/row-safety.test.js
+          node qa/multiblock.test.js
+          node qa/workbook-formats.test.js
+          node qa/sheet-proxy.test.js
+          node qa/spreadsheet-ml.test.js
+          node qa/spreadsheet-ml-benchmark.test.js
+          node qa/spreadsheet-ai.test.js
+          node qa/import-auto-sync.test.js
+      - name: Reconciliation guardrails
+        run: |
+          set -euo pipefail
+          grep -q 'id="authGate"' index.html
+          grep -q 'id="playerDashboard"' index.html
+          grep -q 'id="accountsPanel"' index.html
+          grep -q './ladder.css' index.html
+          grep -q './challenge-ui.css' index.html
+          grep -q './challenge-ui-fixes.css' index.html
+          grep -q './lib/ladder-engine.js' index.html
+          grep -q './challenge-ui.js' index.html
+          grep -q './challenge-ui-state.js' index.html
+          test -f tesla-authority.css
+          test -f tesla-finish.css
+          test -f tesla-motion.css
+          test -f tesla-motion.js
+          test -f production-stability.css
+          test -f spreadsheet-ml.js
+          test -f spreadsheet-ai.js
+          test -f ai-quota-guard.js
+          test -f spreadsheet-semantic-calibration.js
+          test -f import-v2.js
+          test -f import-delimiter-fix.js
+          test -f import-v2-fixes.js
+          test -f import-row-safety-fix.js
+          test -f import-multiblock-fix.js
+          test -f import-runtime-fixes.js
+          test -f import-auto-sync.js
+          test -f api/sheet-proxy.js
+          test -f lib/ai-sheet-analyzer.js
+          test -f assets/team-court.jpg
+          test -f assets/matchday-awards.jpg
+          test -f assets/singles-spotlight.jpg
+      - name: Server-auth, Vercel and import guardrails
+        run: |
+          set -euo pipefail
+          grep -q 'authenticatedContext' api/records.js
+          grep -q 'context.profile.role !== "admin"' api/records.js
+          grep -q 'source_key' api/records.js
+          grep -q 'validateWinnerScore' api/match-score.js
+          grep -q 'context.profile.role !== "admin"' api/admin/verify-match.js
+          grep -q 'docs.google.com' api/sheet-proxy.js
+          grep -q 'googleusercontent.com' api/sheet-proxy.js
+          grep -q 'MAX_BYTES' api/sheet-proxy.js
+          grep -q 'sheet-proxy' import-v2.js
+          grep -q 'GEMINI_API_KEY' api/sheet-proxy.js
+          grep -q 'redactedBeforeProvider' lib/ai-sheet-analyzer.js
+          grep -q 'context.profile.role !== "admin"' api/sheet-proxy.js
+          grep -q 'spreadsheet-ai.js' api/render.js
+          grep -q 'ai-quota-guard.js' api/render.js
+          grep -q 'import-delimiter-fix.js' api/render.js
+          grep -q 'import-row-safety-fix.js' api/render.js
+          grep -q 'import-multiblock-fix.js' api/render.js
+          grep -q 'import-auto-sync.js' api/render.js
+          grep -q 'tesla-authority.css' api/render.js
+          grep -q 'tesla-finish.css' api/render.js
+          grep -q 'tesla-motion.css' api/render.js
+          grep -q 'tesla-motion.js' api/render.js
+          grep -q 'spreadsheet-ml.js' api/render.js
+          grep -q 'spreadsheet-semantic-calibration.js' api/render.js
+          grep -q 'import-runtime-fixes.js' api/render.js
+          grep -q 'import-v2.js' api/render.js
+          grep -q 'import-v2-fixes.js' api/render.js
+          grep -q 'route === "config"' api/auth-api.js
+          grep -q 'route === "session"' api/auth-api.js
+          grep -q 'route === "bootstrap"' api/auth-api.js
+          grep -q '"source": "/api/config"' vercel.json
+          grep -q '"source": "/api/session"' vercel.json
+          grep -q '"source": "/api/bootstrap"' vercel.json
+          grep -q '"source": "/api/ai-analyze-sheet"' vercel.json
+          grep -q '"destination": "/api/sheet-proxy?mode=ai"' vercel.json
+          test ! -e api/config.js
+          test ! -e api/session.js
+          test ! -e api/bootstrap.js
+          test ! -e api/ai-analyze-sheet.js
+          COUNT=$(find api -type f -name '*.js' | wc -l)
+          echo "Serverless function candidates: $COUNT"
+          test "$COUNT" -le 12
+      - name: Secret-safety guardrails
+        run: |
+          set -euo pipefail
+          ! grep -R --exclude-dir=.git --exclude=.env.example -E 'SUPABASE_SERVICE_ROLE_KEY[[:space:]]*=' .
+          ! grep -R --exclude-dir=.git --exclude=.env.example -E 'GEMINI_API_KEY[[:space:]]*=' .
+          ! grep -R --exclude-dir=.git -E 'AIza[0-9A-Za-z_-]{30,}' .
+          ! grep -R --exclude-dir=.git -E 'sb_secret_[A-Za-z0-9_-]+' .
+      - name: Build AI integration QA shell
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          html = Path('index.html').read_text()
+          scripts = '<script src="./import-runtime-fixes.js"></script><script src="./import-v2.js"></script><script src="./import-delimiter-fix.js"></script><script src="./spreadsheet-ml.js"></script><script src="./import-v2-fixes.js"></script><script src="./import-row-safety-fix.js"></script><script src="./import-multiblock-fix.js"></script><script src="./spreadsheet-semantic-calibration.js"></script><script src="./spreadsheet-ai.js"></script><script src="./ai-quota-guard.js"></script><script src="./import-auto-sync.js"></script>'
+          html = html.replace('<script src="./ladder.js"></script>', scripts + '<script src="./ladder.js"></script>')
+          Path('qa-ai-index.html').write_text(html)
+          PY
+      - name: Install Playwright test runner
+        run: npm install --no-save @playwright/test@1.55.0
+      - name: Browser QA — real app, mocked network only
+        run: |
+          set -euo pipefail
+          google-chrome --version
+          python3 -m http.server 4173 >/tmp/tennisrank-http.log 2>&1 &
+          SERVER_PID=$!
+          trap 'kill $SERVER_PID || true' EXIT
+          sleep 2
+          npx playwright test qa/auth-flow.spec.js qa/browser.spec.js qa/ai-import.spec.js qa/import-board-sync.spec.js --reporter=line --workers=1

@@ -1,0 +1,88 @@
+name: Sync live TennisRank frontend
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/tesla-ladder-dashboard
+    paths:
+      - .github/workflows/sync-live-frontend.yml
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/tesla-ladder-dashboard
+          fetch-depth: 0
+
+      - name: Fetch exact production frontend
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --location https://tennisrank-ai.vercel.app/ -o index.html
+          curl --fail --silent --show-error --location https://tennisrank-ai.vercel.app/style.css -o style.css
+          curl --fail --silent --show-error --location https://tennisrank-ai.vercel.app/app.js -o app.js
+          curl --fail --silent --show-error --location https://tennisrank-ai.vercel.app/auth.js -o auth.js
+          test -s index.html
+          test -s style.css
+          test -s app.js
+          test -s auth.js
+
+      - name: Re-inject ladder assets without changing production markup
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('index.html')
+          text = path.read_text(encoding='utf-8')
+
+          css = (
+              '    <link rel="stylesheet" href="./ladder.css" />\n'
+              '    <link rel="stylesheet" href="./challenge-ui.css" />\n'
+              '    <link rel="stylesheet" href="./challenge-ui-fixes.css" />\n'
+          )
+          if './ladder.css' not in text:
+              text = text.replace('    <link rel="stylesheet" href="./style.css" />\n', '    <link rel="stylesheet" href="./style.css" />\n' + css)
+
+          if './lib/ladder-engine.js' not in text:
+              text = text.replace(
+                  '    <script src="./auth.js"></script>\n    <script src="./app.js"></script>\n',
+                  '    <script src="./auth.js"></script>\n'
+                  '    <script src="./lib/ladder-engine.js"></script>\n'
+                  '    <script src="./app.js"></script>\n'
+                  '    <script src="./ladder.js"></script>\n'
+                  '    <script src="./challenge-ui.js"></script>\n'
+                  '    <script src="./challenge-ui-state.js"></script>\n'
+              )
+
+          path.write_text(text, encoding='utf-8')
+          PY
+
+      - name: Verify reconciliation markers
+        run: |
+          grep -q 'id="authGate"' index.html
+          grep -q 'id="playerDashboard"' index.html
+          grep -q 'id="accountsPanel"' index.html
+          grep -q './ladder.css' index.html
+          grep -q './challenge-ui.css' index.html
+          grep -q './challenge-ui-fixes.css' index.html
+          grep -q './challenge-ui.js' index.html
+          grep -q './challenge-ui-state.js' index.html
+          grep -q 'tennisrank:auth-ready' app.js
+          grep -q 'First-time admin setup' index.html
+
+      - name: Commit reconciled source
+        run: |
+          if git diff --quiet -- index.html style.css app.js auth.js; then
+            echo "Production frontend already reconciled."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html style.css app.js auth.js
+          git commit -m "Sync exact live auth-enabled frontend into ladder branch"
+          git push origin HEAD:feature/tesla-ladder-dashboard

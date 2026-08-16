@@ -1,0 +1,208 @@
+:root {
+  --ladder-orange: #f36b21;
+  --ladder-carbon: #171a20;
+  --ladder-graphite: #393c41;
+  --ladder-pewter: #5c5e62;
+  --ladder-silver: #8e8e8e;
+  --ladder-ash: #f4f4f4;
+  --ladder-line: #eeeeee;
+  --ladder-transition: 330ms cubic-bezier(.5, 0, 0, .75);
+}
+
+.ladder-experience {
+  width: min(1383px, calc(100% - 40px));
+  margin: 0 auto clamp(88px, 12vw, 168px);
+  color: var(--ladder-carbon);
+  background: #fff;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.ladder-intro {
+  min-height: 42vh;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 32px;
+  align-items: end;
+  padding: clamp(44px, 7vw, 104px) clamp(24px, 7vw, 96px) 40px;
+}
+
+.ladder-kicker,
+.ladder-metric-label,
+.ladder-row-meta,
+.ladder-spotlight-label {
+  color: var(--ladder-pewter);
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.4;
+}
+
+.ladder-intro h2 {
+  max-width: 760px;
+  margin: 10px 0 0;
+  color: var(--ladder-carbon);
+  font-size: clamp(40px, 6.5vw, 84px);
+  font-weight: 500;
+  line-height: .96;
+  letter-spacing: -.045em;
+}
+
+.ladder-intro-copy {
+  max-width: 510px;
+  margin: 22px 0 0;
+  color: var(--ladder-graphite);
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.ladder-tabs {
+  display: inline-grid;
+  grid-template-columns: 1fr 1fr;
+  min-width: 310px;
+  padding: 4px;
+  background: var(--ladder-ash);
+  border-radius: 4px;
+}
+
+.ladder-tab {
+  min-height: 44px;
+  padding: 0 18px;
+  border: 0;
+  border-radius: 4px;
+  color: var(--ladder-carbon);
+  background: transparent;
+  font-size: 14px;
+  font-weight: 500;
+  transition: background-color var(--ladder-transition), color var(--ladder-transition);
+}
+
+.ladder-tab[aria-selected="true"] {
+  color: #fff;
+  background: var(--ladder-orange);
+}
+
+.ladder-stage {
+  position: relative;
+  min-height: 560px;
+  overflow: hidden;
+  background: var(--ladder-carbon);
+}
+
+.ladder-stage-photo {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: .72;
+  filter: saturate(.82) contrast(1.04);
+}
+
+.ladder-stage::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, .26);
+  pointer-events: none;
+}
+
+.ladder-spotlight {
+  position: relative;
+  z-index: 1;
+  min-height: 560px;
+  display: grid;
+  grid-template-columns: 1.35fr .8fr .8fr;
+  align-items: end;
+  gap: 1px;
+  padding: clamp(28px, 5vw, 68px);
+}
+
+.ladder-leader {
+  min-height: 260px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: 28px;
+  color: #fff;
+  background: rgba(23, 26, 32, .56);
+  backdrop-filter: blur(8px);
+}
+
+.ladder-leader:first-child { min-height: 370px; }
+.ladder-leader-rank { font-size: clamp(56px, 7vw, 104px); font-weight: 500; line-height: .88; }
+.ladder-leader-name { margin-top: 18px; font-size: clamp(22px, 3vw, 38px); font-weight: 500; line-height: 1; }
+.ladder-leader-detail { margin-top: 9px; color: rgba(255,255,255,.78); font-size: 14px; }
+
+.ladder-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  border-bottom: 1px solid var(--ladder-line);
+}
+
+.ladder-metric {
+  min-height: 190px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: 34px clamp(24px, 4vw, 54px);
+  border-right: 1px solid var(--ladder-line);
+}
+
+.ladder-metric:last-child { border-right: 0; }
+.ladder-metric strong { margin-top: 12px; color: var(--ladder-carbon); font-size: clamp(34px, 4vw, 54px); font-weight: 500; line-height: 1; }
+.ladder-metric small { margin-top: 8px; color: var(--ladder-pewter); font-size: 14px; }
+
+.ladder-board { padding: clamp(40px, 6vw, 76px) clamp(24px, 7vw, 96px) clamp(54px, 8vw, 108px); }
+.ladder-board-head { display: flex; justify-content: space-between; gap: 20px; align-items: end; margin-bottom: 28px; }
+.ladder-board-head h3 { margin: 0; font-size: clamp(32px, 4.2vw, 58px); font-weight: 500; letter-spacing: -.035em; }
+.ladder-board-head p { max-width: 440px; margin: 0; color: var(--ladder-pewter); font-size: 14px; line-height: 1.5; }
+
+.ladder-list { border-top: 1px solid var(--ladder-line); }
+.ladder-row {
+  display: grid;
+  grid-template-columns: 80px 80px minmax(0, 1fr) 170px 150px;
+  gap: 18px;
+  align-items: center;
+  min-height: 92px;
+  border-bottom: 1px solid var(--ladder-line);
+  transition: background-color var(--ladder-transition), color var(--ladder-transition);
+}
+.ladder-row:hover { background: #fafafa; }
+.ladder-rank { font-size: 27px; font-weight: 500; }
+.ladder-movement { color: var(--ladder-pewter); font-size: 14px; font-weight: 500; }
+.ladder-movement.up { color: var(--ladder-orange); }
+.ladder-player-name { font-size: 17px; font-weight: 500; }
+.ladder-record { color: var(--ladder-pewter); font-size: 14px; margin-top: 5px; }
+.ladder-status { justify-self: start; color: var(--ladder-graphite); font-size: 14px; }
+.ladder-challenge-state { justify-self: end; color: var(--ladder-pewter); font-size: 14px; text-align: right; }
+.ladder-challenge-state.eligible { color: var(--ladder-orange); font-weight: 500; }
+
+.ladder-empty { padding: 64px 0; color: var(--ladder-pewter); font-size: 14px; }
+
+@media (max-width: 900px) {
+  .ladder-intro { grid-template-columns: 1fr; align-items: start; }
+  .ladder-tabs { min-width: 0; width: 100%; }
+  .ladder-spotlight { grid-template-columns: 1fr 1fr; }
+  .ladder-leader:first-child { grid-column: 1 / -1; }
+  .ladder-metrics { grid-template-columns: 1fr; }
+  .ladder-metric { min-height: 128px; border-right: 0; border-bottom: 1px solid var(--ladder-line); }
+  .ladder-row { grid-template-columns: 58px 58px minmax(0, 1fr) 120px; }
+  .ladder-status { display: none; }
+}
+
+@media (max-width: 620px) {
+  .ladder-experience { width: 100%; border-radius: 0; }
+  .ladder-intro { min-height: auto; padding: 50px 20px 28px; }
+  .ladder-stage, .ladder-spotlight { min-height: 620px; }
+  .ladder-spotlight { grid-template-columns: 1fr; padding: 20px; }
+  .ladder-leader, .ladder-leader:first-child { min-height: 170px; }
+  .ladder-board { padding: 52px 20px 72px; }
+  .ladder-board-head { display: block; }
+  .ladder-board-head p { margin-top: 12px; }
+  .ladder-row { grid-template-columns: 48px 46px minmax(0, 1fr); min-height: 84px; gap: 10px; }
+  .ladder-challenge-state { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ladder-tab, .ladder-row { transition: none; }
+}
