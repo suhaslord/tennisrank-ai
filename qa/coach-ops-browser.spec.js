@@ -114,16 +114,7 @@ test('coach preview, history, account roster, dashboard and undo work together',
   await page.locator('#tabCsv').click();
   await page.locator('#csvText').fill('Name,Gender,Division\nAiden Brooks,Boys,Singles\nEthan Cole,Boys,Singles\nMateo Rivera,Boys,Singles');
   await page.locator('#useCsv').click();
-  await page.waitForTimeout(350);
-  const diagnostics = await page.evaluate(() => ({
-    status: document.querySelector('#statusMessage')?.textContent || '',
-    modal: Boolean(document.querySelector('#importPreviewModal')),
-    coachOps: Boolean(window.TennisRankCoachOps),
-    calculate: typeof window.calculateRankings,
-    currentRows: (() => { try { return JSON.parse(localStorage.getItem('tennisRankDataSnapshotV1') || 'null')?.rows?.length || 0; } catch { return -1; } })(),
-    finalGuard: Boolean(window.syncToBackend?.__coachOpsPreviewFinal),
-  }));
-  console.log('COACH_PREVIEW_DIAGNOSTICS', JSON.stringify({ previewCalls, ...diagnostics }));
+  await expect.poll(() => previewCalls).toBe(1);
   await expect(page.locator('#importPreviewModal')).toBeVisible();
   await expect(page.locator('#importPreviewBody')).toContainText('Mateo Rivera');
   await page.locator('#importPreviewModal [data-preview-cancel]').last().click();
@@ -135,7 +126,7 @@ test('coach preview, history, account roster, dashboard and undo work together',
   await expect(page.locator('#importPreviewModal')).toBeVisible();
   await page.locator('#importPreviewModal [data-preview-confirm]').click();
   await expect.poll(() => publishCalls).toBe(1);
-  expect(seedCalls).toBeGreaterThan(0);
+  await expect.poll(() => seedCalls).toBeGreaterThan(0);
 
   await page.locator('[data-restore-import="bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"]').click();
   await expect.poll(() => restoreCalls).toBe(1);
