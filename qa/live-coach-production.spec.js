@@ -73,14 +73,19 @@ async function login(page, email, password, newPassword) {
   await page.locator('#loginEmail').fill(email);
   await page.locator('#loginPassword').fill(password);
   await page.locator('#loginButton').click();
+  const app = page.locator('#appShell');
   if (newPassword) {
     const pw = page.locator('#passwordForm');
-    if (await pw.isVisible({ timeout: 4000 }).catch(() => false)) {
+    const state = await Promise.race([
+      app.waitFor({ state: 'visible', timeout: 12000 }).then(() => 'app').catch(() => null),
+      pw.waitFor({ state: 'visible', timeout: 12000 }).then(() => 'password').catch(() => null),
+    ]);
+    if (state === 'password') {
       await page.locator('#newPassword').fill(newPassword);
       await page.locator('#passwordButton').click();
     }
   }
-  await expect(page.locator('#appShell')).toBeVisible({ timeout: 15000 });
+  await expect(app).toBeVisible({ timeout: 15000 });
 }
 async function logout(page) {
   await page.locator('#accountMenu').click();
