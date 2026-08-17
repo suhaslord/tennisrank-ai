@@ -5,6 +5,7 @@ on:
     branches:
       - feature/coach-lokesh-core-flow
       - feature/coach-ops-safety
+      - feature/player-insights-sharing
   workflow_dispatch:
 
 concurrency:
@@ -31,6 +32,8 @@ jobs:
           set -euo pipefail
           node --check ranking-policy.js
           node --check player-dashboard-state.js
+          node --check player-insights.js
+          node --check coach-sharing.js
           node --check import-auto-sync.js
           node --check coach-ops.js
           node --check coach-preview-guard.js
@@ -45,6 +48,8 @@ jobs:
           node --check api/render.js
           node --check qa/ranking-policy.test.js
           node --check qa/player-dashboard-state.test.js
+          node --check qa/player-insights.test.js
+          node --check qa/coach-sharing.test.js
           node --check qa/player-link.test.js
           node --check qa/roster-metadata.test.js
           node --check qa/render-rewrite.test.js
@@ -58,6 +63,8 @@ jobs:
           set -euo pipefail
           node qa/ranking-policy.test.js
           node qa/player-dashboard-state.test.js
+          node qa/player-insights.test.js
+          node qa/coach-sharing.test.js
           node qa/player-link.test.js
           node qa/roster-metadata.test.js
           node qa/render-rewrite.test.js
@@ -89,6 +96,9 @@ jobs:
           test -f coach-ops.js
           test -f coach-ops.css
           test -f coach-preview-guard.js
+          test -f player-insights.js
+          test -f coach-sharing.js
+          test -f insights.css
           test -f supabase/coach_ops_import_history.sql
           test -f supabase/fix_challenge_undo_player_availability.sql
           test ! -e api/_player-link.js
@@ -99,6 +109,9 @@ jobs:
           grep -q '../lib/coach-dashboard' api/ladder.js
           grep -q 'ranking-policy.js' api/render.js
           grep -q 'player-dashboard-state.js' api/render.js
+          grep -q 'player-insights.js' api/render.js
+          grep -q 'coach-sharing.js' api/render.js
+          grep -q 'insights.css' api/render.js
           grep -q 'player-dashboard-state.css' api/render.js
           grep -q 'coach-ops.js' api/render.js
           grep -q 'coach-ops.css' api/render.js
@@ -122,14 +135,14 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
           source = Path('index.html').read_text()
-          common = source.replace('</head>', '<link rel="stylesheet" href="./player-dashboard-state.css" /></head>')
-          common_stack = '<script src="./import-runtime-fixes.js"></script><script src="./import-v2.js"></script><script src="./import-delimiter-fix.js"></script><script src="./spreadsheet-ml.js"></script><script src="./import-v2-fixes.js"></script><script src="./import-row-safety-fix.js"></script><script src="./import-multiblock-fix.js"></script><script src="./spreadsheet-semantic-calibration.js"></script><script src="./spreadsheet-ai.js"></script><script src="./ai-quota-guard.js"></script><script src="./import-auto-sync.js"></script><script src="./ranking-policy.js"></script><script src="./player-dashboard-state.js"></script>'
+          common = source.replace('</head>', '<link rel="stylesheet" href="./player-dashboard-state.css" /><link rel="stylesheet" href="./insights.css" /></head>')
+          common_stack = '<script src="./import-runtime-fixes.js"></script><script src="./import-v2.js"></script><script src="./import-delimiter-fix.js"></script><script src="./spreadsheet-ml.js"></script><script src="./import-v2-fixes.js"></script><script src="./import-row-safety-fix.js"></script><script src="./import-multiblock-fix.js"></script><script src="./spreadsheet-semantic-calibration.js"></script><script src="./spreadsheet-ai.js"></script><script src="./ai-quota-guard.js"></script><script src="./import-auto-sync.js"></script><script src="./ranking-policy.js"></script><script src="./player-dashboard-state.js"></script><script src="./player-insights.js"></script>'
           common = common.replace('<script src="./app.js"></script>', '<script src="./app.js"></script>' + common_stack)
           Path('index.html').write_text(common)
           Path('qa-ai-index.html').write_text(common)
 
           coach = common.replace('</head>', '<link rel="stylesheet" href="./coach-ops.css" /></head>')
-          coach = coach.replace('</body>', '<script src="./coach-ops.js"></script><script src="./coach-preview-guard.js"></script></body>')
+          coach = coach.replace('</body>', '<script src="./coach-ops.js"></script><script src="./coach-sharing.js"></script><script src="./coach-preview-guard.js"></script></body>')
           Path('qa-coach-index.html').write_text(coach)
           PY
 
@@ -151,7 +164,7 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
           html = Path('index.html').read_text()
-          html = html.replace('</head>', '<link rel="stylesheet" href="./production-stability.css"><link rel="stylesheet" href="./tesla-authority.css"><link rel="stylesheet" href="./tesla-finish.css"><link rel="stylesheet" href="./tesla-motion.css"><link rel="stylesheet" href="./story-photo-scale.css"><style>#showBootstrap,.bootstrap-form{display:none!important}</style></head>')
+          html = html.replace('</head>', '<link rel="stylesheet" href="./production-stability.css"><link rel="stylesheet" href="./tesla-authority.css"><link rel="stylesheet" href="./tesla-finish.css"><link rel="stylesheet" href="./tesla-motion.css"><link rel="stylesheet" href="./story-photo-scale.css"><link rel="stylesheet" href="./insights.css"><style>#showBootstrap,.bootstrap-form{display:none!important}</style></head>')
           html = html.replace('<script src="./ladder.js"></script>', '<script src="./tesla-motion.js"></script><script src="./brand-assets.js"></script><script src="./ladder.js"></script>')
           html = html.replace('<div class="cursor-ball" aria-hidden="true"><span class="cursor-ball-core"></span></div>', '')
           Path('qa-index.html').write_text(html)
