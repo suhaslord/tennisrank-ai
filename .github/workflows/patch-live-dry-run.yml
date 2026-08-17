@@ -1,4 +1,4 @@
-name: Patch Live Dry Run Password Timing
+name: Patch Live Dry Run Pair Order
 on:
   push:
     branches: [feature/coach-ops-safety]
@@ -12,52 +12,21 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: feature/coach-ops-safety
-      - name: Patch first-login password setup wait
+      - name: Make recovery doubles assertion pair-order insensitive
         run: |
           python - <<'PY'
           from pathlib import Path
           p=Path('qa/live-coach-production.spec.js')
           s=p.read_text()
-          old="""async function login(page, email, password, newPassword) {
-            await page.goto(BASE, { waitUntil: 'domcontentloaded' });
-            await page.locator('#loginEmail').fill(email);
-            await page.locator('#loginPassword').fill(password);
-            await page.locator('#loginButton').click();
-            if (newPassword) {
-              const pw = page.locator('#passwordForm');
-              if (await pw.isVisible({ timeout: 4000 }).catch(() => false)) {
-                await page.locator('#newPassword').fill(newPassword);
-                await page.locator('#passwordButton').click();
-              }
-            }
-            await expect(page.locator('#appShell')).toBeVisible({ timeout: 15000 });
-          }"""
-          new="""async function login(page, email, password, newPassword) {
-            await page.goto(BASE, { waitUntil: 'domcontentloaded' });
-            await page.locator('#loginEmail').fill(email);
-            await page.locator('#loginPassword').fill(password);
-            await page.locator('#loginButton').click();
-            const app = page.locator('#appShell');
-            if (newPassword) {
-              const pw = page.locator('#passwordForm');
-              const state = await Promise.race([
-                app.waitFor({ state: 'visible', timeout: 12000 }).then(() => 'app').catch(() => null),
-                pw.waitFor({ state: 'visible', timeout: 12000 }).then(() => 'password').catch(() => null),
-              ]);
-              if (state === 'password') {
-                await page.locator('#newPassword').fill(newPassword);
-                await page.locator('#passwordButton').click();
-              }
-            }
-            await expect(app).toBeVisible({ timeout: 15000 });
-          }"""
+          old="expect(recoveryRankings.some(x => x.name === 'QA Pair Three & QA Pair Four' && x.division === 'doubles')).toBeTruthy();"
+          new="expect(recoveryRankings.some(x => x.division === 'doubles' && x.name.includes('QA Pair Three') && x.name.includes('QA Pair Four'))).toBeTruthy();"
           if old not in s:
-              raise SystemExit('old login helper not found')
+              raise SystemExit('girls doubles assertion not found')
           p.write_text(s.replace(old,new))
           PY
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add qa/live-coach-production.spec.js
           git diff --cached --quiet && exit 0
-          git commit -m 'qa: wait for first-login password setup'
+          git commit -m 'qa: assert doubles membership independent of pair order'
           git push origin HEAD:feature/coach-ops-safety
