@@ -33,6 +33,7 @@ jobs:
           node --check player-dashboard-state.js
           node --check import-auto-sync.js
           node --check coach-ops.js
+          node --check coach-preview-guard.js
           node --check lib/player-link.js
           node --check lib/ladder-engine.js
           node --check lib/coach-dashboard.js
@@ -87,23 +88,28 @@ jobs:
           test -f lib/player-link.js
           test -f coach-ops.js
           test -f coach-ops.css
+          test -f coach-preview-guard.js
           test -f supabase/coach_ops_import_history.sql
+          test -f supabase/fix_challenge_undo_player_availability.sql
           test ! -e api/_player-link.js
           test ! -e lib/server-player-link.js
           grep -q '../lib/player-link' api/users.js
           grep -q '../lib/player-link' api/ladder.js
           grep -q '../lib/player-link' api/challenges.js
+          grep -q '../lib/coach-dashboard' api/ladder.js
           grep -q 'ranking-policy.js' api/render.js
           grep -q 'player-dashboard-state.js' api/render.js
           grep -q 'player-dashboard-state.css' api/render.js
           grep -q 'coach-ops.js' api/render.js
           grep -q 'coach-ops.css' api/render.js
+          grep -q 'coach-preview-guard.js' api/render.js
           grep -q 'gradeLevel' api/admin/seed-ladder.js
           grep -q 'division' api/admin/seed-ladder.js
           grep -q 'metadata_preserved' supabase/ladder_roster_metadata.sql
           grep -q 'import_snapshots' supabase/coach_ops_import_history.sql
           grep -q 'ladder_snapshots' supabase/coach_ops_import_history.sql
           grep -q 'admin_undo_ladder_snapshot' supabase/coach_ops_import_history.sql
+          grep -q "set status = 'available'" supabase/fix_challenge_undo_player_availability.sql
           COUNT=$(find api -type f -name '*.js' | wc -l)
           echo "Serverless function candidates: $COUNT"
           test "$COUNT" -le 12
@@ -111,16 +117,20 @@ jobs:
           ! grep -R --exclude-dir=.git --exclude=.env.example -E 'GEMINI_API_KEY[[:space:]]*=' .
           ! grep -R --exclude-dir=.git -E 'sb_secret_[A-Za-z0-9_-]+' .
 
-      - name: Build browser QA runtime
+      - name: Build browser QA runtimes
         run: |
           python3 - <<'PY'
           from pathlib import Path
           source = Path('index.html').read_text()
-          html = source.replace('</head>', '<link rel="stylesheet" href="./player-dashboard-state.css" /><link rel="stylesheet" href="./coach-ops.css" /></head>')
-          stack = '<script src="./import-runtime-fixes.js"></script><script src="./import-v2.js"></script><script src="./import-delimiter-fix.js"></script><script src="./spreadsheet-ml.js"></script><script src="./import-v2-fixes.js"></script><script src="./import-row-safety-fix.js"></script><script src="./import-multiblock-fix.js"></script><script src="./spreadsheet-semantic-calibration.js"></script><script src="./spreadsheet-ai.js"></script><script src="./ai-quota-guard.js"></script><script src="./import-auto-sync.js"></script><script src="./ranking-policy.js"></script><script src="./player-dashboard-state.js"></script><script src="./coach-ops.js"></script>'
-          html = html.replace('<script src="./app.js"></script>', '<script src="./app.js"></script>' + stack)
-          Path('index.html').write_text(html)
-          Path('qa-ai-index.html').write_text(html)
+          common = source.replace('</head>', '<link rel="stylesheet" href="./player-dashboard-state.css" /></head>')
+          common_stack = '<script src="./import-runtime-fixes.js"></script><script src="./import-v2.js"></script><script src="./import-delimiter-fix.js"></script><script src="./spreadsheet-ml.js"></script><script src="./import-v2-fixes.js"></script><script src="./import-row-safety-fix.js"></script><script src="./import-multiblock-fix.js"></script><script src="./spreadsheet-semantic-calibration.js"></script><script src="./spreadsheet-ai.js"></script><script src="./ai-quota-guard.js"></script><script src="./import-auto-sync.js"></script><script src="./ranking-policy.js"></script><script src="./player-dashboard-state.js"></script>'
+          common = common.replace('<script src="./app.js"></script>', '<script src="./app.js"></script>' + common_stack)
+          Path('index.html').write_text(common)
+          Path('qa-ai-index.html').write_text(common)
+
+          coach = common.replace('</head>', '<link rel="stylesheet" href="./coach-ops.css" /></head>')
+          coach = coach.replace('</body>', '<script src="./coach-ops.js"></script><script src="./coach-preview-guard.js"></script></body>')
+          Path('qa-coach-index.html').write_text(coach)
           PY
 
       - name: Install Playwright
