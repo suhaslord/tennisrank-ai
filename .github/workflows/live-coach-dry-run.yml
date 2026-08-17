@@ -1,3 +1,4 @@
+# live-rerun: canonical-doubles
 name: Live Coach Dry Run
 on:
   push:
