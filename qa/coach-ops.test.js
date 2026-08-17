@@ -1,6 +1,6 @@
 const assert = require("node:assert/strict");
 const recordsApi = require("../api/records.js");
-const coachApi = require("../api/coach.js");
+const coachApi = require("../lib/coach-dashboard.js");
 const coachOps = require("../coach-ops.js");
 
 const rowsA = [{ Name: "Aiden", Gender: "Boys", Division: "Singles" }];
