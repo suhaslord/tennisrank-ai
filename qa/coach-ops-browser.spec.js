@@ -53,6 +53,23 @@ test('coach preview, history, account roster, dashboard and undo work together',
     const reply = (value, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(value) });
     if (path === '/api/config') return reply({ supabaseUrl: 'https://example.supabase.co', publishableKey: 'test-key' });
     if (path === '/api/session') return reply({ profile: admin });
+    if (path === '/api/ai-analyze-sheet' && req.method() === 'POST') return reply({
+      model: 'gemini-3.6-flash-qa',
+      privacy: { redactedBeforeProvider: true },
+      ai: {
+        supported: true,
+        sheetKind: 'roster',
+        confidence: 0.99,
+        globalGender: 'unknown',
+        globalDivision: 'singles',
+        mappings: [
+          { inputKey: 'Name', target: 'name', confidence: 0.99, reason: 'canonical roster identity' },
+          { inputKey: 'Gender', target: 'gender', confidence: 0.99, reason: 'canonical team gender' },
+          { inputKey: 'Division', target: 'division', confidence: 0.99, reason: 'canonical tennis event' },
+        ],
+        warnings: [],
+      },
+    });
     if (path === '/api/records' && req.method() === 'GET' && url.searchParams.get('mode') === 'history') return reply({ snapshots: [
       { id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', source_label: 'Current Coach Sheet', row_count: 3, created_at: '2026-08-16T20:00:00Z' },
       { id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', source_label: 'Previous Coach Sheet', row_count: 2, created_at: '2026-08-15T20:00:00Z' },
