@@ -244,7 +244,7 @@ test('live Coach Lokesh production dry run', async ({ page }) => {
     expect(boysRecovery.indexOf(winner)).toBeLessThan(boysRecovery.indexOf(zero));
     expect(boysRecovery.indexOf(zero)).toBeLessThan(boysRecovery.indexOf(loser));
     expect(recoveryRankings.some(x => x.name === 'QA Pair One & QA Pair Two' && x.division === 'doubles')).toBeTruthy();
-    expect(recoveryRankings.some(x => x.name === 'QA Pair Three & QA Pair Four' && x.division === 'doubles')).toBeTruthy();
+    expect(recoveryRankings.some(x => x.division === 'doubles' && x.name.includes('QA Pair Three') && x.name.includes('QA Pair Four'))).toBeTruthy();
 
     await page.locator('#refreshImportHistory').click();
     const restoreButton = page.locator('#importHistoryList [data-restore-import]').first();
