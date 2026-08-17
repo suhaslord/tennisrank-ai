@@ -23,7 +23,7 @@ jobs:
       - name: Run production coach dry run
         env:
           BASE_URL: https://tennisrank-ai.vercel.app
-          QA_ADMIN_EMAIL: qa-admin-tennisrank-20260816@example.com
+          QA_ADMIN_EMAIL: suhas.aug2011+tennisrank-qa-admin@gmail.com
           QA_ADMIN_PASSWORD: QA-Admin-TR-2026!x8N2
           BASELINE_SNAPSHOT_ID: 56c0c648-b5d8-47c4-aa68-fd27af0671ae
         run: npx playwright test qa/live-coach-production.spec.js --reporter=line --workers=1
