@@ -107,8 +107,8 @@ test('linked player sees persistent official rank, momentum, recent form, JV and
   await expect(insights).toContainText('#2');
   await expect(insights).toContainText('↑ 3');
   await expect(insights.locator('.rank-chart')).toBeVisible();
-  await expect(insights.locator('.form-chip.win')).toHaveCount(2);
-  await expect(insights.locator('.form-chip.loss')).toHaveCount(1);
+  await expect(insights.locator('.form-strip .form-chip.win')).toHaveCount(2);
+  await expect(insights.locator('.form-strip .form-chip.loss')).toHaveCount(1);
   await expect(insights).toContainText('2-1 last 3');
   await expect(insights).toContainText('Challenge result');
   await expect(insights).toContainText('Spreadsheet import');
