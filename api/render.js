@@ -1,4 +1,4 @@
-const COMMIT = '45625df30eb77d086f79498d02ecbc6165fc6b94';
+const COMMIT = '50ff95f1afd47271d3e4304a124d7f80c8bdd1bf';
 const CDN = `https://cdn.jsdelivr.net/gh/suhaslord/tennisrank-ai@${COMMIT}`;
 const SHEETJS = 'https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js';
 
@@ -20,12 +20,12 @@ function rewrite(html) {
 
   out = out.replace(
     '</head>',
-    `<script defer src="${SHEETJS}"></script><link rel="stylesheet" href="${CDN}/production-stability.css"><link rel="stylesheet" href="${CDN}/tesla-authority.css"><link rel="stylesheet" href="${CDN}/tesla-finish.css"><link rel="stylesheet" href="${CDN}/tesla-motion.css"><link rel="stylesheet" href="${CDN}/story-photo-scale.css"><link rel="stylesheet" href="${CDN}/player-dashboard-state.css"><style>#showBootstrap,.bootstrap-form{display:none!important}</style></head>`,
+    `<script defer src="${SHEETJS}"></script><link rel="stylesheet" href="${CDN}/production-stability.css"><link rel="stylesheet" href="${CDN}/tesla-authority.css"><link rel="stylesheet" href="${CDN}/tesla-finish.css"><link rel="stylesheet" href="${CDN}/tesla-motion.css"><link rel="stylesheet" href="${CDN}/story-photo-scale.css"><link rel="stylesheet" href="${CDN}/player-dashboard-state.css"><link rel="stylesheet" href="${CDN}/coach-ops.css"><style>#showBootstrap,.bootstrap-form{display:none!important}</style></head>`,
   );
 
   out = out.replace(
     `<script src="${CDN}/app.js"></script>`,
-    `<script src="${CDN}/app.js"></script><script src="${CDN}/import-runtime-fixes.js"></script><script src="${CDN}/import-v2.js"></script><script src="${CDN}/import-delimiter-fix.js"></script><script src="${CDN}/spreadsheet-ml.js"></script><script src="${CDN}/import-v2-fixes.js"></script><script src="${CDN}/import-row-safety-fix.js"></script><script src="${CDN}/import-multiblock-fix.js"></script><script src="${CDN}/spreadsheet-semantic-calibration.js"></script><script src="${CDN}/spreadsheet-ai.js"></script><script src="${CDN}/ai-quota-guard.js"></script><script src="${CDN}/import-auto-sync.js"></script><script src="${CDN}/ranking-policy.js"></script><script src="${CDN}/player-dashboard-state.js"></script><script src="${CDN}/tesla-motion.js"></script><script src="${CDN}/brand-assets.js"></script>`,
+    `<script src="${CDN}/app.js"></script><script src="${CDN}/import-runtime-fixes.js"></script><script src="${CDN}/import-v2.js"></script><script src="${CDN}/import-delimiter-fix.js"></script><script src="${CDN}/spreadsheet-ml.js"></script><script src="${CDN}/import-v2-fixes.js"></script><script src="${CDN}/import-row-safety-fix.js"></script><script src="${CDN}/import-multiblock-fix.js"></script><script src="${CDN}/spreadsheet-semantic-calibration.js"></script><script src="${CDN}/spreadsheet-ai.js"></script><script src="${CDN}/ai-quota-guard.js"></script><script src="${CDN}/import-auto-sync.js"></script><script src="${CDN}/ranking-policy.js"></script><script src="${CDN}/player-dashboard-state.js"></script><script src="${CDN}/coach-ops.js"></script><script src="${CDN}/tesla-motion.js"></script><script src="${CDN}/brand-assets.js"></script>`,
   );
 
   out = out.replace('<div class="cursor-ball" aria-hidden="true"><span class="cursor-ball-core"></span></div>', '');
