@@ -33,6 +33,7 @@ function dashboard() {
 }
 
 test('coach preview, history, account roster, dashboard and undo work together', async ({ page }) => {
+  let previewCalls = 0;
   let publishCalls = 0;
   let restoreCalls = 0;
   let undoCalls = 0;
@@ -59,7 +60,7 @@ test('coach preview, history, account roster, dashboard and undo work together',
     if (path === '/api/records' && req.method() === 'GET') return reply({ rows: currentRows, count: currentRows.length });
     if (path === '/api/records' && req.method() === 'POST') {
       const body = req.postDataJSON();
-      if (body.action === 'preview') return reply({ previewHash: 'preview-token', contentHash: 'hash', sourceKey: 'source', sourceLabel: body.source, rowCount: body.rows.length, unchanged: false });
+      if (body.action === 'preview') { previewCalls += 1; return reply({ previewHash: 'preview-token', contentHash: 'hash', sourceKey: 'source', sourceLabel: body.source, rowCount: body.rows.length, unchanged: false }); }
       if (body.action === 'publish') { publishCalls += 1; return reply({ saved: body.rows.length, snapshotId: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc' }); }
       if (body.action === 'restore') { restoreCalls += 1; return reply({ restored: true, rows: currentRows, count: currentRows.length, snapshotId: 'dddddddd-dddd-4ddd-8ddd-dddddddddddd' }); }
     }
@@ -96,6 +97,16 @@ test('coach preview, history, account roster, dashboard and undo work together',
   await page.locator('#tabCsv').click();
   await page.locator('#csvText').fill('Name,Gender,Division\nAiden Brooks,Boys,Singles\nEthan Cole,Boys,Singles\nMateo Rivera,Boys,Singles');
   await page.locator('#useCsv').click();
+  await page.waitForTimeout(350);
+  const diagnostics = await page.evaluate(() => ({
+    status: document.querySelector('#statusMessage')?.textContent || '',
+    modal: Boolean(document.querySelector('#importPreviewModal')),
+    coachOps: Boolean(window.TennisRankCoachOps),
+    calculate: typeof window.calculateRankings,
+    currentRows: (() => { try { return JSON.parse(localStorage.getItem('tennisRankDataSnapshotV1') || 'null')?.rows?.length || 0; } catch { return -1; } })(),
+    finalGuard: Boolean(window.syncToBackend?.__coachOpsPreviewFinal),
+  }));
+  console.log('COACH_PREVIEW_DIAGNOSTICS', JSON.stringify({ previewCalls, ...diagnostics }));
   await expect(page.locator('#importPreviewModal')).toBeVisible();
   await expect(page.locator('#importPreviewBody')).toContainText('Mateo Rivera');
   await page.locator('#importPreviewModal [data-preview-cancel]').last().click();
