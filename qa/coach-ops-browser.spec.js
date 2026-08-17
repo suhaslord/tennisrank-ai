@@ -27,12 +27,16 @@ function dashboard() {
       { id: 'p2', name: 'Ethan Cole', teamGender: 'boys', division: 'jv', gradeLevel: 9 },
       { id: 'p3', name: 'Mateo Rivera', teamGender: 'boys', division: 'varsity', gradeLevel: 10 },
     ],
+    playerSnapshots: [
+      { id:'p1', name:'Aiden Brooks', teamGender:'boys', division:'varsity', gradeLevel:12, accountLinked:true, currentRank:1, previousRank:2, seasonStartRank:4, bestRank:1, movement:3, status:'available', officialChallengeRecord:{wins:2,losses:0}, officialForm:[{result:'W',opponent:'Ethan Cole',score:'6-3',verifiedAt:'2026-08-10T20:00:00Z'}], rankHistory:[{oldRank:4,newRank:2,reason:'import_sync',changedAt:'2026-08-01T20:00:00Z'},{oldRank:2,newRank:1,reason:'challenge_result',changedAt:'2026-08-10T20:00:00Z'}] },
+      { id:'p2', name:'Ethan Cole', teamGender:'boys', division:'jv', gradeLevel:9, accountLinked:false, currentRank:2, previousRank:1, seasonStartRank:1, bestRank:1, movement:-1, status:'available', officialChallengeRecord:{wins:0,losses:2}, officialForm:[{result:'L',opponent:'Aiden Brooks',score:'6-3',verifiedAt:'2026-08-10T20:00:00Z'}], rankHistory:[{oldRank:1,newRank:2,reason:'challenge_result',changedAt:'2026-08-10T20:00:00Z'}] },
+    ],
     audit: [{ id: 1, action: 'publish_import', actor: 'Coach QA', createdAt: '2026-08-16T20:00:00Z', rankChanges: [] }],
     undoCandidates: [{ id: '11111111-1111-4111-8111-111111111111', teamGender: 'boys', reason: 'manual_move', createdAt: '2026-08-16T20:05:00Z' }],
   };
 }
 
-test('coach preview, history, account roster, dashboard and undo work together', async ({ page }) => {
+test('coach preview, snapshots, sharing, account roster and undo work together', async ({ page }) => {
   let previewCalls = 0;
   let publishCalls = 0;
   let restoreCalls = 0;
@@ -53,23 +57,7 @@ test('coach preview, history, account roster, dashboard and undo work together',
     const reply = (value, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(value) });
     if (path === '/api/config') return reply({ supabaseUrl: 'https://example.supabase.co', publishableKey: 'test-key' });
     if (path === '/api/session') return reply({ profile: admin });
-    if (path === '/api/ai-analyze-sheet' && req.method() === 'POST') return reply({
-      model: 'gemini-3.6-flash-qa',
-      privacy: { redactedBeforeProvider: true },
-      ai: {
-        supported: true,
-        sheetKind: 'roster',
-        confidence: 0.99,
-        globalGender: 'unknown',
-        globalDivision: 'singles',
-        mappings: [
-          { inputKey: 'Name', target: 'name', confidence: 0.99, reason: 'canonical roster identity' },
-          { inputKey: 'Gender', target: 'gender', confidence: 0.99, reason: 'canonical team gender' },
-          { inputKey: 'Division', target: 'division', confidence: 0.99, reason: 'canonical tennis event' },
-        ],
-        warnings: [],
-      },
-    });
+    if (path === '/api/ai-analyze-sheet' && req.method() === 'POST') return reply({ model:'qa', privacy:{redactedBeforeProvider:true}, ai:{supported:true,sheetKind:'roster',confidence:.99,globalGender:'unknown',globalDivision:'singles',mappings:[{inputKey:'Name',target:'name',confidence:.99,reason:'roster'},{inputKey:'Gender',target:'gender',confidence:.99,reason:'gender'},{inputKey:'Division',target:'division',confidence:.99,reason:'event'}],warnings:[]} });
     if (path === '/api/records' && req.method() === 'GET' && url.searchParams.get('mode') === 'history') return reply({ snapshots: [
       { id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', source_label: 'Current Coach Sheet', row_count: 3, created_at: '2026-08-16T20:00:00Z' },
       { id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', source_label: 'Previous Coach Sheet', row_count: 2, created_at: '2026-08-15T20:00:00Z' },
@@ -83,13 +71,10 @@ test('coach preview, history, account roster, dashboard and undo work together',
     }
     if (path === '/api/ladder' && url.searchParams.get('mode') === 'coach' && req.method() === 'GET') return reply(dashboard());
     if (path === '/api/ladder' && url.searchParams.get('mode') === 'coach' && req.method() === 'POST') { undoCalls += 1; return reply({ ok: true, dashboard: dashboard() }); }
-    if (path === '/api/ladder') return reply({
-      ladder: [
-        { player_id: 'p1', team_gender: 'boys', rank_position: 1, previous_rank_position: 1, status: 'available', player: { id: 'p1', profile_id: null, display_name: 'Aiden Brooks', team_gender: 'boys', grade_level: 12, division: 'varsity', active_status: 'active' } },
-        { player_id: 'p2', team_gender: 'boys', rank_position: 2, previous_rank_position: 2, status: 'available', player: { id: 'p2', profile_id: null, display_name: 'Ethan Cole', team_gender: 'boys', grade_level: 9, division: 'jv', active_status: 'active' } },
-      ],
-      settings: [{ team_gender: 'boys', max_challenge_distance: 3 }], viewer: { profileId: admin.id, role: 'admin' },
-    });
+    if (path === '/api/ladder') return reply({ ladder: [
+      { player_id: 'p1', team_gender: 'boys', rank_position: 1, previous_rank_position: 1, status: 'available', player: { id: 'p1', profile_id: null, display_name: 'Aiden Brooks', team_gender: 'boys', grade_level: 12, division: 'varsity', active_status: 'active' } },
+      { player_id: 'p2', team_gender: 'boys', rank_position: 2, previous_rank_position: 2, status: 'available', player: { id: 'p2', profile_id: null, display_name: 'Ethan Cole', team_gender: 'boys', grade_level: 9, division: 'jv', active_status: 'active' } },
+    ], settings: [{ team_gender: 'boys', max_challenge_distance: 3 }], rankHistory:[], viewer: { profileId: admin.id, role: 'admin' } });
     if (path === '/api/challenges') return reply({ challenges: [] });
     if (path === '/api/users' && req.method() === 'GET') return reply({ profiles: [admin], roster: [
       { id: 'p1', profile_id: 'player-account', display_name: 'Aiden Brooks', team_gender: 'boys', grade_level: 12, division: 'varsity', active_status: 'active', accountCreated: true, account: { email: 'aiden@example.test' } },
@@ -105,6 +90,13 @@ test('coach preview, history, account roster, dashboard and undo work together',
   await page.goto(APP_URL, { waitUntil: 'domcontentloaded' });
   await expect(page.locator('#appShell')).toBeVisible();
   await expect(page.locator('#coachOpsDashboard')).toBeVisible();
+  await expect(page.locator('#rankingShareControls')).toBeVisible();
+  await expect(page.locator('#coachPlayerInsights')).toContainText('Aiden Brooks');
+  await page.locator('[data-player-snapshot="p1"]').click();
+  await expect(page.locator('#coachPlayerSnapshotModal')).toBeVisible();
+  await expect(page.locator('#coachPlayerSnapshotBody')).toContainText('Imported record');
+  await expect(page.locator('#coachPlayerSnapshotBody')).toContainText('Official challenges');
+  await page.locator('#coachPlayerSnapshotModal [data-player-close]').last().click();
   await expect.poll(() => page.evaluate(() => Boolean(window.syncToBackend?.__coachOpsPreviewFinal))).toBe(true);
   await expect(page.locator('#coachAttentionGrid')).toContainText('Players without accounts');
   await expect(page.locator('#rosterAccountMatrix')).toContainText('1/3 accounts created');
