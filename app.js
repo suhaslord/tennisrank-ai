@@ -747,6 +747,7 @@ async function fetchBackendRecords() {
 
 async function syncToBackend(rows = state.rows) {
   if (state.profile?.role !== "admin") throw new Error("Only an admin can publish team data.");
+  if (window.TennisRankCoachOps?.previewAndPublish) return window.TennisRankCoachOps.previewAndPublish(window, rows);
   const response = await window.TennisRankAuth.fetch("/api/records", {
     method: "POST",
     body: JSON.stringify({ rows, source: state.sourceUrl || state.source || "default" }),
