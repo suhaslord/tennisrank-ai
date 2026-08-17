@@ -24,10 +24,10 @@ jobs:
           from pathlib import Path
           path = Path('coach-ops.js')
           text = path.read_text()
-          bad = 'class="coach-attention-card${urgent ? " is-urgent" : "}\\"><i'
-          good = 'class="coach-attention-card${urgent ? " is-urgent" : ""}"><i'
-          if bad not in text:
-              raise SystemExit('Expected malformed template not found')
+          bad = 'urgent ? " is-urgent" : "}'
+          good = 'urgent ? " is-urgent" : ""}'
+          if text.count(bad) != 1:
+              raise SystemExit(f'Expected exactly one malformed ternary, found {text.count(bad)}')
           path.write_text(text.replace(bad, good, 1))
           PY
           node --check coach-ops.js
