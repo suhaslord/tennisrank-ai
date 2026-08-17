@@ -28,9 +28,24 @@ async function standardLadder(context) {
   })).filter(entry => entry.player);
 
   const linkedPlayer = link.linkedPlayer || null;
+  let rankHistory = [];
+  if (linkedPlayer?.id) {
+    const historyResult = await rest(
+      context,
+      `rank_history?select=id,old_rank,new_rank,reason,challenge_match_id,changed_at&player_id=eq.${encodeURIComponent(linkedPlayer.id)}&order=changed_at.asc&limit=100`,
+    );
+    if (!historyResult.response.ok) {
+      const error = new Error(historyResult.payload.message || "Player rank history could not be loaded.");
+      error.status = historyResult.response.status;
+      throw error;
+    }
+    rankHistory = Array.isArray(historyResult.payload) ? historyResult.payload : [];
+  }
+
   return {
     ladder,
     settings: settingsResult.payload || [],
+    rankHistory,
     viewer: {
       profileId: context.profile.id,
       role: context.profile.role,
