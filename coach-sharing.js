@@ -14,9 +14,18 @@
   function parts(value) { return clean(value).split(/\s+(?:&|and|\+|\/|vs\.?|versus)\s+/i).map(identity).filter(Boolean); }
   function belongs(value, playerName) { const target = identity(playerName); return Boolean(target && (identity(value) === target || parts(value).includes(target))); }
   function boardTitle(gender, division) {
-    const g = gender === "girls" ? "Girls" : gender === "boys" ? "Boys" : "All";
+    const g = gender === "girls" ? "Girls" : gender === "boys" ? "Boys" : "All teams";
     const d = division === "doubles" ? "Doubles" : division === "singles" ? "Singles" : "Singles + Doubles";
     return `${g} ${d}`;
+  }
+  function scopeTitle(gender, division) {
+    const parts = ["RIHS"];
+    if (gender === "boys") parts.push("Boys");
+    if (gender === "girls") parts.push("Girls");
+    if (division === "singles") parts.push("Singles");
+    if (division === "doubles") parts.push("Doubles");
+    parts.push("Tennis Rankings");
+    return parts.join(" ");
   }
   function filterRankings(rankings, gender = "all", division = "all") {
     return (Array.isArray(rankings) ? rankings : []).filter(item => (gender === "all" || item.gender === gender) && (division === "all" || item.division === division));
@@ -36,8 +45,10 @@
     return result;
   }
   function rankingsText(rankings, options = {}) {
-    const rows = rankedRows(filterRankings(rankings, options.gender || "all", options.division || "all"));
-    const title = `RIHS ${boardTitle(options.gender || "all", options.division || "all")} Tennis Rankings`;
+    const gender = options.gender || "all";
+    const division = options.division || "all";
+    const rows = rankedRows(filterRankings(rankings, gender, division));
+    const title = scopeTitle(gender, division);
     const grouped = new Map();
     for (const row of rows) {
       const key = `${row.gender}|${row.division}`;
@@ -45,8 +56,8 @@
       grouped.get(key).push(row);
     }
     const sections = [...grouped.entries()].map(([key, items]) => {
-      const [gender, division] = key.split("|");
-      return [`${boardTitle(gender, division)}`, ...items.map(item => `${item.rank}. ${clean(item.name)} — ${Number(item.wins || 0)}-${Number(item.losses || 0)}`)].join("\n");
+      const [groupGender, groupDivision] = key.split("|");
+      return [`${boardTitle(groupGender, groupDivision)}`, ...items.map(item => `${item.rank}. ${clean(item.name)} — ${Number(item.wins || 0)}-${Number(item.losses || 0)}`)].join("\n");
     });
     const date = options.date || new Date();
     const stamp = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" }).format(date);
@@ -114,7 +125,8 @@
           const blob = new Blob([rankingsCsv(data.rankings, filters)], { type:"text/csv;charset=utf-8" }); const url = URL.createObjectURL(blob); const a = win.document.createElement("a"); a.href=url; a.download=`rihs-tennis-${filters.gender}-${filters.division}-rankings.csv`; a.click(); setTimeout(()=>URL.revokeObjectURL(url),1000); toast("CSV downloaded.");
         }
         if (action === "print") {
-          const text = rankingsText(data.rankings, filters); const popup = win.open("", "_blank", "noopener,noreferrer,width=860,height=900"); if (!popup) { toast("Allow pop-ups to open the print view."); return; }
+          const text = rankingsText(data.rankings, filters); const popup = win.open("", "_blank", "width=860,height=900"); if (!popup) { toast("Allow pop-ups to open the print view."); return; }
+          try { popup.opener = null; } catch (_) {}
           popup.document.write(`<!doctype html><meta charset="utf-8"><title>RIHS Tennis Rankings</title><style>body{font-family:Arial,sans-serif;max-width:760px;margin:48px auto;color:#111;white-space:pre-wrap;line-height:1.55}h1{font-size:28px} @media print{body{margin:24px}}</style><h1>RIHS Tennis Rankings</h1><div>${escapeHtml(text).replaceAll("\n","<br>")}</div><script>window.onload=()=>window.print()<\/script>`); popup.document.close();
         }
       });
@@ -158,5 +170,5 @@
     if(win.document.readyState!=="loading") refresh(); else win.document.addEventListener("DOMContentLoaded",()=>refresh(),{once:true});
   }
 
-  return { identity, belongs, boardTitle, filterRankings, rankedRows, rankingsText, rankingsCsv, importedSnapshot, installBrowser };
+  return { identity, belongs, boardTitle, scopeTitle, filterRankings, rankedRows, rankingsText, rankingsCsv, importedSnapshot, installBrowser };
 });
