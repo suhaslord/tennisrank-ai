@@ -16,7 +16,7 @@ function rewrite(html) {
     .replaceAll('src="./app.js"', `src="${CDN}/app.js"`)
     .replaceAll('src="./ladder.js"', `src="${CDN}/ladder.js"`)
     .replaceAll('src="./challenge-ui.js"', `src="${CDN}/challenge-ui.js"`)
-    .replaceAll('src="./challenge-ui-state.js"', `src="${CDN}/challenge-ui-state.js`);
+    .replaceAll('src="./challenge-ui-state.js"', `src="${CDN}/challenge-ui-state.js"`);
 
   out = out.replace(
     '</head>',
