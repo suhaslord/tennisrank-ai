@@ -1,0 +1,23 @@
+name: Create Disposable QA Auth User
+on:
+  push:
+    branches: [feature/coach-ops-safety]
+    paths: ['.github/workflows/create-qa-auth-user.yml']
+
+jobs:
+  create-user:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create user through Supabase Auth signup
+        env:
+          SUPABASE_URL: https://unapjqsnvvlgsorzlfdc.supabase.co
+          SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVuYXBqcXNudnZsZ3NvcnpsZmRjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU4ODAyMjMsImV4cCI6MjEwMTQ1NjIyM30.mWb0RKzsg-6j7eUZSm1PNplGx1E7sxdLawXR_gR1YI8
+        run: |
+          set -euo pipefail
+          response=$(curl -fsS "$SUPABASE_URL/auth/v1/signup" \
+            -H "apikey: $SUPABASE_ANON_KEY" \
+            -H 'Content-Type: application/json' \
+            --data '{"email":"qa-admin-tennisrank-20260816@example.com","password":"QA-Admin-TR-2026!x8N2"}')
+          user_id=$(printf '%s' "$response" | jq -r '.user.id // .id // empty')
+          test -n "$user_id"
+          echo "Disposable GoTrue user created: $user_id"
