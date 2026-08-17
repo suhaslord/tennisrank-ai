@@ -148,6 +148,10 @@ test('live Coach Lokesh production dry run', async ({ page }) => {
     expect(preview).toContain('Boys Doubles');
     expect(preview).toContain('Girls Doubles');
     await publishPreview(page);
+    const messyHistory = await api(page, '/api/records?mode=history');
+    expect(messyHistory.status).toBe(200);
+    const messySnapshotId = messyHistory.body.snapshots?.[0]?.id;
+    expect(messySnapshotId).toBeTruthy();
 
     const messyCalc = await page.evaluate(async () => {
       const r = await window.TennisRankAuth.fetch('/api/records');
@@ -247,7 +251,7 @@ test('live Coach Lokesh production dry run', async ({ page }) => {
     expect(recoveryRankings.some(x => x.division === 'doubles' && x.name.includes('QA Pair Three') && x.name.includes('QA Pair Four'))).toBeTruthy();
 
     await page.locator('#refreshImportHistory').click();
-    const restoreButton = page.locator('#importHistoryList [data-restore-import]').first();
+    const restoreButton = page.locator(`#importHistoryList [data-restore-import="${messySnapshotId}"]`);
     await expect(restoreButton).toBeVisible({ timeout: 12000 });
     await restoreButton.click();
     await page.waitForTimeout(1400);
