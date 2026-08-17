@@ -17,7 +17,7 @@ jobs:
           response=$(curl -fsS "$SUPABASE_URL/auth/v1/signup" \
             -H "apikey: $SUPABASE_ANON_KEY" \
             -H 'Content-Type: application/json' \
-            --data '{"email":"qa-admin-tennisrank-20260816@example.com","password":"QA-Admin-TR-2026!x8N2"}')
+            --data '{"email":"suhas.aug2011+tennisrank-qa-admin@gmail.com","password":"QA-Admin-TR-2026!x8N2"}')
           user_id=$(printf '%s' "$response" | jq -r '.user.id // .id // empty')
           test -n "$user_id"
           echo "Disposable GoTrue user created: $user_id"
