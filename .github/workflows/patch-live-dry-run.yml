@@ -1,4 +1,4 @@
-name: Patch Live Dry Run Pair Order
+name: Patch Live Dry Run Exact Restore
 on:
   push:
     branches: [feature/coach-ops-safety]
@@ -12,21 +12,23 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: feature/coach-ops-safety
-      - name: Make recovery doubles assertion pair-order insensitive
+      - name: Target the exact messy import snapshot
         run: |
           python - <<'PY'
           from pathlib import Path
           p=Path('qa/live-coach-production.spec.js')
           s=p.read_text()
-          old="expect(recoveryRankings.some(x => x.name === 'QA Pair Three & QA Pair Four' && x.division === 'doubles')).toBeTruthy();"
-          new="expect(recoveryRankings.some(x => x.division === 'doubles' && x.name.includes('QA Pair Three') && x.name.includes('QA Pair Four'))).toBeTruthy();"
-          if old not in s:
-              raise SystemExit('girls doubles assertion not found')
-          p.write_text(s.replace(old,new))
+          old1="""    await publishPreview(page);\n\n    const messyCalc = await page.evaluate(async () => {"""
+          new1="""    await publishPreview(page);\n    const messyHistory = await api(page, '/api/records?mode=history');\n    expect(messyHistory.status).toBe(200);\n    const messySnapshotId = messyHistory.body.snapshots?.[0]?.id;\n    expect(messySnapshotId).toBeTruthy();\n\n    const messyCalc = await page.evaluate(async () => {"""
+          old2="""    await page.locator('#refreshImportHistory').click();\n    const restoreButton = page.locator('#importHistoryList [data-restore-import]').first();\n    await expect(restoreButton).toBeVisible({ timeout: 12000 });\n    await restoreButton.click();"""
+          new2="""    await page.locator('#refreshImportHistory').click();\n    const restoreButton = page.locator(`#importHistoryList [data-restore-import=\"${messySnapshotId}\"]`);\n    await expect(restoreButton).toBeVisible({ timeout: 12000 });\n    await restoreButton.click();"""
+          if old1 not in s: raise SystemExit('messy publish capture anchor not found')
+          if old2 not in s: raise SystemExit('restore block not found')
+          p.write_text(s.replace(old1,new1).replace(old2,new2))
           PY
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add qa/live-coach-production.spec.js
           git diff --cached --quiet && exit 0
-          git commit -m 'qa: assert doubles membership independent of pair order'
+          git commit -m 'qa: restore exact prior import snapshot'
           git push origin HEAD:feature/coach-ops-safety
