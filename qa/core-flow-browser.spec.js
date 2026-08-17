@@ -16,9 +16,10 @@ test('ranking, import sync, and player dashboard modules load together', async (
     ranking: Boolean(window.TennisRankRankingPolicy),
     importSync: Boolean(window.TennisRankImportAutoSync),
     playerDashboard: Boolean(window.TennisRankPlayerDashboard),
+    playerInsights: Boolean(window.TennisRankPlayerInsights),
     calculateWrapped: Boolean(window.calculateRankings?.__coachRankingPolicy),
   }));
-  expect(loaded).toEqual({ ranking: true, importSync: true, playerDashboard: true, calculateWrapped: true });
+  expect(loaded).toEqual({ ranking: true, importSync: true, playerDashboard: true, playerInsights: true, calculateWrapped: true });
 
   const ordered = await page.evaluate(() => window.TennisRankRankingPolicy.sortRankings([
     { name: 'Losing Player', wins: 1, losses: 2 },
@@ -28,7 +29,7 @@ test('ranking, import sync, and player dashboard modules load together', async (
   expect(ordered).toEqual(['Winning Player', 'New Player', 'Losing Player']);
 });
 
-test('linked player sees persistent official rank, JV, grade, and stable dashboard', async ({ page }) => {
+test('linked player sees persistent official rank, momentum, recent form, JV and grade', async ({ page }) => {
   const pageErrors = [];
   page.on('pageerror', error => pageErrors.push(error.message));
   const profile = {
@@ -59,8 +60,10 @@ test('linked player sees persistent official rank, JV, grade, and stable dashboa
       rows: [
         { Name: 'Player QA', Gender: 'Boys', Division: 'Singles' },
         { Gender: 'Boys', Division: 'Singles', 'Player 1': 'Player QA', 'Player 2': 'Opponent QA', Winner: 'Player QA', Loser: 'Opponent QA', Score: '6-3', Date: '2026-08-16' },
+        { Gender: 'Boys', Division: 'Singles', 'Player 1': 'Player QA', 'Player 2': 'Second QA', Winner: 'Second QA', Loser: 'Player QA', Score: '7-5', Date: '2026-08-15' },
+        { Gender: 'Boys', Division: 'Singles', 'Player 1': 'Player QA', 'Player 2': 'Third QA', Winner: 'Player QA', Loser: 'Third QA', Score: '6-2', Date: '2026-08-14' },
       ],
-      count: 2,
+      count: 4,
     });
     if (path === '/api/ladder') return reply({
       ladder: [
@@ -74,6 +77,10 @@ test('linked player sees persistent official rank, JV, grade, and stable dashboa
         },
       ],
       settings: [{ team_gender: 'boys', max_challenge_distance: 3 }],
+      rankHistory: [
+        { id: 'h1', old_rank: 5, new_rank: 4, reason: 'import_sync', challenge_match_id: null, changed_at: '2026-08-01T00:00:00Z' },
+        { id: 'h2', old_rank: 4, new_rank: 2, reason: 'challenge_result', challenge_match_id: 'm1', changed_at: '2026-08-16T00:00:00Z' },
+      ],
       viewer: { profileId: profile.id, role: 'player', playerName: 'Player QA', playerId: 'player-id', teamGender: 'boys', rosterDivision: 'jv', gradeLevel: 10, linkState: 'direct' },
     });
     if (path === '/api/challenges') return reply({ challenges: [], linkedPlayer: { id: 'player-id' }, linkState: 'direct' });
@@ -89,6 +96,22 @@ test('linked player sees persistent official rank, JV, grade, and stable dashboa
   await expect(page.locator('#playerIdentityStrip')).toContainText('JV');
   await expect(page.locator('#playerIdentityStrip')).toContainText('Grade 10');
   await expect(page.locator('#playerStatGrid .player-stat').nth(2).locator('strong')).toHaveText('#2');
+
+  const insights = page.locator('#playerSeasonInsights');
+  await expect(insights).toBeVisible({ timeout: 12000 });
+  await expect(insights).toContainText('Current rank');
+  await expect(insights).toContainText('Season start');
+  await expect(insights).toContainText('Best rank');
+  await expect(insights).toContainText('Season movement');
+  await expect(insights).toContainText('#5');
+  await expect(insights).toContainText('#2');
+  await expect(insights).toContainText('↑ 3');
+  await expect(insights.locator('.rank-chart')).toBeVisible();
+  await expect(insights.locator('.form-chip.win')).toHaveCount(2);
+  await expect(insights.locator('.form-chip.loss')).toHaveCount(1);
+  await expect(insights).toContainText('2-1 last 3');
+  await expect(insights).toContainText('Challenge result');
+  await expect(insights).toContainText('Spreadsheet import');
 
   await page.waitForTimeout(300);
   await expect(page.locator('#playerStatGrid .player-stat').nth(2).locator('strong')).toHaveText('#2');
