@@ -63,6 +63,8 @@ test('coach preview, history, account roster, dashboard and undo work together',
       if (body.action === 'publish') { publishCalls += 1; return reply({ saved: body.rows.length, snapshotId: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc' }); }
       if (body.action === 'restore') { restoreCalls += 1; return reply({ restored: true, rows: currentRows, count: currentRows.length, snapshotId: 'dddddddd-dddd-4ddd-8ddd-dddddddddddd' }); }
     }
+    if (path === '/api/ladder' && url.searchParams.get('mode') === 'coach' && req.method() === 'GET') return reply(dashboard());
+    if (path === '/api/ladder' && url.searchParams.get('mode') === 'coach' && req.method() === 'POST') { undoCalls += 1; return reply({ ok: true, dashboard: dashboard() }); }
     if (path === '/api/ladder') return reply({
       ladder: [
         { player_id: 'p1', team_gender: 'boys', rank_position: 1, previous_rank_position: 1, status: 'available', player: { id: 'p1', profile_id: null, display_name: 'Aiden Brooks', team_gender: 'boys', grade_level: 12, division: 'varsity', active_status: 'active' } },
@@ -77,8 +79,6 @@ test('coach preview, history, account roster, dashboard and undo work together',
       { id: 'p3', profile_id: null, display_name: 'Mateo Rivera', team_gender: 'boys', grade_level: 10, division: 'varsity', active_status: 'active', accountCreated: false, account: null },
     ] });
     if (path === '/api/users' && req.method() === 'POST') return reply({ profile: { id: 'new-user' }, linkedPlayerId: req.postDataJSON().playerId }, 201);
-    if (path === '/api/coach' && req.method() === 'GET') return reply(dashboard());
-    if (path === '/api/coach' && req.method() === 'POST') { undoCalls += 1; return reply({ ok: true, dashboard: dashboard() }); }
     if (path === '/api/admin/seed-ladder') { seedCalls += 1; return reply({ seeded: 2 }); }
     return reply({ error: `Unhandled QA route ${req.method()} ${path}` }, 404);
   });
