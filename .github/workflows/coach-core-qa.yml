@@ -35,9 +35,9 @@ jobs:
           node --check coach-ops.js
           node --check lib/player-link.js
           node --check lib/ladder-engine.js
+          node --check lib/coach-dashboard.js
           node --check api/users.js
           node --check api/records.js
-          node --check api/coach.js
           node --check api/ladder.js
           node --check api/challenges.js
           node --check api/admin/seed-ladder.js
