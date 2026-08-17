@@ -1,0 +1,226 @@
+name: Patch preview integration
+
+on:
+  push:
+    branches:
+      - feature/coach-ops-safety
+    paths:
+      - .github/workflows/patch-preview-integration.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/coach-ops-safety
+          fetch-depth: 0
+
+      - name: Make publish guard resilient and update browser expectations
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          # Runtime: reattach if another late import wrapper replaces the preview guard.
+          path = Path('coach-ops.js')
+          text = path.read_text()
+          old = '''  function installPublishGuard(win) {
+            if (win.__tennisrankCoachPublishGuard) return true;
+            if (typeof win.loadRows !== "function" || typeof win.syncToBackend !== "function" || !win.TennisRankImportAutoSync) return false;
+            const baseLoad = win.loadRows;'''
+          new = '''  function installPublishGuard(win) {
+            if (win.syncToBackend?.__coachOpsPreview) {
+              win.__tennisrankCoachPublishGuard = true;
+              return true;
+            }
+            if (win.__tennisrankCoachPublishGuard && !win.syncToBackend?.__coachOpsPreview) {
+              win.__tennisrankCoachPublishGuard = false;
+            }
+            if (typeof win.loadRows !== "function" || typeof win.syncToBackend !== "function" || !win.TennisRankImportAutoSync) return false;
+            const baseLoad = win.loadRows;'''
+          if old not in text:
+              raise SystemExit('installPublishGuard marker not found')
+          text = text.replace(old, new, 1)
+
+          old = '''  function installBrowser(win) {
+            if (!win || win.__tennisrankCoachOpsInstalled) return false;
+            win.__tennisrankCoachOpsInstalled = true;
+            const install = () => {
+              if (!installPublishGuard(win)) { win.setTimeout(install, 30); return; }
+              bindActions(win);
+              initializeAdmin(win);
+            };
+            win.addEventListener?.("tennisrank:auth-ready", event => {
+              if (event?.detail?.profile?.role === "admin") win.setTimeout(() => initializeAdmin(win), 0);
+            });
+            win.setTimeout(install, 20);
+            return true;
+          }'''
+          new = '''  function installBrowser(win) {
+            if (!win || win.__tennisrankCoachOpsInstalled) return false;
+            win.__tennisrankCoachOpsInstalled = true;
+            const install = () => {
+              if (!installPublishGuard(win)) { win.setTimeout(install, 30); return; }
+              bindActions(win);
+              initializeAdmin(win);
+            };
+            const repairGuard = () => installPublishGuard(win);
+            win.addEventListener?.("tennisrank:auth-ready", event => {
+              if (event?.detail?.profile?.role === "admin") win.setTimeout(() => {
+                repairGuard();
+                initializeAdmin(win);
+              }, 0);
+            });
+            for (const delay of [0, 30, 100, 300, 1000]) win.setTimeout(install, delay);
+            return true;
+          }'''
+          if old not in text:
+              raise SystemExit('installBrowser marker not found')
+          path.write_text(text.replace(old, new, 1))
+
+          # AI/import browser tests: support preview + publish and explicitly approve it.
+          path = Path('qa/ai-import.spec.js')
+          text = path.read_text()
+          old = '''    if (path === '/api/records' && request.method() === 'POST') {
+              const body = bodyOf(request);
+              return route.fulfill(ok({ saved: Array.isArray(body.rows) ? body.rows.length : 0 }));
+            }'''
+          new = '''    if (path === '/api/records' && request.method() === 'POST') {
+              const body = bodyOf(request);
+              if (body.action === 'preview') return route.fulfill(ok({ previewHash: 'qa-preview-token', contentHash: 'qa-content-hash', sourceKey: 'qa-source', sourceLabel: body.source || 'QA import', rowCount: Array.isArray(body.rows) ? body.rows.length : 0, unchanged: false }));
+              if (body.action === 'publish') return route.fulfill(ok({ saved: Array.isArray(body.rows) ? body.rows.length : 0, snapshotId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa' }));
+              return route.fulfill(ok({ saved: Array.isArray(body.rows) ? body.rows.length : 0 }));
+            }'''
+          if old not in text:
+              raise SystemExit('ai records POST mock marker not found')
+          text = text.replace(old, new, 1)
+          marker = '''async function openCsvImport(page) {
+            await openImport(page);
+            await page.locator('#tabCsv').click();
+            await expect(page.locator('#csvSource')).toBeVisible();
+          }
+'''
+          helper = marker + '''
+          async function approvePreview(page) {
+            await expect.poll(() => page.evaluate(() => Boolean(window.syncToBackend?.__coachOpsPreview))).toBe(true);
+            await expect(page.locator('#importPreviewModal')).toBeVisible();
+            await page.locator('#importPreviewModal [data-preview-confirm]').click();
+          }
+
+          function isPublishRequest(request) {
+            return new URL(request.url()).pathname === '/api/records' && request.method() === 'POST' && bodyOf(request).action === 'publish';
+          }
+'''
+          if marker not in text:
+              raise SystemExit('ai helper marker not found')
+          text = text.replace(marker, helper, 1)
+          text = text.replace("page.waitForRequest(request => new URL(request.url()).pathname === '/api/records' && request.method() === 'POST')", "page.waitForRequest(isPublishRequest)")
+
+          # Add approval after the relevant import actions. Exact snippets are unique enough in this test file.
+          snippets = [
+            "  await page.locator('#useCsv').click();\n\n  const aiCall = await aiRequest;",
+            "  await page.locator('#useCsv').click();\n  const saved = bodyOf(await saveRequest);",
+            "  await page.locator('#csvFile').setInputFiles({ name: 'coach-export.csv', mimeType: 'text/csv', buffer: Buffer.from(fileCsv) });\n  const initialSave = bodyOf(await firstSave);",
+            "  await page.locator('#useCsv').click();\n  const repeatedSave = bodyOf(await secondSave);",
+            "  await page.locator('#connectSheet').click();\n\n  const proxy = await proxyRequest;",
+          ]
+          replacements = [
+            "  await page.locator('#useCsv').click();\n  await approvePreview(page);\n\n  const aiCall = await aiRequest;",
+            "  await page.locator('#useCsv').click();\n  await approvePreview(page);\n  const saved = bodyOf(await saveRequest);",
+            "  await page.locator('#csvFile').setInputFiles({ name: 'coach-export.csv', mimeType: 'text/csv', buffer: Buffer.from(fileCsv) });\n  await approvePreview(page);\n  const initialSave = bodyOf(await firstSave);",
+            "  await page.locator('#useCsv').click();\n  await approvePreview(page);\n  const repeatedSave = bodyOf(await secondSave);",
+            "  await page.locator('#connectSheet').click();\n  await approvePreview(page);\n\n  const proxy = await proxyRequest;",
+          ]
+          # First two click snippets appear in several tests: apply selectively by surrounding expected request setup.
+          # Replace first occurrence (AI accurate test).
+          if snippets[0] not in text:
+              raise SystemExit('AI accurate approval marker missing')
+          text = text.replace(snippets[0], replacements[0], 1)
+          # Canonical and doubles each use identical click/save pattern; both should approve.
+          count = text.count(snippets[1])
+          if count < 2:
+              raise SystemExit(f'Expected canonical/doubles save markers, found {count}')
+          text = text.replace(snippets[1], replacements[1], 2)
+          for old_s, new_s in zip(snippets[2:], replacements[2:]):
+              if old_s not in text:
+                  raise SystemExit(f'missing approval marker: {old_s[:50]}')
+              text = text.replace(old_s, new_s, 1)
+          path.write_text(text)
+
+          # Official-board tests: preview/publish semantics and explicit confirmation.
+          path = Path('qa/import-board-sync.spec.js')
+          text = path.read_text()
+          old = '''    if (path === '/api/records' && request.method() === 'POST') {
+              const body = bodyOf(request);
+              savedRows.splice(0, savedRows.length, ...(Array.isArray(body.rows) ? body.rows : []));
+              return route.fulfill(ok({ saved: savedRows.length }));
+            }'''
+          new = '''    if (path === '/api/records' && request.method() === 'POST') {
+              const body = bodyOf(request);
+              if (body.action === 'preview') return route.fulfill(ok({ previewHash: 'qa-preview-token', contentHash: 'qa-content-hash', sourceKey: 'qa-source', sourceLabel: body.source || 'QA import', rowCount: Array.isArray(body.rows) ? body.rows.length : 0, unchanged: false }));
+              if (body.action === 'publish') {
+                savedRows.splice(0, savedRows.length, ...(Array.isArray(body.rows) ? body.rows : []));
+                return route.fulfill(ok({ saved: savedRows.length, snapshotId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa' }));
+              }
+              return route.fulfill(ok({ saved: 0 }));
+            }'''
+          if old not in text:
+              raise SystemExit('board-sync records POST mock marker not found')
+          text = text.replace(old, new, 1)
+          marker = '''async function openCsvImport(page) {
+            await page.goto(BASE, { waitUntil: 'domcontentloaded' });
+            await expect(page.locator('#appShell')).toBeVisible();
+            await page.locator('#openSettings').click();
+            await expect(page.locator('#settingsPanel')).toBeVisible();
+            await page.locator('#tabCsv').click();
+            await expect(page.locator('#csvSource')).toBeVisible();
+          }
+'''
+          helper = marker + '''
+          async function approvePreview(page) {
+            await expect.poll(() => page.evaluate(() => Boolean(window.syncToBackend?.__coachOpsPreview))).toBe(true);
+            await expect(page.locator('#importPreviewModal')).toBeVisible();
+            await page.locator('#importPreviewModal [data-preview-confirm]').click();
+          }
+'''
+          if marker not in text:
+              raise SystemExit('board-sync helper marker not found')
+          text = text.replace(marker, helper, 1)
+          click_marker = "  await page.locator('#useCsv').click();\n\n  await expect.poll(() => state.savedRows.length).toBe(2);"
+          if click_marker not in text:
+              raise SystemExit('board-sync paste approval marker missing')
+          text = text.replace(click_marker, "  await page.locator('#useCsv').click();\n  await approvePreview(page);\n\n  await expect.poll(() => state.savedRows.length).toBe(2);", 1)
+          file_marker = '''  await page.locator('#csvFile').setInputFiles({
+              name: 'boys-roster.csv',
+              mimeType: 'text/csv',
+              buffer: Buffer.from(csv),
+            });
+
+            await expect.poll(() => state.savedRows.length).toBe(2);'''
+          file_replacement = '''  await page.locator('#csvFile').setInputFiles({
+              name: 'boys-roster.csv',
+              mimeType: 'text/csv',
+              buffer: Buffer.from(csv),
+            });
+            await approvePreview(page);
+
+            await expect.poll(() => state.savedRows.length).toBe(2);'''
+          if file_marker not in text:
+              raise SystemExit('board-sync file approval marker missing')
+          path.write_text(text.replace(file_marker, file_replacement, 1))
+          PY
+
+          node --check coach-ops.js
+          node --check qa/ai-import.spec.js
+          node --check qa/import-board-sync.spec.js
+
+      - name: Commit integration fix
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add coach-ops.js qa/ai-import.spec.js qa/import-board-sync.spec.js
+          git commit -m "Make import preview the resilient final publish gate"
+          git push origin HEAD:feature/coach-ops-safety
