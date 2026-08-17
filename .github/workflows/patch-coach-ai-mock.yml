@@ -1,0 +1,42 @@
+name: Patch coach QA AI mock
+
+on:
+  push:
+    branches:
+      - feature/coach-ops-safety
+    paths:
+      - .github/workflows/patch-coach-ai-mock.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/coach-ops-safety
+          fetch-depth: 0
+      - name: Add canonical AI analyzer mock
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('qa/coach-ops-browser.spec.js')
+          text = path.read_text()
+          marker = "    if (path === '/api/session') return reply({ profile: admin });\n"
+          addition = """    if (path === '/api/ai-analyze-sheet' && req.method() === 'POST') return reply({\n      model: 'gemini-3.6-flash-qa',\n      privacy: { redactedBeforeProvider: true },\n      ai: {\n        supported: true,\n        sheetKind: 'roster',\n        confidence: 0.99,\n        globalGender: 'unknown',\n        globalDivision: 'singles',\n        mappings: [\n          { inputKey: 'Name', target: 'name', confidence: 0.99, reason: 'canonical roster identity' },\n          { inputKey: 'Gender', target: 'gender', confidence: 0.99, reason: 'canonical team gender' },\n          { inputKey: 'Division', target: 'division', confidence: 0.99, reason: 'canonical tennis event' },\n        ],\n        warnings: [],\n      },\n    });\n"""
+          if marker not in text:
+              raise SystemExit('session mock marker not found')
+          if "path === '/api/ai-analyze-sheet'" in text:
+              raise SystemExit('AI analyzer mock already present')
+          path.write_text(text.replace(marker, marker + addition, 1))
+          PY
+          node --check qa/coach-ops-browser.spec.js
+      - name: Commit patch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add qa/coach-ops-browser.spec.js
+          git commit -m "Mock AI verification in Coach safety browser test"
+          git push origin HEAD:feature/coach-ops-safety
