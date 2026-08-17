@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - feature/coach-lokesh-core-flow
+      - feature/coach-ops-safety
   workflow_dispatch:
 
 concurrency:
@@ -31,9 +32,12 @@ jobs:
           node --check ranking-policy.js
           node --check player-dashboard-state.js
           node --check import-auto-sync.js
+          node --check coach-ops.js
           node --check lib/player-link.js
           node --check lib/ladder-engine.js
           node --check api/users.js
+          node --check api/records.js
+          node --check api/coach.js
           node --check api/ladder.js
           node --check api/challenges.js
           node --check api/admin/seed-ladder.js
@@ -43,7 +47,10 @@ jobs:
           node --check qa/player-link.test.js
           node --check qa/roster-metadata.test.js
           node --check qa/render-rewrite.test.js
+          node --check qa/coach-ops.test.js
+          node --check qa/ugly-import-regression.test.js
           node --check qa/core-flow-browser.spec.js
+          node --check qa/coach-ops-browser.spec.js
 
       - name: Coach requirements unit tests
         run: |
@@ -55,6 +62,7 @@ jobs:
           node qa/render-rewrite.test.js
           node qa/ladder-engine.test.js
           node qa/challenge-api.test.js
+          node qa/coach-ops.test.js
 
       - name: Import regression suite
         run: |
@@ -71,11 +79,15 @@ jobs:
           node qa/spreadsheet-ml-benchmark.test.js
           node qa/spreadsheet-ai.test.js
           node qa/import-auto-sync.test.js
+          node qa/ugly-import-regression.test.js
 
       - name: Deployment and security guardrails
         run: |
           set -euo pipefail
           test -f lib/player-link.js
+          test -f coach-ops.js
+          test -f coach-ops.css
+          test -f supabase/coach_ops_import_history.sql
           test ! -e api/_player-link.js
           test ! -e lib/server-player-link.js
           grep -q '../lib/player-link' api/users.js
@@ -84,9 +96,14 @@ jobs:
           grep -q 'ranking-policy.js' api/render.js
           grep -q 'player-dashboard-state.js' api/render.js
           grep -q 'player-dashboard-state.css' api/render.js
+          grep -q 'coach-ops.js' api/render.js
+          grep -q 'coach-ops.css' api/render.js
           grep -q 'gradeLevel' api/admin/seed-ladder.js
           grep -q 'division' api/admin/seed-ladder.js
           grep -q 'metadata_preserved' supabase/ladder_roster_metadata.sql
+          grep -q 'import_snapshots' supabase/coach_ops_import_history.sql
+          grep -q 'ladder_snapshots' supabase/coach_ops_import_history.sql
+          grep -q 'admin_undo_ladder_snapshot' supabase/coach_ops_import_history.sql
           COUNT=$(find api -type f -name '*.js' | wc -l)
           echo "Serverless function candidates: $COUNT"
           test "$COUNT" -le 12
@@ -99,8 +116,8 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
           source = Path('index.html').read_text()
-          html = source.replace('</head>', '<link rel="stylesheet" href="./player-dashboard-state.css" /></head>')
-          stack = '<script src="./import-runtime-fixes.js"></script><script src="./import-v2.js"></script><script src="./import-delimiter-fix.js"></script><script src="./spreadsheet-ml.js"></script><script src="./import-v2-fixes.js"></script><script src="./import-row-safety-fix.js"></script><script src="./import-multiblock-fix.js"></script><script src="./spreadsheet-semantic-calibration.js"></script><script src="./spreadsheet-ai.js"></script><script src="./ai-quota-guard.js"></script><script src="./import-auto-sync.js"></script><script src="./ranking-policy.js"></script><script src="./player-dashboard-state.js"></script>'
+          html = source.replace('</head>', '<link rel="stylesheet" href="./player-dashboard-state.css" /><link rel="stylesheet" href="./coach-ops.css" /></head>')
+          stack = '<script src="./import-runtime-fixes.js"></script><script src="./import-v2.js"></script><script src="./import-delimiter-fix.js"></script><script src="./spreadsheet-ml.js"></script><script src="./import-v2-fixes.js"></script><script src="./import-row-safety-fix.js"></script><script src="./import-multiblock-fix.js"></script><script src="./spreadsheet-semantic-calibration.js"></script><script src="./spreadsheet-ai.js"></script><script src="./ai-quota-guard.js"></script><script src="./import-auto-sync.js"></script><script src="./ranking-policy.js"></script><script src="./player-dashboard-state.js"></script><script src="./coach-ops.js"></script>'
           html = html.replace('<script src="./app.js"></script>', '<script src="./app.js"></script>' + stack)
           Path('index.html').write_text(html)
           Path('qa-ai-index.html').write_text(html)
@@ -117,7 +134,7 @@ jobs:
           SERVER_PID=$!
           trap 'kill $SERVER_PID || true' EXIT
           sleep 2
-          npx playwright test qa/auth-flow.spec.js qa/browser.spec.js qa/ai-import.spec.js qa/import-board-sync.spec.js qa/core-flow-browser.spec.js --reporter=line --workers=1
+          npx playwright test qa/auth-flow.spec.js qa/browser.spec.js qa/ai-import.spec.js qa/import-board-sync.spec.js qa/core-flow-browser.spec.js qa/coach-ops-browser.spec.js --reporter=line --workers=1
 
       - name: Build visual QA shell
         run: |
