@@ -35,8 +35,10 @@ for (const value of [
 const importSync = out.indexOf(`${cdn}/import-auto-sync.js`);
 const ranking = out.indexOf(`${cdn}/ranking-policy.js`);
 const dashboard = out.indexOf(`${cdn}/player-dashboard-state.js`);
-assert.ok(importSync > 0 && ranking > importSync && dashboard > ranking, 'runtime order must be importer sync -> ranking policy -> player dashboard');
+const coachOps = out.indexOf(`${cdn}/coach-ops.js`);
+assert.ok(importSync > 0 && ranking > importSync && dashboard > ranking && coachOps > dashboard, 'runtime order must be importer sync -> ranking policy -> player dashboard -> coach ops');
 assert.ok(out.includes(`${cdn}/player-dashboard-state.css`));
+assert.ok(out.includes(`${cdn}/coach-ops.css`));
 assert.equal(out.includes('class="cursor-ball"'), false);
 
 console.log('render rewrite tests passed');
