@@ -1,4 +1,4 @@
-# live-rerun: canonical-doubles
+# live-rerun: first-login-password
 name: Live Coach Dry Run
 on:
   push:
