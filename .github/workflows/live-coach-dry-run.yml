@@ -1,4 +1,4 @@
-# live-rerun: first-login-password
+# live-rerun: undo-history-constraint
 name: Live Coach Dry Run
 on:
   push:
