@@ -259,7 +259,7 @@
   }
 
   function attentionCard(icon, label, value, urgent) {
-    return `<div class="coach-attention-card${urgent ? " is-urgent" : "}"><i class="ph ${icon}" aria-hidden="true"></i><strong>${Number(value || 0)}</strong><span>${escapeHtml(label)}</span></div>`;
+    return `<div class="coach-attention-card${urgent ? " is-urgent" : ""}"><i class="ph ${icon}" aria-hidden="true"></i><strong>${Number(value || 0)}</strong><span>${escapeHtml(label)}</span></div>`;
   }
 
   function actionName(action) {
