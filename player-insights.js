@@ -89,16 +89,36 @@
       return recordsCache;
     }
 
+    async function hydrateRankHistory() {
+      if (!workflow || Object.prototype.hasOwnProperty.call(workflow, "rankHistory")) return Array.isArray(workflow?.rankHistory) ? workflow.rankHistory : [];
+      try {
+        const response = await win.TennisRankAuth.fetch("/api/ladder");
+        if (!response.ok) return [];
+        const payload = await response.json().catch(() => ({}));
+        workflow = {
+          ...workflow,
+          ladder: Array.isArray(payload.ladder) ? payload.ladder : workflow.ladder,
+          settings: Array.isArray(payload.settings) ? payload.settings : workflow.settings,
+          viewer: payload.viewer || workflow.viewer,
+          rankHistory: Array.isArray(payload.rankHistory) ? payload.rankHistory : [],
+        };
+        return workflow.rankHistory;
+      } catch (_) {
+        return [];
+      }
+    }
+
     async function render() {
       if (loading || win.TennisRankAuth?.getProfile?.()?.role !== "player") return;
       const dashboard = win.document.querySelector("#playerDashboard");
       if (!dashboard || !workflow?.viewer?.playerId) return;
       loading = true;
       try {
+        const rankHistory = await hydrateRankHistory();
         const playerId = workflow.viewer.playerId;
         const entry = (workflow.ladder || []).find(item => item.player_id === playerId);
         const playerName = entry?.player?.display_name || workflow.viewer.playerName || win.TennisRankAuth?.getProfile?.()?.player_name || "Player";
-        const trend = deriveRankTrend(workflow.rankHistory || [], entry?.rank_position);
+        const trend = deriveRankTrend(rankHistory, entry?.rank_position);
         const calculated = await loadRecords();
         const form = deriveRecentForm(calculated.matches || [], playerName, 5);
         let panel = dashboard.querySelector("#playerSeasonInsights");
@@ -114,14 +134,14 @@
           <div class="insights-metrics"><article><span>Current rank</span><strong>${trend.currentRank ? `#${trend.currentRank}` : "—"}</strong></article><article><span>Season start</span><strong>${trend.seasonStartRank ? `#${trend.seasonStartRank}` : "—"}</strong></article><article><span>Best rank</span><strong>${trend.bestRank ? `#${trend.bestRank}` : "—"}</strong></article><article><span>Season movement</span><strong class="${trend.movement > 0 ? "positive" : trend.movement < 0 ? "negative" : ""}">${moveLabel}</strong></article></div>
           <div class="insights-grid"><article class="insights-chart-card"><div class="insights-card-head"><div><span>Rank history</span><strong>${trend.points.length > 1 ? `${trend.points.length - 1} official moves` : "Baseline"}</strong></div></div>${chartMarkup(trend.points)}</article>
           <article class="insights-form-card"><div class="insights-card-head"><div><span>Recent form</span><strong>${recentRecord} last ${form.last.length || 0}</strong></div><small>${form.wins}-${form.losses} across imported season results</small></div><div class="form-strip">${form.last.length ? form.last.map(item => `<span class="form-chip ${item.result === "W" ? "win" : "loss"}" title="${escapeHtml(item.opponent)}">${item.result}</span>`).join("") : `<span class="insights-empty">No linked results yet.</span>`}</div><div class="recent-form-list">${form.last.slice(0,3).map(item => `<div><span class="form-chip ${item.result === "W" ? "win" : "loss"}">${item.result}</span><p><b>${escapeHtml(item.opponent || "Opponent")}</b><small>${escapeHtml(item.date || "Recent")} · ${escapeHtml(item.score || "Score unavailable")}</small></p></div>`).join("")}</div></article></div>
-          <div class="rank-reasons">${(workflow.rankHistory || []).slice(-4).reverse().map(item => `<span><i class="ph ph-arrow-up-right"></i>${escapeHtml(reasonLabel(item.reason))}<small>#${escapeHtml(item.old_rank)} → #${escapeHtml(item.new_rank)}</small></span>`).join("") || `<span><i class="ph ph-flag"></i>Season baseline established<small>Future official movements will appear here.</small></span>`}</div>`;
+          <div class="rank-reasons">${rankHistory.slice(-4).reverse().map(item => `<span><i class="ph ph-arrow-up-right"></i>${escapeHtml(reasonLabel(item.reason))}<small>#${escapeHtml(item.old_rank ?? item.oldRank)} → #${escapeHtml(item.new_rank ?? item.newRank)}</small></span>`).join("") || `<span><i class="ph ph-flag"></i>Season baseline established<small>Future official movements will appear here.</small></span>`}</div>`;
       } finally { loading = false; }
     }
 
     win.addEventListener("tennisrank:ladder-workflow-ready", event => { workflow = event.detail || {}; render(); });
-    win.addEventListener("tennisrank:import-synced", () => { recordsCache = null; render(); });
+    win.addEventListener("tennisrank:import-synced", () => { recordsCache = null; if (workflow) delete workflow.rankHistory; render(); });
     win.addEventListener("tennisrank:auth-ready", () => render());
-    win.addEventListener("tennisrank:coach-data-changed", () => render());
+    win.addEventListener("tennisrank:coach-data-changed", () => { if (workflow) delete workflow.rankHistory; render(); });
     if (win.document.readyState !== "loading") render();
     else win.document.addEventListener("DOMContentLoaded", render, { once: true });
   }
