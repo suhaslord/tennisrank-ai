@@ -2,6 +2,17 @@
   'use strict';
   if (!win || !win.document) return;
 
+  const SNAPSHOT_KEY = 'tennisRankDataSnapshotV1';
+
+  function savedRows() {
+    try {
+      const snapshot = JSON.parse(win.localStorage.getItem(SNAPSHOT_KEY) || 'null');
+      return Array.isArray(snapshot?.rows) && snapshot.rows.length ? snapshot.rows : null;
+    } catch {
+      return null;
+    }
+  }
+
   function repair() {
     const api = win.TennisRankCoachOps;
     if (!api?.previewAndPublish || typeof win.syncToBackend !== 'function') return false;
@@ -9,7 +20,8 @@
 
     const base = win.syncToBackend;
     const guarded = function (rows) {
-      return api.previewAndPublish(win, rows);
+      const candidate = Array.isArray(rows) && rows.length ? rows : savedRows();
+      return api.previewAndPublish(win, candidate);
     };
     guarded.__coachOpsPreview = true;
     guarded.__coachOpsPreviewFinal = true;
@@ -28,5 +40,5 @@
   win.addEventListener?.('DOMContentLoaded', scheduleRepairs, { once: true });
   scheduleRepairs();
 
-  win.TennisRankCoachPreviewGuard = { repair, scheduleRepairs };
+  win.TennisRankCoachPreviewGuard = { repair, scheduleRepairs, savedRows };
 })(typeof window !== 'undefined' ? window : globalThis);
