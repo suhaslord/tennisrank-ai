@@ -23,9 +23,28 @@ async function deleteAuthUser(context, userId) {
 function linkWarning(reason, playerName) {
   if (!reason || new Set(["linked", "already-linked", "direct"]).has(reason)) return "";
   if (reason === "not-found") return `Account created, but “${playerName}” is not in the current imported roster yet. Import that player and the account will link automatically.`;
-  if (reason === "ambiguous") return `Account created, but more than one roster player matches “${playerName}”. Use a unique spreadsheet name before challenges are enabled.`;
+  if (reason === "ambiguous") return `Account created, but more than one roster player matches “${playerName}”. Select the player directly from the roster instead.`;
   if (reason === "claimed") return `Account created, but “${playerName}” is already linked to another account. A coach should correct the roster/account mapping.`;
   return "Account created, but its roster link needs coach review.";
+}
+
+async function rosterPlayer(context, playerId) {
+  if (!playerId) return null;
+  const result = await rest(context, `players?id=eq.${encodeURIComponent(playerId)}&select=id,profile_id,display_name,team_gender,grade_level,division,active_status&limit=1`);
+  if (!result.response.ok) throw Object.assign(new Error(result.payload.message || "Roster player lookup failed."), { status: result.response.status });
+  return Array.isArray(result.payload) ? result.payload[0] || null : null;
+}
+
+async function linkDirect(context, player, profileId) {
+  if (!player) return null;
+  if (player.profile_id && player.profile_id !== profileId) throw Object.assign(new Error("That roster player already has an account."), { status: 409 });
+  const result = await rest(context, `players?id=eq.${encodeURIComponent(player.id)}`, {
+    method: "PATCH",
+    headers: { Prefer: "return=representation" },
+    body: JSON.stringify({ profile_id: profileId, updated_at: new Date().toISOString() }),
+  });
+  if (!result.response.ok) throw Object.assign(new Error(result.payload.message || "Roster account link failed."), { status: result.response.status });
+  return Array.isArray(result.payload) ? result.payload[0] || player : player;
 }
 
 module.exports = async function handler(req, res) {
@@ -37,24 +56,45 @@ module.exports = async function handler(req, res) {
     if (context.profile.role !== "admin") return json(res, 403, { error: "Coach/admin access is required." });
 
     if (req.method === "GET") {
-      const result = await rest(context, "profiles?select=id,email,full_name,player_name,role,must_change_password,created_at,updated_at&order=role.asc,full_name.asc");
-      if (!result.response.ok) return json(res, result.response.status, { error: result.payload.message || "Player accounts could not be loaded." });
-      return json(res, 200, { profiles: Array.isArray(result.payload) ? result.payload : [] });
+      const [profilesResult, playersResult] = await Promise.all([
+        rest(context, "profiles?select=id,email,full_name,player_name,role,must_change_password,created_at,updated_at&order=role.asc,full_name.asc"),
+        rest(context, "players?select=id,profile_id,display_name,team_gender,grade_level,division,active_status,created_at,updated_at&order=active_status.asc,team_gender.asc,display_name.asc"),
+      ]);
+      if (!profilesResult.response.ok) return json(res, profilesResult.response.status, { error: profilesResult.payload.message || "Player accounts could not be loaded." });
+      if (!playersResult.response.ok) return json(res, playersResult.response.status, { error: playersResult.payload.message || "Roster players could not be loaded." });
+      const profiles = Array.isArray(profilesResult.payload) ? profilesResult.payload : [];
+      const profileMap = new Map(profiles.map(profile => [profile.id, profile]));
+      const roster = (Array.isArray(playersResult.payload) ? playersResult.payload : []).map(player => ({
+        ...player,
+        accountCreated: Boolean(player.profile_id && profileMap.has(player.profile_id)),
+        account: player.profile_id ? profileMap.get(player.profile_id) || null : null,
+      }));
+      return json(res, 200, { profiles, roster });
     }
 
     if (req.method === "POST") {
       const body = parseBody(req);
       const email = String(body.email || "").trim().toLowerCase();
-      const fullName = String(body.fullName || "").trim();
-      const playerName = String(body.playerName || "").trim();
+      let fullName = String(body.fullName || "").trim();
+      let playerName = String(body.playerName || "").trim();
+      const playerId = String(body.playerId || "").trim();
       const role = String(body.role || "player").trim().toLowerCase();
       const temporaryPassword = String(body.temporaryPassword || "");
 
       if (!/^\S+@\S+\.\S+$/.test(email)) return json(res, 400, { error: "Enter a valid email address." });
-      if (!fullName) return json(res, 400, { error: "Display name is required." });
       if (!new Set(["player", "admin"]).has(role)) return json(res, 400, { error: "Access level must be player or admin." });
-      if (role === "player" && !playerName) return json(res, 400, { error: "Players need the exact name used in the spreadsheet." });
       if (temporaryPassword.length < 10) return json(res, 400, { error: "Temporary password must be at least 10 characters." });
+
+      let selectedPlayer = null;
+      if (role === "player" && playerId) {
+        selectedPlayer = await rosterPlayer(context, playerId);
+        if (!selectedPlayer) return json(res, 404, { error: "That roster player no longer exists. Refresh the roster and try again." });
+        if (selectedPlayer.profile_id) return json(res, 409, { error: "That roster player already has an account." });
+        playerName = selectedPlayer.display_name;
+        if (!fullName) fullName = selectedPlayer.display_name;
+      }
+      if (!fullName) return json(res, 400, { error: "Display name is required." });
+      if (role === "player" && !playerName) return json(res, 400, { error: "Select a roster player or enter the exact spreadsheet name." });
 
       const existing = await rest(context, `profiles?email=eq.${encodeURIComponent(email)}&select=id&limit=1`);
       if (!existing.response.ok) return json(res, existing.response.status, { error: existing.payload.message || "Account lookup failed." });
@@ -84,12 +124,16 @@ module.exports = async function handler(req, res) {
         let linkedPlayer = null;
         let warning = "";
         if (role === "player") {
-          try {
-            const link = await linkPlayerByName(context, user.id, playerName);
-            linkedPlayer = link.linkedPlayer || null;
-            warning = linkWarning(link.reason, playerName);
-          } catch (error) {
-            warning = `Account created, but roster linking needs another try: ${error.message}`;
+          if (selectedPlayer) {
+            linkedPlayer = await linkDirect(context, selectedPlayer, user.id);
+          } else {
+            try {
+              const link = await linkPlayerByName(context, user.id, playerName);
+              linkedPlayer = link.linkedPlayer || null;
+              warning = linkWarning(link.reason, playerName);
+            } catch (error) {
+              warning = `Account created, but roster linking needs another try: ${error.message}`;
+            }
           }
         }
 
