@@ -306,7 +306,7 @@
 
   async function refreshCoachDashboard(win) {
     if (win.TennisRankAuth?.getProfile?.()?.role !== "admin") return;
-    const data = await request(win, "/api/coach", { method: "GET" });
+    const data = await request(win, "/api/ladder?mode=coach", { method: "GET" });
     renderCoachDashboard(win, data);
     return data;
   }
@@ -463,7 +463,7 @@
         else if (create) chooseRosterPlayer(win, create.dataset.createAccount);
         else if (undo) {
           if (!win.confirm("Undo this latest ladder change? This creates an audit entry and is only allowed when no newer ladder change exists.")) return;
-          await request(win, "/api/coach", { method: "POST", body: JSON.stringify({ action: "undo-ladder", snapshotId: undo.dataset.undoSnapshot }) });
+          await request(win, "/api/ladder?mode=coach", { method: "POST", body: JSON.stringify({ action: "undo-ladder", snapshotId: undo.dataset.undoSnapshot }) });
           win.dispatchEvent?.(new CustomEvent("tennisrank:auth-ready", { detail: { profile: win.TennisRankAuth?.getProfile?.(), session: win.TennisRankAuth?.getSession?.() } }));
           await refreshCoachDashboard(win);
         }
