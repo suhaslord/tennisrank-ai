@@ -1,6 +1,6 @@
 const { test, expect } = require('@playwright/test');
 
-const APP_URL = 'http://127.0.0.1:4173/';
+const APP_URL = 'http://127.0.0.1:4173/qa-coach-index.html';
 
 const admin = {
   id: 'admin-profile', email: 'coach@example.test', full_name: 'Coach QA', player_name: null, role: 'admin', must_change_password: false,
@@ -87,6 +87,7 @@ test('coach preview, history, account roster, dashboard and undo work together',
   await page.goto(APP_URL, { waitUntil: 'domcontentloaded' });
   await expect(page.locator('#appShell')).toBeVisible();
   await expect(page.locator('#coachOpsDashboard')).toBeVisible();
+  await expect.poll(() => page.evaluate(() => Boolean(window.syncToBackend?.__coachOpsPreviewFinal))).toBe(true);
   await expect(page.locator('#coachAttentionGrid')).toContainText('Players without accounts');
   await expect(page.locator('#rosterAccountMatrix')).toContainText('1/3 accounts created');
   await expect(page.locator('#rosterAccountMatrix')).toContainText('Not created');
