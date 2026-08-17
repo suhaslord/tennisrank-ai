@@ -149,8 +149,8 @@ test('live Coach Lokesh production dry run', async ({ page }) => {
       const p = await r.json();
       return window.calculateRankings(p.rows).rankings;
     });
-    expect(messyCalc.some(x => x.name === 'Aiden Shah / Leo Kim' && x.division === 'doubles')).toBeTruthy();
-    expect(messyCalc.some(x => x.name === 'Mateo Ruiz + Ethan Park' && x.division === 'doubles')).toBeTruthy();
+    expect(messyCalc.some(x => x.name === 'Aiden Shah & Leo Kim' && x.division === 'doubles')).toBeTruthy();
+    expect(messyCalc.some(x => x.name === 'Ethan Park & Mateo Ruiz' && x.division === 'doubles')).toBeTruthy();
     expect(new Set(messyCalc.map(x => `${x.gender}|${x.division}`))).toEqual(new Set(['boys|singles','girls|singles','boys|doubles','girls|doubles']));
 
     const boys = await ranks(page, 'boys');
