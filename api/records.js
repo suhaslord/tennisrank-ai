@@ -1,71 +1,153 @@
 const crypto = require("node:crypto");
+const { json, authenticatedContext, rest, rpc, allowApi, parseBody } = require("./_supabase");
 
-function json(res, status, body) {
-  res.status(status).setHeader("Content-Type", "application/json").send(JSON.stringify(body));
+function hash(value) {
+  return crypto.createHash("sha256").update(String(value || "")).digest("hex");
 }
 
-function databaseConfig() {
-  return {
-    url: String(process.env.SUPABASE_URL || "").replace(/\/$/, ""),
-    key: process.env.SUPABASE_SERVICE_ROLE_KEY || "",
-  };
+function sourceKey(source) {
+  return hash(String(source || "default").trim() || "default");
 }
 
-function supabaseHeaders(key, extra = {}) {
-  return {
-    apikey: key,
-    Authorization: `Bearer ${key}`,
-    "Content-Type": "application/json",
-    ...extra,
-  };
+function contentHash(rows) {
+  return hash(JSON.stringify(Array.isArray(rows) ? rows : []));
 }
 
-function recordKey(row, source) {
-  if (row.__sourceRow) return crypto.createHash("sha256").update(`${source}:${row.__sourceRow}`).digest("hex");
-  const canonical = JSON.stringify(row, Object.keys(row).sort());
-  return crypto.createHash("sha256").update(canonical).digest("hex");
+function previewHash(rows, source) {
+  return hash(`${sourceKey(source)}:${contentHash(rows)}`);
+}
+
+function scalar(payload) {
+  if (typeof payload === "string") return payload;
+  if (Array.isArray(payload) && payload.length === 1) {
+    const value = payload[0];
+    if (typeof value === "string") return value;
+    if (value && typeof value === "object") return Object.values(value)[0] || null;
+  }
+  if (payload && typeof payload === "object") return Object.values(payload)[0] || null;
+  return null;
+}
+
+async function currentRows(context) {
+  const latest = await rest(context, "tennis_records?select=source_key,updated_at&order=updated_at.desc&limit=1");
+  if (!latest.response.ok) throw Object.assign(new Error(latest.payload.message || "Database read failed."), { status: latest.response.status });
+  const latestRecord = Array.isArray(latest.payload) ? latest.payload[0] : null;
+  if (!latestRecord?.source_key) return { rows: [], count: 0, sourceKey: null };
+  const rows = [];
+  // Supabase caps each response; fetch all pages instead of silently dropping
+  // the remainder of a season with more than 1,000 rows.
+  for (let offset = 0; ; offset += 1000) {
+    const result = await rest(context, `tennis_records?source_key=eq.${encodeURIComponent(latestRecord.source_key)}&select=raw_data,row_index&order=row_index.asc,updated_at.asc&limit=1000&offset=${offset}`);
+    if (!result.response.ok) throw Object.assign(new Error(result.payload.message || "Database read failed."), { status: result.response.status });
+    if (!Array.isArray(result.payload)) throw new Error("The database returned invalid spreadsheet data.");
+    rows.push(...result.payload.map(record => record.raw_data).filter(Boolean));
+    if (result.payload.length < 1000) break;
+    if (offset >= 10000) throw new Error("Saved spreadsheet exceeds the supported size. Contact your administrator.");
+  }
+  return { rows, count: rows.length, sourceKey: latestRecord.source_key };
+}
+
+function validateRows(rows) {
+  if (!Array.isArray(rows) || !rows.length) return "No spreadsheet rows were provided.";
+  if (rows.length > 10000) return "This import is too large. Split it into a smaller team sheet.";
+  if (rows.some(row => !row || typeof row !== "object" || Array.isArray(row) || !Object.keys(row).some(key => !key.startsWith("__") && String(row[key] ?? "").trim()))) {
+    return "Every spreadsheet row must contain named columns and at least one value.";
+  }
+  if (Buffer.byteLength(JSON.stringify(rows), "utf8") > 4 * 1024 * 1024) return "This import is too large. Keep the file below 4 MB.";
+  return "";
 }
 
 module.exports = async function handler(req, res) {
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type, x-admin-token");
+  allowApi(res, "GET,POST,OPTIONS");
   if (req.method === "OPTIONS") return res.status(204).end();
 
-  const { url, key } = databaseConfig();
-  if (!url || !key) return json(res, 503, { error: "Backend is not configured. Add SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in Vercel." });
-  if (req.method === "POST" && process.env.BACKEND_WRITE_TOKEN && req.headers["x-admin-token"] !== process.env.BACKEND_WRITE_TOKEN) {
-    return json(res, 401, { error: "A valid backend write token is required to save data." });
-  }
-
   try {
-    const endpoint = `${url}/rest/v1/tennis_records`;
+    const context = await authenticatedContext(req);
+
     if (req.method === "GET") {
-      const response = await fetch(`${endpoint}?select=raw_data&order=updated_at.asc`, { headers: supabaseHeaders(key) });
-      const data = await response.json();
-      if (!response.ok) return json(res, response.status, { error: data.message || "Database read failed." });
-      const rows = data.map(record => record.raw_data).filter(Boolean);
-      return json(res, 200, { rows, count: rows.length });
+      const mode = String(req.query?.mode || "").trim().toLowerCase();
+      if (mode === "history") {
+        if (context.profile.role !== "admin") return json(res, 403, { error: "Coach/admin access is required." });
+        const history = await rest(context, "import_snapshots?select=id,source_label,row_count,summary,content_hash,restored_from_snapshot_id,created_at,created_by_profile_id&order=created_at.desc&limit=30");
+        if (!history.response.ok) return json(res, history.response.status, { error: history.payload.message || "Import history could not be loaded." });
+        return json(res, 200, { snapshots: Array.isArray(history.payload) ? history.payload : [] });
+      }
+
+      const current = await currentRows(context);
+      return json(res, 200, current);
     }
 
     if (req.method === "POST") {
-      const body = typeof req.body === "string" ? JSON.parse(req.body) : (req.body || {});
+      if (context.profile.role !== "admin") return json(res, 403, { error: "Only an admin can publish team data." });
+      const body = parseBody(req);
+      const action = String(body.action || "publish").trim().toLowerCase();
+
+      if (action === "restore") {
+        const snapshotId = String(body.snapshotId || "").trim();
+        if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(snapshotId)) {
+          return json(res, 400, { error: "Choose a valid import snapshot to restore." });
+        }
+        const restored = await rpc(context, "admin_restore_import_snapshot", {
+          p_coach_profile_id: context.profile.id,
+          p_snapshot_id: snapshotId,
+        });
+        if (!restored.response.ok) return json(res, restored.response.status, { error: restored.payload.message || "Import restore failed." });
+        const current = await currentRows(context);
+        return json(res, 200, { restored: true, snapshotId: scalar(restored.payload), ...current });
+      }
+
       const rows = Array.isArray(body.rows) ? body.rows : [];
-      const source = String(body.source || "default");
-      if (!rows.length) return json(res, 400, { error: "No spreadsheet rows were provided." });
-      const records = rows.map(row => ({ record_key: recordKey(row, source), raw_data: row, updated_at: new Date().toISOString() }));
-      const response = await fetch(`${endpoint}?on_conflict=record_key`, {
-        method: "POST",
-        headers: supabaseHeaders(key, { Prefer: "resolution=merge-duplicates,return=minimal" }),
-        body: JSON.stringify(records),
+      const source = String(body.source || "default").trim() || "default";
+      const invalid = validateRows(rows);
+      if (invalid) return json(res, rows.length > 10000 ? 413 : 400, { error: invalid });
+      const key = sourceKey(source);
+      const rowsHash = contentHash(rows);
+      const token = previewHash(rows, source);
+
+      if (action === "preview") {
+        const latest = await rest(context, "import_snapshots?select=id,source_label,row_count,content_hash,created_at&order=created_at.desc&limit=1");
+        if (!latest.response.ok) return json(res, latest.response.status, { error: latest.payload.message || "Current import snapshot could not be loaded." });
+        const current = Array.isArray(latest.payload) ? latest.payload[0] : null;
+        return json(res, 200, {
+          previewHash: token,
+          contentHash: rowsHash,
+          sourceKey: key,
+          sourceLabel: source,
+          rowCount: rows.length,
+          currentSnapshot: current || null,
+          unchanged: Boolean(current?.content_hash && current.content_hash === rowsHash),
+        });
+      }
+
+      if (action !== "publish") return json(res, 400, { error: "Unsupported import action." });
+      if (!body.previewHash || String(body.previewHash) !== token) {
+        return json(res, 428, { error: "Preview this import before publishing it." });
+      }
+      const summary = body.previewSummary && typeof body.previewSummary === "object" ? body.previewSummary : {};
+      if (JSON.stringify(summary).length > 150000) return json(res, 413, { error: "Import preview summary is too large." });
+
+      const published = await rpc(context, "admin_publish_import", {
+        p_coach_profile_id: context.profile.id,
+        p_source_key: key,
+        p_source_label: source,
+        p_rows: rows,
+        p_content_hash: rowsHash,
+        p_summary: summary,
+        p_restored_from_snapshot_id: null,
       });
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) return json(res, response.status, { error: data.message || "Database save failed." });
-      return json(res, 200, { saved: records.length });
+      if (!published.response.ok) return json(res, published.response.status, { error: published.payload.message || "Database save failed." });
+      return json(res, 200, { saved: rows.length, snapshotId: scalar(published.payload), contentHash: rowsHash });
     }
 
     return json(res, 405, { error: "Method not allowed." });
   } catch (error) {
-    return json(res, 500, { error: error.message || "Unexpected backend error." });
+    return json(res, error.status || 500, { error: error.message || "Unexpected backend error." });
   }
 };
+
+module.exports.sourceKey = sourceKey;
+module.exports.contentHash = contentHash;
+module.exports.previewHash = previewHash;
+
+module.exports.currentRows = currentRows;
+module.exports.validateRows = validateRows;

@@ -1,47 +1,72 @@
 # TennisRank AI
 
-A Vercel-ready, mobile-first tennis ranking dashboard. It reads a public Google Sheet CSV feed or a CSV file, calculates separate boys' singles, boys' doubles, girls' singles, and girls' doubles rankings, and can persist imported rows in Supabase Postgres through a secure Vercel API.
+TennisRank turns River Islands High School tennis data into a current team ranking board and an authenticated challenge ladder.
 
-## Ranking rules
+## Current architecture
 
-- Every roster-only player starts at 0 wins and 0 losses.
-- A win adds 1 to the winner; a loss adds 1 to the loser.
-- Ranking order is wins minus losses, then win rate, then total wins.
-- Doubles are ranked as teams/pairs. Pair order is normalized so `A & B` and `B & A` are treated as the same team.
+- Vanilla HTML/CSS/JavaScript frontend hosted on Vercel.
+- Supabase Auth for invited player/admin accounts.
+- Vercel serverless APIs validate bearer sessions and use the server-held Supabase service role for private database access.
+- Existing spreadsheet/CSV imports continue to populate match statistics.
+- Official Boys and Girls singles ladder positions live separately in the ladder tables and are changed only by trusted server/database workflows.
 
-## Flexible sheet import
+## Ladder workflow
 
-TennisRank does not require the header row to be the first row. When a sheet is connected, it scans the first 30 rows for the strongest header match, recognizes common column names, skips title/notes rows, and shows an analyzer summary before the rankings are used.
+1. Coach initializes Boys/Girls official ladders from the current imported singles board.
+2. A linked active player can challenge an available player up to the configured number of positions above them (default 3).
+3. The defender accepts or declines; accepted matches can be scheduled.
+4. A participant submits the completed score.
+5. The score waits in the coach approval queue.
+6. Coach approval calls a transactional database function.
+7. If the challenger wins, the challenger takes the defender's position and all intermediate players move down one; a defender win leaves ranks unchanged.
+8. Rank history and audit logs preserve every official change.
 
-It recognizes roster rows, explicit winner/loser rows, side-by-side match rows, and row-per-player results with `W` or `L`. Grouped sections can carry Boys/Girls and Singles/Doubles labels down to the rows beneath them.
+## Coach controls
 
-Common labels include `Name`, `Athlete`, `Student`, `Player`, `Gender`, `Sex`, `Division`, `Event`, `Category`, `Player 1`, `Player 2`, `Side A`, `Side B`, `Winner`, `Loser`, `Opponent`, `Result`, `Score`, and `Date`. CSV, TSV, and semicolon-delimited exports are supported.
+- Approval queue for submitted challenge scores.
+- Manual rank move with audit history.
+- Injury/inactive hold. Open challenges involving a held player are cancelled and the active opponent is released.
+- One-time ladder initialization from the imported singles board.
+- Existing account creation and data import controls remain available.
 
-For the best confidence, include a gender or section label. The app cannot safely guess Boys/Girls from a person's name alone, so unlabeled rows are shown in the analyzer as needing review rather than silently assigned to the wrong division.
+## Design
 
-## Recommended sheet format
+`DESIGN-tennis-tesla.md` is the design source of truth for new ladder work. It adapts a Tesla-style radical-subtraction system to River Islands tennis: existing photography stays dominant, controls use restrained 4px geometry, interaction motion is subtle, and Court Orange `#f36b21` is the primary action accent.
 
-Use one header row. Common header variations are supported, including `Name`, `Player`, `Gender`, `Division`, `Player 1`, `Player 2`, `Winner`, `Loser`, `Score`, and `Date`.
+## Database rollout
 
-```csv
-Name,Gender,Division,Player 1,Player 2,Winner,Loser,Score,Date
-Ava Patel,Girls,Singles,,,,,,
-,Boys,Singles,Noah Williams,Ethan Kim,Noah Williams,Ethan Kim,6-3,2026-08-03
-,Girls,Doubles,Sofia Garcia & Emma Wilson,Chloe Brown & Maya Shah,Chloe Brown & Maya Shah,Sofia Garcia & Emma Wilson,8-5,2026-08-03
+The ladder schema is split into reproducible SQL layers in `supabase/`:
+
+- `ladder_v1.sql`
+- `ladder_v1_workflow.sql`
+- `ladder_v1_admin.sql`
+- `ladder_v1_admin_safety.sql`
+- `ladder_v1_seed.sql`
+- `ladder_v1_fk_indexes.sql`
+
+All ladder tables use RLS and are intentionally not granted to browser roles. Vercel serverless functions are the application data boundary.
+
+## Verification
+
+The feature branch QA workflow runs:
+
+- JavaScript syntax checks across frontend and API files.
+- Ladder engine behavior tests, including challenge distance, rank shifting, injury/pending exclusion, and match-tiebreak handling.
+- Source-reconciliation guardrails to ensure the auth gate, player dashboard, accounts panel, and existing tennis photography remain present.
+- Server-auth and secret-safety checks.
+- Playwright browser tests against the real reconciled `index.html` and scripts with only network responses mocked. These cover player challenge creation, coach approval/admin controls, and mobile overflow.
+
+Run the core local checks with:
+
+```bash
+node --check auth.js
+node --check app.js
+node --check lib/ladder-engine.js
+node --check ladder.js
+node --check challenge-ui.js
+node qa/ladder-engine.test.js
 ```
 
-Roster rows are optional but recommended. They allow a new player to appear at 0-0 before they play a match.
+## Deployment safety
 
-The parser also accepts a row-per-player results sheet using `Player`, `Opponent`, `Result`, `Gender`, and `Division`, where `Result` is `W` or `L`. For the most reliable import, use explicit `Winner` and `Loser` columns.
-
-## Deploy to Vercel
-
-1. Put this folder in a GitHub repository or import the folder into Vercel.
-2. Use the default settings; there is no build command and the output is the project root.
-3. Deploy.
-4. Create a Supabase project and run [`supabase/schema.sql`](supabase/schema.sql) in its SQL Editor.
-5. In Vercel Project Settings → Environment Variables, add `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, and a private `BACKEND_WRITE_TOKEN`. Keep the service-role key and write token server-only. Enter the write token in the app's Data panel when saving spreadsheet data.
-6. In Google Sheets, choose Share → General access → Anyone with the link → Viewer.
-7. Paste the Google Sheet URL in the app's Data panel. Imported rows are automatically upserted into the backend when the API is configured.
-
-The dashboard fetches the sheet in the browser, so no Google API key is required for a public read-only sheet. The Supabase service-role key is used only inside `/api/records.js`. If the backend is temporarily unavailable, the dashboard still works with sample, CSV, or live sheet data and displays the connection status.
+Do not overwrite a newer direct Vercel source with an older Git snapshot. The feature branch was reconciled from the last known-good auth-enabled production frontend before the ladder layer was added. Preview deployment is required before production promotion.

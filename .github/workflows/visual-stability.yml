@@ -1,0 +1,66 @@
+name: TennisRank visual stability
+
+on:
+  push:
+    branches:
+      - feature/tesla-ladder-dashboard
+  workflow_dispatch:
+
+concurrency:
+  group: tennisrank-visual-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  visual:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Build production-like QA shell
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          html = Path('index.html').read_text()
+          html = html.replace('</head>', '<link rel="stylesheet" href="./production-stability.css"><link rel="stylesheet" href="./tesla-authority.css"><link rel="stylesheet" href="./tesla-finish.css"><link rel="stylesheet" href="./tesla-motion.css"><link rel="stylesheet" href="./story-photo-scale.css"><style>#showBootstrap,.bootstrap-form{display:none!important}</style></head>')
+          html = html.replace('<script src="./ladder.js"></script>', '<script src="./import-runtime-fixes.js"></script><script src="./import-v2.js"></script><script src="./import-delimiter-fix.js"></script><script src="./spreadsheet-ml.js"></script><script src="./import-v2-fixes.js"></script><script src="./import-row-safety-fix.js"></script><script src="./import-multiblock-fix.js"></script><script src="./spreadsheet-semantic-calibration.js"></script><script src="./spreadsheet-ai.js"></script><script src="./ai-quota-guard.js"></script><script src="./tesla-motion.js"></script><script src="./brand-assets.js"></script><script src="./ladder.js"></script>')
+          html = html.replace('<div class="cursor-ball" aria-hidden="true"><span class="cursor-ball-core"></span></div>', '')
+          Path('qa-index.html').write_text(html)
+          PY
+      - name: JavaScript syntax
+        run: |
+          node --check import-delimiter-fix.js
+          node --check spreadsheet-ml.js
+          node --check spreadsheet-ai.js
+          node --check ai-quota-guard.js
+          node --check import-v2-fixes.js
+          node --check import-row-safety-fix.js
+          node --check import-multiblock-fix.js
+          node --check spreadsheet-semantic-calibration.js
+          node --check import-runtime-fixes.js
+          node --check tesla-motion.js
+          node --check brand-assets.js
+      - name: Install Playwright runner
+        run: npm install --no-save @playwright/test@1.55.0
+      - name: Run deep visual and motion checks
+        env:
+          QA_BASE: http://127.0.0.1:4173/qa-index.html
+        run: |
+          set -euo pipefail
+          google-chrome --version
+          python3 -m http.server 4173 >/tmp/tennisrank-visual-http.log 2>&1 &
+          SERVER_PID=$!
+          trap 'kill $SERVER_PID || true' EXIT
+          sleep 2
+          npx playwright test qa/visual-stability.spec.js qa/brand-logo.spec.js qa/story-photo-scale.spec.js --reporter=line --workers=1
+      - name: Upload visual QA screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tennisrank-visual-qa
+          path: qa-artifacts
+          if-no-files-found: warn
