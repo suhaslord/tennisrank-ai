@@ -11,6 +11,8 @@
   const APPLY_THRESHOLD = 0.62;
   const BLOCK_UNSUPPORTED_THRESHOLD = 0.86;
   const schemaCache = new Map();
+  const ALLOWED_TARGETS = new Set(["name", "firstName", "lastName", "player1", "player2", "opponent", "winner", "loser", "result", "score", "date", "gender", "division", "rank", "record", "wins", "losses", "ignore"]);
+  const confidenceValue = value => Number.isFinite(Number(value)) ? Math.max(0, Math.min(1, Number(value))) : 0;
 
   function nonEmpty(value) {
     return String(value ?? "").trim() !== "";
@@ -73,13 +75,13 @@
     return {
       supported: ai.supported === true,
       sheetKind: String(ai.sheetKind || "unsupported"),
-      confidence: Math.max(0, Math.min(1, Number(ai.confidence) || 0)),
+      confidence: confidenceValue(ai.confidence),
       globalGender: ["boys", "girls", "unknown"].includes(ai.globalGender) ? ai.globalGender : "unknown",
       globalDivision: ["singles", "doubles", "unknown"].includes(ai.globalDivision) ? ai.globalDivision : "unknown",
       mappings: Array.isArray(ai.mappings) ? ai.mappings.map(item => ({
         inputKey: String(item?.inputKey || ""),
         target: String(item?.target || "ignore"),
-        confidence: Math.max(0, Math.min(1, Number(item?.confidence) || 0)),
+        confidence: confidenceValue(item?.confidence),
         reason: String(item?.reason || "").slice(0, 220),
       })) : [],
       warnings: Array.isArray(ai.warnings) ? ai.warnings.map(value => String(value || "").slice(0, 220)).filter(Boolean) : [],
@@ -90,11 +92,14 @@
     const keys = new Set((rows || []).flatMap(row => Object.keys(row || {}).filter(key => !key.startsWith("__"))));
     const candidates = (ai?.mappings || [])
       .filter(item => keys.has(item.inputKey))
-      .filter(item => item.confidence >= APPLY_THRESHOLD)
+      .filter(item => ALLOWED_TARGETS.has(item.target) && Number.isFinite(item.confidence) && item.confidence >= APPLY_THRESHOLD)
       .sort((a, b) => b.confidence - a.confidence);
     const byTarget = new Map();
     const plan = [];
+    const usedInputs = new Set();
     for (const item of candidates) {
+      if (usedInputs.has(item.inputKey) || (item.target !== "ignore" && byTarget.has(item.target))) continue;
+      usedInputs.add(item.inputKey);
       if (item.target === "ignore") {
         plan.push(item);
         continue;
@@ -121,15 +126,18 @@
     const plan = mappingPlan(rows, normalized);
     const result = rows.map(row => {
       const output = { ...row };
+      // Remove source keys first, then assign from the untouched input row.
+      // Interleaved deletion loses values when source and target keys overlap.
+      for (const item of plan) {
+        if (item.target === "ignore" || item.inputKey !== item.target) delete output[item.inputKey];
+      }
       const assigned = new Map();
       for (const item of plan) {
         const value = row?.[item.inputKey];
         if (item.target === "ignore") {
-          if (item.inputKey in output) delete output[item.inputKey];
           continue;
         }
         if (!nonEmpty(value)) {
-          if (item.inputKey !== item.target && item.inputKey in output) delete output[item.inputKey];
           continue;
         }
         const current = assigned.get(item.target);
@@ -137,7 +145,6 @@
           output[item.target] = String(value).trim();
           assigned.set(item.target, item);
         }
-        if (item.inputKey !== item.target && item.inputKey in output) delete output[item.inputKey];
       }
 
       const first = String(output.firstName || "").trim();
@@ -238,18 +245,18 @@
   async function enhanceRows(rows, options = {}) {
     if (!Array.isArray(rows) || !rows.length || !shouldUseAi(options.source)) return rows;
     const importer = options.importer || (typeof window !== "undefined" ? window.TennisRankImportV2 : null);
+    const before = reviewRows(rows, importer);
     const cached = schemaCache.get(schemaSignature(rows));
     if (cached?.ai) {
       const mapped = applyCachedMapping(rows);
       const cachedReview = reviewRows(mapped, importer);
-      if (cachedReview.valid) {
+      if (cachedReview.valid && (!before.valid || Number(cachedReview.confidence || 0) + 0.03 >= Number(before.confidence || 0))) {
         if (mapped.__analysis) mapped.__analysis.review = cachedReview;
         return mapped;
       }
       schemaCache.delete(schemaSignature(rows));
     }
 
-    const before = reviewRows(rows, importer);
     let response;
     try {
       response = await requestAnalysis(rows, options);

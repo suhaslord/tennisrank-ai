@@ -161,6 +161,7 @@ async function handleAiAnalysis(req, res) {
     aiInflight.set(cacheKey, work);
     try {
       const result = await work;
+      console.info(JSON.stringify({ event: "ai_schema_verified", model: result.model, supported: result.ai.supported, confidence: result.ai.confidence, mappings: result.ai.mappings.length, provider: "Gemini" }));
       aiCache.set(cacheKey, { result, expiresAt: Date.now() + AI_CACHE_TTL_MS });
       pruneAiCache();
       return json(res, 200, { ...result, cache: { hit: false, layer: "provider" } });
