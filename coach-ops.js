@@ -199,9 +199,15 @@
   async function restoreLiveRows(win) {
     try {
       const live = await request(win, "/api/records", { method: "GET" });
+      if (Array.isArray(live.rows)) { trackedRows = live.rows; trackedSource = "backend"; }
       if (Array.isArray(live.rows) && !live.rows.length && typeof win.clearBoard === "function") win.clearBoard();
       else if (Array.isArray(live.rows) && typeof win.loadRows === "function") win.loadRows(live.rows, "backend");
-    } catch (_) {}
+    } catch (_) {
+      trackedRows = null;
+      trackedSource = "";
+      if (typeof win.clearBoard === "function") win.clearBoard();
+      if (typeof win.setStatus === "function") win.setStatus("Could not reload saved data. Reconnect and refresh the board.", "error");
+    }
   }
 
   async function previewAndPublish(win, rows) {
@@ -216,11 +222,18 @@
     const candidate = input ? JSON.parse(JSON.stringify(input)) : null;
     if (!candidate?.length) throw new Error("No spreadsheet rows are ready to publish.");
     const source = sourceLabel(win);
-    const serverPreview = await request(win, "/api/records", {
-      method: "POST",
-      body: JSON.stringify({ action: "preview", rows: candidate, source }),
-    });
-    const preview = await buildPreview(win, candidate, serverPreview);
+    let serverPreview, preview;
+    try {
+      serverPreview = await request(win, "/api/records", {
+        method: "POST",
+        body: JSON.stringify({ action: "preview", rows: candidate, source }),
+      });
+      preview = await buildPreview(win, candidate, serverPreview);
+      if (!preview.rankingCount) throw new Error("No usable tennis players or teams were found. Check the sheet before publishing. The saved board was not changed.");
+    } catch (error) {
+      await restoreLiveRows(win);
+      throw error;
+    }
     const confirmed = await awaitPreviewDecision(win, preview);
     if (!confirmed) {
       await restoreLiveRows(win);
