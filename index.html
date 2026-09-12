@@ -19,7 +19,7 @@
     <link rel="stylesheet" href="/ladder.css" />
     <link rel="stylesheet" href="/challenge-ui.css" />
     <link rel="stylesheet" href="/challenge-ui-fixes.css" />
-  <meta name="tennisrank-runtime" content="coach-ready"><script defer src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script><link rel="stylesheet" href="/production-stability.css"><link rel="stylesheet" href="/tesla-authority.css"><link rel="stylesheet" href="/tesla-finish.css"><link rel="stylesheet" href="/tesla-motion.css"><link rel="stylesheet" href="/story-photo-scale.css"><link rel="stylesheet" href="/player-dashboard-state.css"><link rel="stylesheet" href="/coach-ops.css"><link rel="stylesheet" href="/coach-polish.css"><link rel="stylesheet" href="/insights.css"><style>#showBootstrap,.bootstrap-form{display:none!important}</style></head>
+  <meta name="tennisrank-runtime" content="coach-ready"><script defer src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script><link rel="stylesheet" href="/production-stability.css"><link rel="stylesheet" href="/tesla-authority.css"><link rel="stylesheet" href="/tesla-finish.css"><link rel="stylesheet" href="/tesla-motion.css"><link rel="stylesheet" href="/story-photo-scale.css"><link rel="stylesheet" href="/player-dashboard-state.css"><link rel="stylesheet" href="/coach-ops.css"><link rel="stylesheet" href="/coach-polish.css"><link rel="stylesheet" href="/insights.css"><style>#showBootstrap,.bootstrap-form{display:none!important}</style><link rel="stylesheet" href="/court-editorial.css"></head>
   <body class="auth-loading">
     <section class="auth-gate" id="authGate" aria-labelledby="authTitle">
       <div class="auth-visual" aria-hidden="true">
@@ -91,16 +91,16 @@
       <main id="top">
         <section class="hero-section">
           <div class="hero-content">
-            <p class="eyebrow">Team ranking workspace</p>
-            <h1>Your season,<br /><span>sorted.</span></h1>
-            <p class="hero-copy">Import the sheet your team already uses. TennisRank maps the columns, understands the results, and keeps every division current.</p>
+            <p class="eyebrow">River Islands Tennis / Team workspace</p>
+            <h1>Your team.<br /><span>One board.</span></h1>
+            <p class="hero-copy">Import results. Review rankings. Keep your team moving.</p>
             <div class="hero-actions">
               <button class="primary-button" id="heroRankings"><span>View rankings</span><i class="ph ph-arrow-down" aria-hidden="true"></i></button>
               <button class="ghost-button admin-only" id="heroData"><span>Update data</span><i class="ph ph-database" aria-hidden="true"></i></button>
             </div>
             <div class="hero-note"><span class="status-dot"></span><span id="heroSourceLabel">Ready to import</span><span class="hero-note-separator">|</span><span id="heroRowCount">0 rows analyzed</span></div>
           </div>
-          <div class="hero-visual" role="group" aria-label="Current season summary">
+          <div class="hero-visual" role="group" aria-label="Current season summary"><div class="court-orbits" aria-hidden="true"><span style="--i:0"></span><span style="--i:1"></span><span style="--i:2"></span><span style="--i:3"></span><span style="--i:4"></span><span style="--i:5"></span><span style="--i:6"></span><span style="--i:7"></span><span style="--i:8"></span><span style="--i:9"></span><span style="--i:10"></span><span style="--i:11"></span><span style="--i:12"></span><span style="--i:13"></span><span style="--i:14"></span><span style="--i:15"></span><span style="--i:16"></span><span style="--i:17"></span></div>
             <img class="hero-photo" src="/assets/team-court.jpg" alt="Tennis players and coaches gathered on the court" fetchpriority="high" decoding="async" />
             <div class="hero-photo-shade" aria-hidden="true"></div>
             <div class="visual-grid" aria-hidden="true"></div>
@@ -134,31 +134,6 @@
             </div>
             <div id="playerMatchList"></div>
           </div>
-        </section>
-
-        <section class="story-rail" aria-label="Season stories">
-          <article class="story-card">
-            <div class="story-image story-image-awards">
-            <img src="/assets/matchday-awards.jpg" alt="Players holding tennis trophies after a matchday" loading="lazy" decoding="async" />
-            </div>
-            <div class="story-copy">
-              <p class="story-kicker">Built on the court</p>
-              <h2>Every result has a place on the board.</h2>
-              <p>Keep the full season visible, from a new player starting at 0-0 to the matches that move a division.</p>
-              <a class="inline-link" href="#rankingsSection">Explore rankings <i class="ph ph-arrow-up-right" aria-hidden="true"></i></a>
-            </div>
-          </article>
-          <article class="spotlight-card">
-            <div class="spotlight-copy">
-              <p class="story-kicker">Singles spotlight</p>
-              <h2>Clear signals. Less noise.</h2>
-              <p>Use the analyzer to turn the sheet your team already has into a ranking board everyone can follow.</p>
-              <a class="inline-link" href="#settingsPanel">Connect a sheet <i class="ph ph-arrow-up-right" aria-hidden="true"></i></a>
-            </div>
-            <div class="spotlight-image">
-              <img src="/assets/singles-spotlight.jpg" alt="Tennis player holding a tournament trophy" loading="lazy" decoding="async" />
-            </div>
-          </article>
         </section>
 
         <section class="summary-grid" id="summaryGrid"></section>
@@ -304,6 +279,32 @@
           <p class="status-message" id="inviteStatus" role="status" aria-live="polite"></p>
           <div class="account-list" id="accountList"></div>
         </section>
+        <details class="team-gallery"><summary>From the court · Team gallery</summary>        <section class="story-rail" aria-label="Season stories">
+          <article class="story-card">
+            <div class="story-image story-image-awards">
+            <img src="/assets/matchday-awards.jpg" alt="Players holding tennis trophies after a matchday" loading="lazy" decoding="async" />
+            </div>
+            <div class="story-copy">
+              <p class="story-kicker">Built on the court</p>
+              <h2>Every result has a place on the board.</h2>
+              <p>Keep the full season visible, from a new player starting at 0-0 to the matches that move a division.</p>
+              <a class="inline-link" href="#rankingsSection">Explore rankings <i class="ph ph-arrow-up-right" aria-hidden="true"></i></a>
+            </div>
+          </article>
+          <article class="spotlight-card">
+            <div class="spotlight-copy">
+              <p class="story-kicker">Singles spotlight</p>
+              <h2>Clear signals. Less noise.</h2>
+              <p>Use the analyzer to turn the sheet your team already has into a ranking board everyone can follow.</p>
+              <a class="inline-link" href="#settingsPanel">Connect a sheet <i class="ph ph-arrow-up-right" aria-hidden="true"></i></a>
+            </div>
+            <div class="spotlight-image">
+              <img src="/assets/singles-spotlight.jpg" alt="Tennis player holding a tournament trophy" loading="lazy" decoding="async" />
+            </div>
+          </article>
+        </section>
+
+</details>
       </main>
 
       <nav class="bottom-nav" aria-label="Primary navigation">
