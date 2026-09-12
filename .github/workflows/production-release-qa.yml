@@ -66,23 +66,26 @@ jobs:
           node qa/ugly-import-regression.test.js
           node qa/production-hardening.test.js
 
-      - name: Build browser QA shell
+      - name: Build browser QA runtimes
         run: |
           python3 - <<'PY'
           from pathlib import Path
-          html = Path('index.html').read_text(encoding='utf-8')
-          html = html.replace('</head>', '<link rel="stylesheet" href="./player-dashboard-state.css"><link rel="stylesheet" href="./insights.css"><link rel="stylesheet" href="./coach-ops.css"><link rel="stylesheet" href="./coach-polish.css"></head>')
-          stack = '<script src="./import-runtime-fixes.js"></script><script src="./import-v2.js"></script><script src="./import-delimiter-fix.js"></script><script src="./spreadsheet-ml.js"></script><script src="./import-v2-fixes.js"></script><script src="./import-row-safety-fix.js"></script><script src="./import-multiblock-fix.js"></script><script src="./spreadsheet-semantic-calibration.js"></script><script src="./spreadsheet-ai.js"></script><script src="./ai-quota-guard.js"></script><script src="./import-auto-sync.js"></script><script src="./ranking-policy.js"></script><script src="./player-dashboard-state.js"></script><script src="./player-insights.js"></script><script src="./coach-ops.js"></script><script src="./coach-sharing.js"></script><script src="./coach-preview-guard.js"></script><script src="./coach-polish.js"></script>'
-          html = html.replace('<script src="./app.js"></script>', '<script src="./app.js"></script>' + stack)
-          Path('qa-release-index.html').write_text(html, encoding='utf-8')
+          source = Path('index.html').read_text(encoding='utf-8')
+          common = source.replace('</head>', '<link rel="stylesheet" href="./player-dashboard-state.css"><link rel="stylesheet" href="./insights.css"></head>')
+          common_stack = '<script src="./import-runtime-fixes.js"></script><script src="./import-v2.js"></script><script src="./import-delimiter-fix.js"></script><script src="./spreadsheet-ml.js"></script><script src="./import-v2-fixes.js"></script><script src="./import-row-safety-fix.js"></script><script src="./import-multiblock-fix.js"></script><script src="./spreadsheet-semantic-calibration.js"></script><script src="./spreadsheet-ai.js"></script><script src="./ai-quota-guard.js"></script><script src="./import-auto-sync.js"></script><script src="./ranking-policy.js"></script><script src="./player-dashboard-state.js"></script><script src="./player-insights.js"></script>'
+          common = common.replace('<script src="./app.js"></script>', '<script src="./app.js"></script>' + common_stack)
+          Path('index.html').write_text(common, encoding='utf-8')
+          Path('qa-ai-index.html').write_text(common, encoding='utf-8')
+
+          coach = common.replace('</head>', '<link rel="stylesheet" href="./coach-ops.css"><link rel="stylesheet" href="./coach-polish.css"></head>')
+          coach = coach.replace('</body>', '<script src="./coach-ops.js"></script><script src="./coach-sharing.js"></script><script src="./coach-preview-guard.js"></script><script src="./coach-polish.js"></script></body>')
+          Path('qa-coach-index.html').write_text(coach, encoding='utf-8')
           PY
 
       - name: Coach/browser critical path
-        env:
-          QA_BASE: http://127.0.0.1:4175/qa-release-index.html
         run: |
           set -euo pipefail
-          python3 -m http.server 4175 >/tmp/tennisrank-release-http.log 2>&1 &
+          python3 -m http.server 4173 >/tmp/tennisrank-release-http.log 2>&1 &
           SERVER_PID=$!
           trap 'kill $SERVER_PID || true' EXIT
           sleep 2
