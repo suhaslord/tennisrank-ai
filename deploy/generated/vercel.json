@@ -1,0 +1,69 @@
+{
+  "cleanUrls": true,
+  "rewrites": [
+    {
+      "source": "/api/config",
+      "destination": "/api/gateway?_tr_route=auth&route=config"
+    },
+    {
+      "source": "/api/session",
+      "destination": "/api/gateway?_tr_route=auth&route=session"
+    },
+    {
+      "source": "/api/bootstrap",
+      "destination": "/api/gateway?_tr_route=auth&route=bootstrap"
+    },
+    {
+      "source": "/api/ai-analyze-sheet",
+      "destination": "/api/gateway?_tr_route=sheet-proxy&mode=ai"
+    },
+    {
+      "source": "/api/records",
+      "destination": "/api/gateway?_tr_route=records"
+    },
+    {
+      "source": "/api/sheet-proxy",
+      "destination": "/api/gateway?_tr_route=sheet-proxy"
+    },
+    {
+      "source": "/api/users",
+      "destination": "/api/gateway?_tr_route=users"
+    },
+    {
+      "source": "/api/ladder",
+      "destination": "/api/gateway?_tr_route=ladder"
+    },
+    {
+      "source": "/api/challenges",
+      "destination": "/api/gateway?_tr_route=challenges"
+    },
+    {
+      "source": "/api/match-score",
+      "destination": "/api/gateway?_tr_route=match-score"
+    },
+    {
+      "source": "/api/admin/ladder",
+      "destination": "/api/gateway?_tr_route=admin-ladder"
+    },
+    {
+      "source": "/api/admin/seed-ladder",
+      "destination": "/api/gateway?_tr_route=seed-ladder"
+    },
+    {
+      "source": "/api/admin/verify-match",
+      "destination": "/api/gateway?_tr_route=verify-match"
+    },
+    {
+      "source": "/",
+      "destination": "/api/render"
+    },
+    {
+      "source": "/player",
+      "destination": "/api/render"
+    },
+    {
+      "source": "/admin",
+      "destination": "/api/render"
+    }
+  ]
+}
