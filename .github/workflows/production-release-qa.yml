@@ -28,15 +28,13 @@ jobs:
           node-version: 22
 
       - name: Install test dependencies
-        run: |
-          npm install --no-save https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz
-          npm install --no-save @playwright/test@1.55.0
+        run: npm install --no-save @playwright/test@1.55.0 https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz
 
       - name: Syntax check production code
         run: |
           set -euo pipefail
           find api lib -type f -name '*.js' -print0 | xargs -0 -n1 node --check
-          for file in app.js auth.js coach-ops.js coach-sharing.js coach-preview-guard.js import-auto-sync.js import-runtime-fixes.js import-v2.js spreadsheet-ai.js spreadsheet-ml.js ranking-policy.js player-dashboard-state.js player-insights.js; do
+          for file in app.js auth.js coach-ops.js coach-sharing.js coach-preview-guard.js coach-polish.js import-auto-sync.js import-runtime-fixes.js import-v2.js spreadsheet-ai.js spreadsheet-ml.js ranking-policy.js player-dashboard-state.js player-insights.js; do
             node --check "$file"
           done
           node --check qa/production-hardening.test.js
