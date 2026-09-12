@@ -37,16 +37,28 @@ jobs:
         run: |
           node <<'NODE'
           const fs = require('node:fs');
-          const path = require('node:path');
           const zlib = require('node:zlib');
           const commit = process.env.FRONTEND_COMMIT;
           const cdn = `https://cdn.jsdelivr.net/gh/suhaslord/tennisrank-ai@${commit}`;
-          fs.mkdirSync('deploy/generated/api', { recursive: true });
+          const out = 'deploy/generated';
+          fs.rmSync(out, { recursive: true, force: true });
+          fs.mkdirSync(`${out}/api`, { recursive: true });
+          fs.mkdirSync(`${out}/bundle`, { recursive: true });
 
-          const gatewaySource = fs.readFileSync('/tmp/tennisrank-gateway.js');
-          const gatewayPayload = zlib.gzipSync(gatewaySource, { level: 9 }).toString('base64');
-          const gatewayLoader = `const zlib=require('node:zlib');\nlet handler;\nfunction load(){if(handler)return handler;const src=zlib.gunzipSync(Buffer.from(${JSON.stringify(gatewayPayload)},'base64')).toString('utf8');const mod={exports:{}};new Function('module','exports','require','__filename','__dirname',src)(mod,mod.exports,require,__filename,__dirname);handler=mod.exports;return handler;}\nmodule.exports=async function(req,res){return load()(req,res);};\n`;
-          fs.writeFileSync('deploy/generated/api/gateway.js', gatewayLoader);
+          function writeChunks(prefix, payload, chunkSize = 7000) {
+            const names = [];
+            for (let i = 0; i < payload.length; i += chunkSize) {
+              const name = `${prefix}-${String(names.length).padStart(2, '0')}.js`;
+              fs.writeFileSync(`${out}/bundle/${name}`, `module.exports=${JSON.stringify(payload.slice(i, i + chunkSize))};\n`);
+              names.push(name);
+            }
+            return names;
+          }
+
+          const gatewayPayload = zlib.gzipSync(fs.readFileSync('/tmp/tennisrank-gateway.js'), { level: 9 }).toString('base64');
+          const gatewayChunks = writeChunks('gateway', gatewayPayload);
+          const gatewayRequires = gatewayChunks.map(name => `require('../bundle/${name}')`).join(',');
+          fs.writeFileSync(`${out}/api/gateway.js`, `const zlib=require('node:zlib');\nconst payload=[${gatewayRequires}].join('');\nlet handler;\nfunction load(){if(handler)return handler;const src=zlib.gunzipSync(Buffer.from(payload,'base64')).toString('utf8');const mod={exports:{}};new Function('module','exports','require','__filename','__dirname',src)(mod,mod.exports,require,__filename,__dirname);handler=mod.exports;return handler;}\nmodule.exports=async function(req,res){return load()(req,res);};\n`);
 
           let html = fs.readFileSync('index.html', 'utf8');
           html = html
@@ -66,8 +78,9 @@ jobs:
           html = html.replace(`<script src="${cdn}/app.js"></script>`, `<script src="${cdn}/app.js"></script><script src="${cdn}/import-runtime-fixes.js"></script><script src="${cdn}/import-v2.js"></script><script src="${cdn}/import-delimiter-fix.js"></script><script src="${cdn}/spreadsheet-ml.js"></script><script src="${cdn}/import-v2-fixes.js"></script><script src="${cdn}/import-row-safety-fix.js"></script><script src="${cdn}/import-multiblock-fix.js"></script><script src="${cdn}/spreadsheet-semantic-calibration.js"></script><script src="${cdn}/spreadsheet-ai.js"></script><script src="${cdn}/ai-quota-guard.js"></script><script src="${cdn}/import-auto-sync.js"></script><script src="${cdn}/ranking-policy.js"></script><script src="${cdn}/player-dashboard-state.js"></script><script src="${cdn}/player-insights.js"></script><script src="${cdn}/coach-ops.js"></script><script src="${cdn}/coach-sharing.js"></script><script src="${cdn}/coach-preview-guard.js"></script><script src="${cdn}/coach-polish.js"></script><script src="${cdn}/tesla-motion.js"></script><script src="${cdn}/brand-assets.js"></script>`);
           html = html.replace('<div class="cursor-ball" aria-hidden="true"><span class="cursor-ball-core"></span></div>', '');
           const htmlPayload = zlib.gzipSync(Buffer.from(html), { level: 9 }).toString('base64');
-          const renderSource = `const zlib=require('node:zlib');\nconst html=zlib.gunzipSync(Buffer.from(${JSON.stringify(htmlPayload)},'base64')).toString('utf8');\nmodule.exports=async function(req,res){if(req.method!=='GET'&&req.method!=='HEAD'){res.status(405).setHeader('Allow','GET, HEAD').end();return;}res.setHeader('Content-Type','text/html; charset=utf-8');res.setHeader('Cache-Control','no-store');res.setHeader('X-Content-Type-Options','nosniff');res.setHeader('X-TennisRank-Commit',${JSON.stringify(commit)});if(req.method==='HEAD')return res.status(200).end();return res.status(200).send(html);};\n`;
-          fs.writeFileSync('deploy/generated/api/render.js', renderSource);
+          const renderChunks = writeChunks('render', htmlPayload);
+          const renderRequires = renderChunks.map(name => `require('../bundle/${name}')`).join(',');
+          fs.writeFileSync(`${out}/api/render.js`, `const zlib=require('node:zlib');\nconst payload=[${renderRequires}].join('');\nconst html=zlib.gunzipSync(Buffer.from(payload,'base64')).toString('utf8');\nmodule.exports=async function(req,res){if(req.method!=='GET'&&req.method!=='HEAD'){res.status(405).setHeader('Allow','GET, HEAD').end();return;}res.setHeader('Content-Type','text/html; charset=utf-8');res.setHeader('Cache-Control','no-store');res.setHeader('X-Content-Type-Options','nosniff');res.setHeader('X-TennisRank-Commit',${JSON.stringify(commit)});if(req.method==='HEAD')return res.status(200).end();return res.status(200).send(html);};\n`);
 
           const config = {
             cleanUrls: true,
@@ -90,7 +103,7 @@ jobs:
               { source: '/admin', destination: '/api/render' },
             ],
           };
-          fs.writeFileSync('deploy/generated/vercel.json', JSON.stringify(config, null, 2) + '\n');
+          fs.writeFileSync(`${out}/vercel.json`, JSON.stringify(config, null, 2) + '\n');
           NODE
 
       - name: Validate generated bundle
@@ -98,10 +111,11 @@ jobs:
           set -euo pipefail
           node --check deploy/generated/api/gateway.js
           node --check deploy/generated/api/render.js
-          grep -q 'coach-polish.css' deploy/generated/api/render.js || true
           test -s deploy/generated/vercel.json
-          test $(wc -c < deploy/generated/api/gateway.js) -lt 200000
-          test $(wc -c < deploy/generated/api/render.js) -lt 100000
+          for file in deploy/generated/bundle/*.js; do
+            node --check "$file"
+            test $(wc -c < "$file") -lt 8000
+          done
 
       - name: Commit deterministic bundle
         run: |
@@ -113,5 +127,5 @@ jobs:
           fi
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git commit -m 'build: refresh direct Vercel bundle'
+          git commit -m 'build: refresh chunked direct Vercel bundle'
           git push origin HEAD:infra/vercel-direct-bundle
