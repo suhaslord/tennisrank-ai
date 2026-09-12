@@ -2,6 +2,18 @@
 
 TennisRank turns River Islands High School tennis data into a current team ranking board and an authenticated challenge ladder.
 
+## Local setup
+
+The repository declares **Node.js 22.x** and has no frontend build step. For a static preview, run:
+
+```sh
+python -m http.server 8000 --bind 127.0.0.1
+```
+
+Open `http://localhost:8000`. A static server does not run the `/api` endpoints, so authenticated data and ladder workflows require the Vercel serverless environment and a configured Supabase project.
+
+Use [.env.example](.env.example) as the configuration reference. `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, and `BACKEND_WRITE_TOKEN` belong in the server environment. The spreadsheet AI integration uses `GEMINI_API_KEY` and an optional `GEMINI_SPREADSHEET_MODEL` override. Never place server credentials in browser files.
+
 ## Current architecture
 
 - Vanilla HTML/CSS/JavaScript frontend hosted on Vercel.
@@ -35,7 +47,7 @@ TennisRank turns River Islands High School tennis data into a current team ranki
 
 ## Database rollout
 
-The ladder schema is split into reproducible SQL layers in `supabase/`:
+The base schema is in `supabase/schema.sql`. The ladder schema is split into SQL layers in `supabase/`:
 
 - `ladder_v1.sql`
 - `ladder_v1_workflow.sql`
@@ -43,6 +55,8 @@ The ladder schema is split into reproducible SQL layers in `supabase/`:
 - `ladder_v1_admin_safety.sql`
 - `ladder_v1_seed.sql`
 - `ladder_v1_fk_indexes.sql`
+
+Later migrations include `ladder_roster_metadata.sql`, `coach_ops_import_history.sql`, `allow_undo_rank_history_reason.sql`, and `fix_challenge_undo_player_availability.sql`. Review the existing database state and each script before applying migrations; the base ladder list alone does not describe every current feature.
 
 All ladder tables use RLS and are intentionally not granted to browser roles. Vercel serverless functions are the application data boundary.
 
