@@ -199,7 +199,8 @@
   async function restoreLiveRows(win) {
     try {
       const live = await request(win, "/api/records", { method: "GET" });
-      if (Array.isArray(live.rows) && typeof win.loadRows === "function") win.loadRows(live.rows, "backend");
+      if (Array.isArray(live.rows) && !live.rows.length && typeof win.clearBoard === "function") win.clearBoard();
+      else if (Array.isArray(live.rows) && typeof win.loadRows === "function") win.loadRows(live.rows, "backend");
     } catch (_) {}
   }
 

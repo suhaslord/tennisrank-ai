@@ -15,11 +15,11 @@
     <link rel="preload" as="image" href="/assets/team-court.jpg" fetchpriority="high" />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.1/src/regular/style.css" />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.1/src/fill/style.css" />
-    <link rel="stylesheet" href="./style.css" />
-    <link rel="stylesheet" href="./ladder.css" />
-    <link rel="stylesheet" href="./challenge-ui.css" />
-    <link rel="stylesheet" href="./challenge-ui-fixes.css" />
-  </head>
+    <link rel="stylesheet" href="/style.css" />
+    <link rel="stylesheet" href="/ladder.css" />
+    <link rel="stylesheet" href="/challenge-ui.css" />
+    <link rel="stylesheet" href="/challenge-ui-fixes.css" />
+  <meta name="tennisrank-runtime" content="coach-ready"><script defer src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script><link rel="stylesheet" href="/production-stability.css"><link rel="stylesheet" href="/tesla-authority.css"><link rel="stylesheet" href="/tesla-finish.css"><link rel="stylesheet" href="/tesla-motion.css"><link rel="stylesheet" href="/story-photo-scale.css"><link rel="stylesheet" href="/player-dashboard-state.css"><link rel="stylesheet" href="/coach-ops.css"><link rel="stylesheet" href="/coach-polish.css"><link rel="stylesheet" href="/insights.css"><style>#showBootstrap,.bootstrap-form{display:none!important}</style></head>
   <body class="auth-loading">
     <section class="auth-gate" id="authGate" aria-labelledby="authTitle">
       <div class="auth-visual" aria-hidden="true">
@@ -43,7 +43,7 @@
         <div class="auth-card-topline"><span>Member sign in</span><span><i class="ph ph-lock-key" aria-hidden="true"></i> Secure</span></div>
         <p class="eyebrow">Private team workspace</p>
         <h1 id="authTitle">Welcome back.</h1>
-        <p class="auth-copy">Sign in with the account your coach invited. Players see their stats; admins manage the team board.</p>
+        <p class="auth-copy">Coaches and players sign in with their email and password. Your account opens the right dashboard.</p>
         <form id="loginForm" class="auth-form">
           <label for="loginEmail">Email</label>
           <input id="loginEmail" name="email" type="email" autocomplete="username" required placeholder="you@school.org" />
@@ -98,7 +98,7 @@
               <button class="primary-button" id="heroRankings"><span>View rankings</span><i class="ph ph-arrow-down" aria-hidden="true"></i></button>
               <button class="ghost-button admin-only" id="heroData"><span>Update data</span><i class="ph ph-database" aria-hidden="true"></i></button>
             </div>
-            <div class="hero-note"><span class="status-dot"></span><span id="heroSourceLabel">Sample board</span><span class="hero-note-separator">|</span><span id="heroRowCount">0 rows analyzed</span></div>
+            <div class="hero-note"><span class="status-dot"></span><span id="heroSourceLabel">Ready to import</span><span class="hero-note-separator">|</span><span id="heroRowCount">0 rows analyzed</span></div>
           </div>
           <div class="hero-visual" role="group" aria-label="Current season summary">
             <img class="hero-photo" src="/assets/team-court.jpg" alt="Tennis players and coaches gathered on the court" fetchpriority="high" decoding="async" />
@@ -114,7 +114,7 @@
               <span class="racket-cap"></span>
             </div>
             <div class="visual-metric"><span class="visual-label">Record differential</span><strong id="heroDiff">+0</strong><span id="heroDiffDetail">Waiting for match data</span></div>
-            <div class="visual-footer"><span id="heroMatchCount">0 matches tracked</span><span id="heroUpdateState">Sample data</span></div>
+            <div class="visual-footer"><span id="heroMatchCount">0 matches tracked</span><span id="heroUpdateState">No data imported</span></div>
           </div>
         </section>
 
@@ -170,7 +170,7 @@
             <p class="eyebrow">Current leaderboard</p>
             <h2>Top rankings</h2>
           </div>
-          <div class="last-updated" id="lastUpdated">Sample data</div>
+          <div class="last-updated" id="lastUpdated">No data imported</div>
         </section>
 
         <section class="filter-bar" aria-label="Ranking filters">
@@ -313,12 +313,12 @@
         <button class="nav-item" id="navInsights"><i class="ph ph-sparkle" aria-hidden="true"></i><span>Insights</span></button>
       </nav>
     </div>
-    <div class="cursor-ball" aria-hidden="true"><span class="cursor-ball-core"></span></div>
-    <script src="./auth.js"></script>
-    <script src="./lib/ladder-engine.js"></script>
-    <script src="./app.js"></script>
-    <script src="./ladder.js"></script>
-    <script src="./challenge-ui.js"></script>
-    <script src="./challenge-ui-state.js"></script>
+
+    <script src="/auth.js"></script>
+    <script src="/lib/ladder-engine.js"></script>
+    <script src="/app.js"></script><script src="/import-runtime-fixes.js"></script><script src="/import-v2.js"></script><script src="/import-delimiter-fix.js"></script><script src="/spreadsheet-ml.js"></script><script src="/import-v2-fixes.js"></script><script src="/import-row-safety-fix.js"></script><script src="/import-multiblock-fix.js"></script><script src="/spreadsheet-semantic-calibration.js"></script><script src="/spreadsheet-ai.js"></script><script src="/ai-quota-guard.js"></script><script src="/import-auto-sync.js"></script><script src="/ranking-policy.js"></script><script src="/player-dashboard-state.js"></script><script src="/player-insights.js"></script><script src="/coach-ops.js"></script><script src="/coach-sharing.js"></script><script src="/coach-preview-guard.js"></script><script src="/coach-polish.js"></script><script src="/tesla-motion.js"></script><script src="/brand-assets.js"></script>
+    <script src="/ladder.js"></script>
+    <script src="/challenge-ui.js"></script>
+    <script src="/challenge-ui-state.js"></script>
   </body>
 </html>

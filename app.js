@@ -1,25 +1,10 @@
-const SAMPLE_CSV = `Name,Gender,Division,Player 1,Player 2,Winner,Loser,Score,Date
-Ava Patel,Girls,Singles,,,,,,
-Mia Rodriguez,Girls,Singles,,,,,,
-Noah Williams,Boys,Singles,,,,,,
-Ethan Kim,Boys,Singles,,,,,,
-Liam Chen,Boys,Doubles,,,,,,
-Oliver Davis,Boys,Doubles,,,,,,
-Sofia Garcia,Girls,Doubles,,,,,,
-Emma Wilson,Girls,Doubles,,,,,,
-,Boys,Singles,Noah Williams,Ethan Kim,Noah Williams,Ethan Kim,6-3,2026-08-03
-,Boys,Singles,Ethan Kim,Noah Williams,Ethan Kim,Noah Williams,7-5,2026-08-04
-,Girls,Singles,Ava Patel,Mia Rodriguez,Ava Patel,Mia Rodriguez,6-4,2026-08-03
-,Boys,Doubles,Liam Chen & Oliver Davis,Marcus Lee & James Park,Liam Chen & Oliver Davis,Marcus Lee & James Park,8-6,2026-08-02
-,Girls,Doubles,Sofia Garcia & Emma Wilson,Chloe Brown & Maya Shah,Chloe Brown & Maya Shah,Sofia Garcia & Emma Wilson,8-5,2026-08-03`;
-
 const state = {
   rows: [],
   matches: [],
   rankings: [],
   activeGender: "all",
   activeDivision: "all",
-  source: "sample",
+  source: "empty",
   sourceUrl: "",
   lastUpdated: null,
   refreshTimer: null,
@@ -589,8 +574,8 @@ function renderHero() {
   $("#heroDiffDetail").textContent = leader ? `${leader.name} leads the current board` : "Add a match to create the first signal";
   $("#heroMatchCount").innerHTML = `<span class="inline-ticker" data-ticker-target="${matches}">0</span> ${matches === 1 ? "match" : "matches"} tracked`;
   animateTickerValues($("#heroMatchCount"));
-  $("#heroUpdateState").textContent = state.lastUpdated ? `Updated ${state.lastUpdated.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}` : "Sample data";
-  $("#heroSourceLabel").textContent = state.source === "sheet" ? "Google Sheet" : state.source === "csv" ? "CSV import" : state.source === "backend" ? "Saved board" : "Sample board";
+  $("#heroUpdateState").textContent = state.lastUpdated ? `Updated ${state.lastUpdated.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}` : "No data imported";
+  $("#heroSourceLabel").textContent = state.source === "sheet" ? "Google Sheet" : state.source === "csv" ? "CSV import" : state.source === "backend" ? "Saved board" : state.source === "local" ? "Local draft" : "Ready to import";
   $("#heroRowCount").textContent = `${state.rows.length} row${state.rows.length === 1 ? "" : "s"} analyzed`;
 }
 
@@ -657,7 +642,7 @@ function renderMatches() {
 
 function render() {
   renderHero(); renderSummary(); renderInsight(); renderRankings(); renderMatches(); renderAnalyzer(); renderPlayerDashboard();
-  $("#lastUpdated").textContent = state.lastUpdated ? `Updated ${state.lastUpdated.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}` : "Sample data";
+  $("#lastUpdated").textContent = state.lastUpdated ? `Updated ${state.lastUpdated.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}` : "No data imported";
   replayAnimation($("#insightStrip"), "content-swap");
   replayAnimation($("#rankingsGrid"), "content-swap");
   replayAnimation($("#rankingTable"), "content-swap");
@@ -689,7 +674,19 @@ function readLocalSnapshot() {
   }
 }
 
+function clearBoard() {
+  state.rows = []; state.rankings = []; state.matches = [];
+  state.analysis = analyzeRows([], { rankings: [], matches: [] }); state.source = "empty"; state.lastUpdated = null;
+  state.sourceUrl = "";
+  localStorage.removeItem(LOCAL_SNAPSHOT_KEY);
+  localStorage.removeItem("tennisRankSheetUrl");
+  if ($("#csvText")) $("#csvText").value = "";
+  if ($("#sheetUrl")) $("#sheetUrl").value = "";
+  render();
+}
+
 function loadRows(rows, source = "csv") {
+  if (Array.isArray(rows) && !rows.length && source === "backend") return clearBoard();
   if (!rows.length) throw new Error("No rows were found. Check that the first row contains column headers.");
   if (source === "csv") {
     state.sourceUrl = "";
@@ -742,6 +739,7 @@ async function fetchBackendRecords() {
   backendStatus.textContent = `${payload.count || 0} saved spreadsheet rows available.`;
   backendStatus.className = "connected";
   if (Array.isArray(payload.rows) && payload.rows.length) loadRows(payload.rows, "backend");
+  else if (Array.isArray(payload.rows)) clearBoard();
   return payload;
 }
 
@@ -945,15 +943,8 @@ async function initializeAuthenticatedApp(profile) {
   const savedRate = isAdmin ? localStorage.getItem("tennisRankRefreshRate") : "0";
   if (savedUrl) { $("#sheetUrl").value = savedUrl; state.sourceUrl = savedUrl; }
   if (savedRate) $("#refreshRate").value = savedRate;
-  $("#csvText").value = SAMPLE_CSV;
-  const localSnapshot = isAdmin ? readLocalSnapshot() : null;
-  if (localSnapshot) {
-    state.sourceUrl = localSnapshot.sourceUrl || state.sourceUrl;
-    loadRows(localSnapshot.rows, "local");
-    setStatus("Restored the last admin copy saved on this device.");
-  } else {
-    loadText(SAMPLE_CSV, "sample");
-  }
+  $("#csvText").value = "";
+  clearBoard();
   try {
     const payload = await fetchBackendRecords();
     if (isAdmin) {
@@ -961,7 +952,7 @@ async function initializeAuthenticatedApp(profile) {
       await loadAccounts();
     }
     if (Array.isArray(payload.rows) && payload.rows.length) setStatus("Loaded the latest saved data from the shared database.");
-    else if (!localSnapshot && isAdmin) setStatus("Database connected. Import data to start the shared board.");
+    else if (isAdmin) setStatus("Database connected. Import data to start the shared board.");
   } catch (error) {
     const backendStatus = $("#backendStatus");
     if (backendStatus) {

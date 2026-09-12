@@ -6,6 +6,7 @@ const SHEETJS = 'https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.
 
 function rewrite(html) {
   let out = String(html || '');
+  if (out.includes('name="tennisrank-runtime"')) return out;
   out = out
     .replaceAll('src="/assets/', `src="${CDN}/assets/`)
     .replaceAll('href="/assets/', `href="${CDN}/assets/`)
@@ -22,7 +23,7 @@ function rewrite(html) {
 
   out = out.replace(
     '</head>',
-    `<script defer src="${SHEETJS}"></script><link rel="stylesheet" href="${CDN}/production-stability.css"><link rel="stylesheet" href="${CDN}/tesla-authority.css"><link rel="stylesheet" href="${CDN}/tesla-finish.css"><link rel="stylesheet" href="${CDN}/tesla-motion.css"><link rel="stylesheet" href="${CDN}/story-photo-scale.css"><link rel="stylesheet" href="${CDN}/player-dashboard-state.css"><link rel="stylesheet" href="${CDN}/coach-ops.css"><link rel="stylesheet" href="${CDN}/coach-polish.css"><link rel="stylesheet" href="${CDN}/insights.css"><style>#showBootstrap,.bootstrap-form{display:none!important}</style></head>`,
+    `<meta name="tennisrank-runtime" content="coach-ready"><script defer src="${SHEETJS}"></script><link rel="stylesheet" href="${CDN}/production-stability.css"><link rel="stylesheet" href="${CDN}/tesla-authority.css"><link rel="stylesheet" href="${CDN}/tesla-finish.css"><link rel="stylesheet" href="${CDN}/tesla-motion.css"><link rel="stylesheet" href="${CDN}/story-photo-scale.css"><link rel="stylesheet" href="${CDN}/player-dashboard-state.css"><link rel="stylesheet" href="${CDN}/coach-ops.css"><link rel="stylesheet" href="${CDN}/coach-polish.css"><link rel="stylesheet" href="${CDN}/insights.css"><style>#showBootstrap,.bootstrap-form{display:none!important}</style></head>`,
   );
 
   out = out.replace(

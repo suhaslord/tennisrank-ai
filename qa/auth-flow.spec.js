@@ -200,3 +200,20 @@ test('auth UI remains readable and non-overflowing at 320px', async ({ page }) =
   const button = await page.locator('#loginButton').boundingBox();
   expect(button.height).toBeGreaterThanOrEqual(44);
 });
+
+
+test('admin opens an empty shared board without reviving cached test data', async ({ page }) => {
+  const profile = playerProfile({ role: 'admin', full_name: 'Coach QA' });
+  await installAuthMocks(page, { profile });
+  await seedSession(page, sessionValue());
+  await page.addInitScript(() => {
+    localStorage.setItem('tennisRankDataSnapshotV1', JSON.stringify({rows:[{Name:'Old Test Player',Gender:'Boys',Division:'Singles'}],source:'csv'}));
+  });
+  await page.goto(BASE);
+  await expect(page.locator('#appShell')).toBeVisible();
+  await expect(page).toHaveURL(/\/admin$/);
+  await expect(page.locator('#heroSourceLabel')).toHaveText('Ready to import');
+  await expect(page.locator('#rankingTable')).not.toContainText('Old Test Player');
+  await expect(page.locator('#csvText')).toHaveValue('');
+  await expect.poll(() => page.evaluate(() => localStorage.getItem('tennisRankDataSnapshotV1'))).toBeNull();
+});

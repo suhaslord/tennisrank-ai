@@ -49,9 +49,10 @@ async function installImportSyncMocks(page) {
     if (path === '/api/session') return route.fulfill(ok({ profile }));
     if (path === '/api/users') return route.fulfill(ok({ profiles: [] }));
     if (path === '/api/challenges') return route.fulfill(ok({ challenges: [] }));
-    if (path === '/api/records' && request.method() === 'GET') return route.fulfill(ok({ rows: [], count: 0 }));
+    if (path === '/api/records' && request.method() === 'GET') return route.fulfill(ok({ rows: savedRows, count: savedRows.length, snapshots: [] }));
     if (path === '/api/records' && request.method() === 'POST') {
       const body = bodyOf(request);
+      if (body.action === 'preview') return route.fulfill(ok({previewHash:'qa-hash',rowCount:body.rows.length,warnings:[]}));
       savedRows.splice(0, savedRows.length, ...(Array.isArray(body.rows) ? body.rows : []));
       return route.fulfill(ok({ saved: savedRows.length }));
     }
@@ -123,6 +124,9 @@ test('CSV import updates visible rankings and the official boys/girls ladder wit
   await page.locator('#csvText').fill(csv);
   await page.locator('#useCsv').click();
 
+  await expect(page.locator('#importPreviewModal')).toBeVisible();
+  expect(state.savedRows).toHaveLength(0);
+  await page.locator('[data-preview-confirm]').click();
   await expect.poll(() => state.savedRows.length).toBe(2);
   await expect.poll(() => state.seedBodies.length).toBe(2);
 
@@ -171,6 +175,9 @@ test('selected CSV file follows the same automatic official-board path', async (
     buffer: Buffer.from(csv),
   });
 
+  await expect(page.locator('#importPreviewModal')).toBeVisible();
+  expect(state.savedRows).toHaveLength(0);
+  await page.locator('[data-preview-confirm]').click();
   await expect.poll(() => state.savedRows.length).toBe(2);
   await expect.poll(() => state.seedBodies.length).toBe(1);
   const boysSeed = state.seedBodies[0];
