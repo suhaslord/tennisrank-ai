@@ -1,0 +1,104 @@
+name: TennisRank production release gate
+
+on:
+  push:
+    branches:
+      - main
+      - release/production-hardening-2026-09-12
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: tennisrank-release-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  release-qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install test dependencies
+        run: |
+          npm install --no-save https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz
+          npm install --no-save @playwright/test@1.55.0
+
+      - name: Syntax check production code
+        run: |
+          set -euo pipefail
+          find api lib -type f -name '*.js' -print0 | xargs -0 -n1 node --check
+          for file in app.js auth.js coach-ops.js coach-sharing.js coach-preview-guard.js import-auto-sync.js import-runtime-fixes.js import-v2.js spreadsheet-ai.js spreadsheet-ml.js ranking-policy.js player-dashboard-state.js player-insights.js; do
+            node --check "$file"
+          done
+          node --check qa/production-hardening.test.js
+
+      - name: Unit and import regression suite
+        run: |
+          set -euo pipefail
+          node qa/ranking-policy.test.js
+          node qa/player-dashboard-state.test.js
+          node qa/player-insights.test.js
+          node qa/coach-sharing.test.js
+          node qa/player-link.test.js
+          node qa/roster-metadata.test.js
+          node qa/render-rewrite.test.js
+          node qa/ladder-engine.test.js
+          node qa/challenge-api.test.js
+          node qa/coach-ops.test.js
+          node qa/import-regression.test.js
+          node qa/import-v2.test.js
+          node qa/delimiter-fuzz.test.js
+          node qa/row-safety.test.js
+          node qa/multiblock.test.js
+          node qa/workbook-formats.test.js
+          node qa/sheet-proxy.test.js
+          node qa/spreadsheet-ml.test.js
+          node qa/spreadsheet-ml-benchmark.test.js
+          node qa/spreadsheet-ai.test.js
+          node qa/import-auto-sync.test.js
+          node qa/ugly-import-regression.test.js
+          node qa/production-hardening.test.js
+
+      - name: Build browser QA shell
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          html = Path('index.html').read_text(encoding='utf-8')
+          html = html.replace('</head>', '<link rel="stylesheet" href="./player-dashboard-state.css"><link rel="stylesheet" href="./insights.css"><link rel="stylesheet" href="./coach-ops.css"><link rel="stylesheet" href="./coach-polish.css"></head>')
+          stack = '<script src="./import-runtime-fixes.js"></script><script src="./import-v2.js"></script><script src="./import-delimiter-fix.js"></script><script src="./spreadsheet-ml.js"></script><script src="./import-v2-fixes.js"></script><script src="./import-row-safety-fix.js"></script><script src="./import-multiblock-fix.js"></script><script src="./spreadsheet-semantic-calibration.js"></script><script src="./spreadsheet-ai.js"></script><script src="./ai-quota-guard.js"></script><script src="./import-auto-sync.js"></script><script src="./ranking-policy.js"></script><script src="./player-dashboard-state.js"></script><script src="./player-insights.js"></script><script src="./coach-ops.js"></script><script src="./coach-sharing.js"></script><script src="./coach-preview-guard.js"></script><script src="./coach-polish.js"></script>'
+          html = html.replace('<script src="./app.js"></script>', '<script src="./app.js"></script>' + stack)
+          Path('qa-release-index.html').write_text(html, encoding='utf-8')
+          PY
+
+      - name: Coach/browser critical path
+        env:
+          QA_BASE: http://127.0.0.1:4175/qa-release-index.html
+        run: |
+          set -euo pipefail
+          python3 -m http.server 4175 >/tmp/tennisrank-release-http.log 2>&1 &
+          SERVER_PID=$!
+          trap 'kill $SERVER_PID || true' EXIT
+          sleep 2
+          npx playwright test qa/auth-flow.spec.js qa/core-flow-browser.spec.js qa/coach-ops-browser.spec.js qa/import-board-sync.spec.js --reporter=line --workers=1
+
+      - name: Deployment guardrails
+        run: |
+          set -euo pipefail
+          test -f vercel.json
+          test -f api/render.js
+          test -f api/sheet-proxy.js
+          test -f coach-polish.js
+          test -f coach-polish.css
+          grep -q 'coach-polish.css' api/render.js
+          grep -q 'coach-polish.js' api/render.js
+          ! grep -R --exclude-dir=.git --exclude=.env.example -E 'SUPABASE_SERVICE_ROLE_KEY[[:space:]]*=' .
+          ! grep -R --exclude-dir=.git --exclude=.env.example -E 'GEMINI_API_KEY[[:space:]]*=' .
