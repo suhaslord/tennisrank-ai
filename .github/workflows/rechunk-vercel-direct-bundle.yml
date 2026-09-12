@@ -1,0 +1,66 @@
+name: Rechunk direct Vercel bundle
+
+on:
+  push:
+    branches:
+      - infra/vercel-direct-bundle
+    paths:
+      - .github/workflows/rechunk-vercel-direct-bundle.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  rechunk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Split generated payload into connector-safe modules
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+          const path = require('node:path');
+          const dir = path.resolve('deploy/generated/bundle');
+          function readPayload(prefix) {
+            return fs.readdirSync(dir)
+              .filter(name => name.startsWith(`${prefix}-`) && name.endsWith('.js'))
+              .sort()
+              .map(name => require(path.join(dir, name)))
+              .join('');
+          }
+          function writePayload(prefix, payload) {
+            for (const name of fs.readdirSync(dir)) {
+              if (name.startsWith(`${prefix}-`) && name.endsWith('.js')) fs.rmSync(path.join(dir, name));
+            }
+            const names = [];
+            for (let i = 0; i < payload.length; i += 2400) {
+              const name = `${prefix}-${String(names.length).padStart(2, '0')}.js`;
+              fs.writeFileSync(path.join(dir, name), `module.exports=${JSON.stringify(payload.slice(i, i + 2400))};\n`);
+              names.push(name);
+            }
+            return names;
+          }
+          const gatewayNames = writePayload('gateway', readPayload('gateway'));
+          const renderNames = writePayload('render', readPayload('render'));
+          const gatewayRequires = gatewayNames.map(name => `require('../bundle/${name}')`).join(',');
+          fs.writeFileSync('deploy/generated/api/gateway.js', `const zlib=require('node:zlib');\nconst payload=[${gatewayRequires}].join('');\nlet handler;\nfunction load(){if(handler)return handler;const src=zlib.gunzipSync(Buffer.from(payload,'base64')).toString('utf8');const mod={exports:{}};new Function('module','exports','require','__filename','__dirname',src)(mod,mod.exports,require,__filename,__dirname);handler=mod.exports;return handler;}\nmodule.exports=async function(req,res){return load()(req,res);};\n`);
+          const renderRequires = renderNames.map(name => `require('../bundle/${name}')`).join(',');
+          fs.writeFileSync('deploy/generated/api/render.js', `const zlib=require('node:zlib');\nconst payload=[${renderRequires}].join('');\nconst html=zlib.gunzipSync(Buffer.from(payload,'base64')).toString('utf8');\nmodule.exports=async function(req,res){if(req.method!=='GET'&&req.method!=='HEAD'){res.status(405).setHeader('Allow','GET, HEAD').end();return;}res.setHeader('Content-Type','text/html; charset=utf-8');res.setHeader('Cache-Control','no-store');res.setHeader('X-Content-Type-Options','nosniff');res.setHeader('X-TennisRank-Commit',\"c03f47b3520fef60ed7416c43e79cd8990250f9a\");if(req.method==='HEAD')return res.status(200).end();return res.status(200).send(html);};\n`);
+          NODE
+          node --check deploy/generated/api/gateway.js
+          node --check deploy/generated/api/render.js
+          for file in deploy/generated/bundle/*.js; do test $(wc -c < "$file") -lt 3000; node --check "$file"; done
+      - name: Commit rechunked bundle
+        run: |
+          git add deploy/generated
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'build: rechunk direct Vercel bundle for deployment'
+          git push origin HEAD:infra/vercel-direct-bundle
