@@ -120,7 +120,14 @@ for(const width of [320,1440]) test(`editorial layout ${width}`,async({page})=>{
  await page.locator('#openSettings').click();
  await page.locator('#settingsPanel').scrollIntoViewIfNeeded();
  await page.screenshot({path:`/tmp/tennis-import-${width}.png`});
- await page.locator('.team-gallery summary').click();await expect(page.locator('.team-gallery .story-rail')).toBeVisible();
+ await page.locator('.season-gallery').scrollIntoViewIfNeeded();
+ await expect(page.locator('.season-photos')).toBeVisible();
+ for (const selector of ['.ladder-stage-photo','.season-photo-awards img','.season-photo-singles img']) {
+   await expect(page.locator(selector)).toBeVisible();
+   await expect.poll(()=>page.locator(selector).evaluate(img=>img.complete && img.naturalWidth>0)).toBe(true);
+ }
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
+ await page.screenshot({path:`/tmp/tennis-season-${width}.png`});
 });
 
 test('sign in has the reference design',async({page})=>{

@@ -42,12 +42,21 @@ async function sessionRoute(req, res) {
   if (req.method === "OPTIONS") return res.status(204).end();
 
   try {
-    const context = await authenticatedContext(req);
+    const context = await authenticatedContext(req, { allowPasswordSetup: true });
     if (req.method === "GET") return json(res, 200, { profile: context.profile });
 
     if (req.method === "PATCH") {
       const body = parseBody(req);
-      if (body.passwordChanged !== true) return json(res, 400, { error: "Unsupported session update." });
+      const password = typeof body.password === "string" ? body.password : "";
+      if (password.length < 10 || password.length > 128) return json(res, 400, { error: "Choose a password between 10 and 128 characters." });
+      // Confirm the password change with Auth before removing the setup gate.
+      const changed = await fetch(`${context.url}/auth/v1/user`, {
+        method: "PUT",
+        headers: { apikey: context.key, Authorization: `Bearer ${context.token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ password }),
+      });
+      const changedPayload = await readJson(changed);
+      if (!changed.ok) return json(res, changed.status, { error: changedPayload.msg || changedPayload.message || "The password could not be changed. Try a different password." });
       const result = await rest(context, `profiles?id=eq.${encodeURIComponent(context.profile.id)}`, {
         method: "PATCH",
         headers: { Prefer: "return=representation" },

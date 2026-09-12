@@ -1,3 +1,5 @@
+const { randomBytes } = require("node:crypto");
+const { sendSetupEmail } = require("../lib/account-email");
 const { json, authenticatedContext, rest, allowApi, parseBody, serviceHeaders } = require("./_supabase");
 const { linkPlayerByName } = require("../lib/player-link");
 
@@ -74,12 +76,25 @@ module.exports = async function handler(req, res) {
 
     if (req.method === "POST") {
       const body = parseBody(req);
+      if (body.action === "send-password-email") {
+        const profileId = String(body.profileId || "").trim();
+        if (!profileId) return json(res, 400, { error: "Select an account first." });
+        const result = await rest(context, `profiles?id=eq.${encodeURIComponent(profileId)}&select=id,email&limit=1`);
+        if (!result.response.ok) return json(res, result.response.status, { error: "The account could not be loaded." });
+        const account = Array.isArray(result.payload) ? result.payload[0] : null;
+        if (!account?.email) return json(res, 404, { error: "That account no longer exists." });
+        const delivery = await sendSetupEmail(context, account.email);
+        return json(res, 200, { delivery });
+      }
+      if (body.action && body.action !== "create") return json(res, 400, { error: "Unsupported account action." });
       const email = String(body.email || "").trim().toLowerCase();
       let fullName = String(body.fullName || "").trim();
       let playerName = String(body.playerName || "").trim();
       const playerId = String(body.playerId || "").trim();
       const role = String(body.role || "player").trim().toLowerCase();
-      const temporaryPassword = String(body.temporaryPassword || "");
+      const deliveryMethod = String(body.deliveryMethod || (body.temporaryPassword ? "manual" : "email"));
+      if (!["email", "manual"].includes(deliveryMethod)) return json(res, 400, { error: "Choose email or temporary password access." });
+      const temporaryPassword = deliveryMethod === "email" ? randomBytes(32).toString("base64url") + "aA1!" : String(body.temporaryPassword || "");
 
       if (!/^\S+@\S+\.\S+$/.test(email)) return json(res, 400, { error: "Enter a valid email address." });
       if (!new Set(["player", "admin"]).has(role)) return json(res, 400, { error: "Access level must be player or admin." });
@@ -137,8 +152,14 @@ module.exports = async function handler(req, res) {
           }
         }
 
+        // Persist the complete account before contacting email. Delivery failure
+        // must not delete it or force a duplicate account on the next attempt.
+        const delivery = deliveryMethod === "email" ? await sendSetupEmail(context, email) : {
+          method: "manual", status: "not-requested", message: "No email was sent. Share the temporary password privately; it must be changed at first sign-in.",
+        };
         return json(res, 201, {
           profile,
+          delivery,
           linkedPlayerId: linkedPlayer?.id || null,
           linkWarning: warning || null,
         });

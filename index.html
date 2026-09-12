@@ -267,44 +267,36 @@
             </div>
             <span class="role-pill">Admin only</span>
           </div>
-          <p class="panel-copy">Create each player with their email, a temporary password, and the exact name used in the match sheet. They must choose a new password on first sign-in and cannot edit results.</p>
+          <p class="panel-copy">Choose a roster player and enter their email. Send a link so they can choose their own password, or share a temporary password privately. Player accounts cannot edit results.</p>
           <form class="invite-grid" id="inviteForm">
             <div><label for="inviteEmail">Player email</label><input id="inviteEmail" type="email" autocomplete="off" required placeholder="player@school.org" /></div>
             <div><label for="inviteFullName">Display name</label><input id="inviteFullName" type="text" autocomplete="off" required placeholder="Alex Rivera" /></div>
             <div><label for="invitePlayerName">Name in spreadsheet</label><input id="invitePlayerName" type="text" autocomplete="off" required placeholder="Alex Rivera" /></div>
             <div><label for="inviteRole">Access level</label><select id="inviteRole"><option value="player">Player - read only</option><option value="admin">Admin - can edit</option></select></div>
-            <div><label for="invitePassword">Temporary password</label><input id="invitePassword" type="password" autocomplete="new-password" required minlength="10" placeholder="At least 10 characters" /></div>
+            <div><label for="inviteDelivery">How to give access</label><select id="inviteDelivery"><option value="email">Email a password setup link</option><option value="manual">Share a temporary password</option></select></div>
+            <div id="invitePasswordWrap" hidden><label for="invitePassword">Temporary password</label><input id="invitePassword" type="password" autocomplete="new-password" minlength="10" placeholder="At least 10 characters" /></div>
             <button class="primary-button" id="inviteButton" type="submit"><span>Create account</span><i class="ph ph-user-plus" aria-hidden="true"></i></button>
           </form>
           <p class="status-message" id="inviteStatus" role="status" aria-live="polite"></p>
           <div class="account-list" id="accountList"></div>
         </section>
-        <details class="team-gallery"><summary>From the court · Team gallery</summary>        <section class="story-rail" aria-label="Season stories">
-          <article class="story-card">
-            <div class="story-image story-image-awards">
-            <img src="/assets/matchday-awards.jpg" alt="Players holding tennis trophies after a matchday" loading="lazy" decoding="async" />
-            </div>
-            <div class="story-copy">
-              <p class="story-kicker">Built on the court</p>
-              <h2>Every result has a place on the board.</h2>
-              <p>Keep the full season visible, from a new player starting at 0-0 to the matches that move a division.</p>
-              <a class="inline-link" href="#rankingsSection">Explore rankings <i class="ph ph-arrow-up-right" aria-hidden="true"></i></a>
-            </div>
-          </article>
-          <article class="spotlight-card">
-            <div class="spotlight-copy">
-              <p class="story-kicker">Singles spotlight</p>
-              <h2>Clear signals. Less noise.</h2>
-              <p>Use the analyzer to turn the sheet your team already has into a ranking board everyone can follow.</p>
-              <a class="inline-link" href="#settingsPanel">Connect a sheet <i class="ph ph-arrow-up-right" aria-hidden="true"></i></a>
-            </div>
-            <div class="spotlight-image">
-              <img src="/assets/singles-spotlight.jpg" alt="Tennis player holding a tournament trophy" loading="lazy" decoding="async" />
-            </div>
-          </article>
+        <section class="season-gallery" aria-labelledby="seasonGalleryTitle">
+          <div class="season-gallery-heading">
+            <p class="eyebrow">[ From the court ]</p>
+            <h2 id="seasonGalleryTitle">Beyond the board.</h2>
+            <p>The people. The matches. The moments worth keeping.</p>
+          </div>
+          <div class="season-photos">
+            <figure class="season-photo season-photo-awards">
+              <img src="/assets/matchday-awards.jpg" width="521" height="611" alt="Players and coach holding tennis trophies beside the court" loading="lazy" decoding="async" />
+              <figcaption><span>01 / Matchday</span><strong>A shared achievement.</strong></figcaption>
+            </figure>
+            <figure class="season-photo season-photo-singles">
+              <img src="/assets/singles-spotlight.jpg" width="373" height="723" alt="Tennis player holding a tournament trophy" loading="lazy" decoding="async" />
+              <figcaption><span>02 / Singles spotlight</span><strong>A moment to remember.</strong></figcaption>
+            </figure>
+          </div>
         </section>
-
-</details>
       </main>
 
       <nav class="bottom-nav" aria-label="Primary navigation">
@@ -315,6 +307,7 @@
       </nav>
     </div>
 
+    <script src="/login-arrival.js"></script>
     <script src="/auth.js"></script>
     <script src="/lib/ladder-engine.js"></script>
     <script src="/app.js"></script><script src="/import-runtime-fixes.js"></script><script src="/import-v2.js"></script><script src="/import-delimiter-fix.js"></script><script src="/spreadsheet-ml.js"></script><script src="/import-v2-fixes.js"></script><script src="/import-row-safety-fix.js"></script><script src="/import-multiblock-fix.js"></script><script src="/spreadsheet-semantic-calibration.js"></script><script src="/spreadsheet-ai.js"></script><script src="/ai-quota-guard.js"></script><script src="/import-auto-sync.js"></script><script src="/ranking-policy.js"></script><script src="/player-dashboard-state.js"></script><script src="/player-insights.js"></script><script src="/coach-ops.js"></script><script src="/coach-sharing.js"></script><script src="/coach-preview-guard.js"></script><script src="/coach-polish.js"></script><script src="/tesla-motion.js"></script><script src="/brand-assets.js"></script>

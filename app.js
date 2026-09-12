@@ -765,8 +765,37 @@ async function loadAccounts() {
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(payload.error || "Player accounts could not be loaded.");
   const list = $("#accountList");
-  list.innerHTML = payload.profiles.length ? payload.profiles.map(account => `<article class="account-row"><span class="account-avatar">${escapeHtml((account.full_name || account.email).split(/\s+/).slice(0, 2).map(part => part[0]).join("").toUpperCase())}</span><div><strong>${escapeHtml(account.full_name || account.email)}</strong><small>${escapeHtml(account.email)}${account.player_name ? ` · Sheet name: ${escapeHtml(account.player_name)}` : ""}${account.must_change_password ? " · Password change pending" : ""}</small></div><span class="role-pill">${escapeHtml(account.role)}</span></article>`).join("") : `<div class="empty-state">No accounts have been created yet.</div>`;
+  list.innerHTML = payload.profiles.length ? payload.profiles.map(account => `<article class="account-row"><span class="account-avatar">${escapeHtml((account.full_name || account.email).split(/\s+/).slice(0, 2).map(part => part[0]).join("").toUpperCase())}</span><div><strong>${escapeHtml(account.full_name || account.email)}</strong><small>${escapeHtml(account.email)}${account.player_name ? ` · Sheet name: ${escapeHtml(account.player_name)}` : ""}${account.must_change_password ? " · Password change pending" : ""}</small></div><span class="role-pill">${escapeHtml(account.role)}</span><button type="button" class="text-button account-email-button" data-account-email="${escapeHtml(account.id)}">Send password email</button></article>`).join("") : `<div class="empty-state">No accounts have been created yet.</div>`;
 }
+
+function accountDeliveryMessage(payload, created = false) {
+  return [created ? "Account created." : "", payload.delivery?.message || "No email delivery confirmation was returned.", payload.linkWarning || ""].filter(Boolean).join(" ");
+}
+
+function syncAccountDelivery() {
+  const manual = $("#inviteDelivery")?.value === "manual";
+  if ($("#invitePasswordWrap")) $("#invitePasswordWrap").hidden = !manual;
+  if ($("#invitePassword")) { $("#invitePassword").required = manual; $("#invitePassword").disabled = !manual; }
+}
+window.TennisRankAccounts = { message: accountDeliveryMessage, refresh: loadAccounts, syncDelivery: syncAccountDelivery };
+on("#inviteDelivery", "change", syncAccountDelivery);
+syncAccountDelivery();
+on("#accountList", "click", async event => {
+  const button = event.target.closest("[data-account-email]");
+  if (!button || button.disabled) return;
+  const status = $("#inviteStatus");
+  button.disabled = true;
+  status.textContent = "Requesting password email...";
+  status.classList.remove("error");
+  try {
+    const response = await window.TennisRankAuth.fetch("/api/users", { method:"POST", body:JSON.stringify({action:"send-password-email", profileId:button.dataset.accountEmail}) });
+    const payload = await response.json().catch(()=>({}));
+    if (!response.ok) throw new Error(payload.error || "The password email could not be requested.");
+    status.textContent = accountDeliveryMessage(payload);
+    status.classList.toggle("error", ["failed","unknown"].includes(payload.delivery?.status));
+  } catch(error) { status.textContent = error.message; status.classList.add("error"); }
+  finally { button.disabled = false; }
+});
 
 function setStatus(message, error = false) {
   const element = $("#statusMessage");
@@ -891,7 +920,7 @@ on("#inviteForm", "submit", event => {
   event.preventDefault();
   return withBusy($("#inviteButton"), async () => {
     const status = $("#inviteStatus");
-    status.textContent = "Sending invitation...";
+    status.textContent = "Creating account...";
     status.classList.remove("error");
     try {
       const response = await window.TennisRankAuth.fetch("/api/users", {
@@ -901,14 +930,17 @@ on("#inviteForm", "submit", event => {
           fullName: $("#inviteFullName").value.trim(),
           playerName: $("#invitePlayerName").value.trim(),
           role: $("#inviteRole").value,
-          temporaryPassword: $("#invitePassword").value,
+          temporaryPassword: $("#inviteDelivery").value === "manual" ? $("#invitePassword").value : "",
+          deliveryMethod: $("#inviteDelivery").value,
         }),
       });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(payload.error || "Invitation failed.");
-      event.target.reset();
-      status.textContent = `Account created for ${payload.profile.email}. Share the temporary password privately; they must replace it at first sign-in.`;
-      await loadAccounts();
+      status.textContent = accountDeliveryMessage(payload, true);
+      status.classList.toggle("error", ["failed", "unknown"].includes(payload.delivery?.status));
+      if ($("#inviteDelivery").value === "email") event.target.reset();
+      syncAccountDelivery();
+      await loadAccounts().catch(() => { status.textContent += " Account list could not refresh. Reload to see the saved account."; });
     } catch (error) {
       status.textContent = error.message;
       status.classList.add("error");

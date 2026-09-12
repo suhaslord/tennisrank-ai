@@ -28,7 +28,7 @@ async function readJson(response) {
   return response.json().catch(() => ({}));
 }
 
-async function authenticatedContext(req) {
+async function authenticatedContext(req, { allowPasswordSetup = false } = {}) {
   const { url, key } = databaseConfig();
   if (!url || !key) {
     const error = new Error("Backend is not configured.");
@@ -73,6 +73,9 @@ async function authenticatedContext(req) {
     throw error;
   }
 
+  if (profile.must_change_password && !allowPasswordSetup) {
+    throw Object.assign(new Error("Choose a new password before using your account."), { status: 403 });
+  }
   return { url, key, token, user, profile };
 }
 

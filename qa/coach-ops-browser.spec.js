@@ -150,6 +150,7 @@ test('coach preview, snapshots, sharing, account roster and undo work together',
   await page.locator('[data-restore-import="bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"]').click();
   await expect.poll(() => restoreCalls).toBe(1);
 
+  await page.locator('#inviteDelivery').selectOption('manual');
   await page.locator('#generateInvitePassword').click();
   await expect(page.locator('#invitePassword')).not.toHaveValue('');
   await page.locator('[data-create-account="p2"]').first().click();

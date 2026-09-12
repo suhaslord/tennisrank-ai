@@ -118,7 +118,7 @@
     $("#newPassword").focus();
   }
 
-  function showApp() {
+  function showApp(animate = false) {
     const isAdmin = profile?.role === "admin";
     document.body.classList.remove("auth-loading", "role-admin", "role-player");
     document.body.classList.add(isAdmin ? "role-admin" : "role-player");
@@ -131,6 +131,7 @@
     const route = isAdmin ? "/admin" : "/player";
     if (location.pathname !== route) history.replaceState(null, "", route + location.hash);
     window.dispatchEvent(new CustomEvent("tennisrank:auth-ready", { detail: { profile, session } }));
+    if (animate) window.dispatchEvent(new CustomEvent("tennisrank:login-success"));
   }
 
   function showLogin(message = "") {
@@ -145,7 +146,7 @@
     setAuthStatus(message);
   }
 
-  async function finishSignIn() {
+  async function finishSignIn(animate = false) {
     await loadProfile();
     if (profile?.must_change_password) {
       showLogin();
@@ -153,11 +154,16 @@
       setAuthStatus("For security, choose a new password before opening your dashboard.");
       return;
     }
-    showApp();
+    showApp(animate);
   }
 
   function consumeRedirectSession() {
     const params = new URLSearchParams(location.hash.replace(/^#/, ""));
+    if (params.has("error") || params.has("error_code")) {
+      history.replaceState(null, "", location.pathname);
+      saveSession(null);
+      throw new Error("This password link is invalid or has expired. Request a new link using Forgot password.");
+    }
     const accessToken = params.get("access_token");
     const refreshToken = params.get("refresh_token");
     if (!accessToken || !refreshToken) return null;
@@ -206,7 +212,7 @@
         body: JSON.stringify({ email: $("#loginEmail").value.trim(), password: $("#loginPassword").value }),
       });
       saveSession(value);
-      await finishSignIn();
+      await finishSignIn(true);
     } catch (error) {
       saveSession(null);
       setAuthStatus(error.message, true);
@@ -220,16 +226,11 @@
     const button = $("#passwordButton");
     setButtonBusy(button, true);
     try {
-      await authRequest("/user", {
-        method: "PUT",
-        headers: { Authorization: `Bearer ${session.access_token}` },
-        body: JSON.stringify({ password: $("#newPassword").value }),
-      });
-      const completed = await apiFetch("/api/session", { method: "PATCH", body: JSON.stringify({ passwordChanged: true }) });
+      const completed = await apiFetch("/api/session", { method: "PATCH", body: JSON.stringify({ password: $("#newPassword").value }) });
       const completedPayload = await completed.json().catch(() => ({}));
       if (!completed.ok) throw new Error(completedPayload.error || "The password changed, but account setup could not be completed.");
       setAuthStatus("Password saved. Loading your dashboard...");
-      await finishSignIn();
+      await finishSignIn(true);
     } catch (error) {
       setAuthStatus(error.message, true);
     } finally {
@@ -244,15 +245,21 @@
       $("#loginEmail").focus();
       return;
     }
+    const button = $("#forgotPassword");
+    if (button.disabled) return;
+    button.disabled = true;
     try {
-      await authRequest("/recover", {
+      await authRequest(`/recover?redirect_to=${encodeURIComponent(`${location.origin}/player`)}`, {
         method: "POST",
-        body: JSON.stringify({ email, redirect_to: `${location.origin}/player` }),
+        body: JSON.stringify({ email }),
       });
-      setAuthStatus("Password reset email sent. Check your inbox.");
+      setAuthStatus("If an account exists for this email, a password reset link has been requested. Check your inbox and spam folder.");
     } catch (error) {
-      setAuthStatus(error.message, true);
-    }
+      const message = /rate|too many/i.test(error.message) ? "Too many email requests. Please wait before trying again."
+        : /not authorized|sending.*email|smtp/i.test(error.message) ? "The email service could not send a reset link. Ask your coach to check email delivery settings."
+        : error.message;
+      setAuthStatus(message, true);
+    } finally { button.disabled = false; }
   });
 
   $("#showBootstrap")?.addEventListener("click", () => {

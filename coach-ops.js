@@ -405,7 +405,7 @@
     form.dataset.coachOpsAccounts = "true";
     const playerInput = win.document.querySelector("#invitePlayerName");
     const playerLabel = playerInput?.previousElementSibling;
-    if (playerInput) playerInput.hidden = true;
+    if (playerInput) { playerInput.hidden = true; playerInput.required = false; }
     if (playerLabel?.tagName === "LABEL") playerLabel.hidden = true;
     const selectWrap = win.document.createElement("div");
     selectWrap.id = "inviteRosterWrap";
@@ -419,6 +419,16 @@
       button.className = "text-button password-generator";
       button.textContent = "Generate secure temporary password";
       password.parentElement.appendChild(button);
+      const reveal = win.document.createElement("button");
+      reveal.type = "button"; reveal.className = "text-button"; reveal.textContent = "Show password";
+      reveal.setAttribute("aria-pressed", "false");
+      reveal.addEventListener("click", () => {
+        const visible = password.type === "password";
+        password.type = visible ? "text" : "password";
+        reveal.textContent = visible ? "Hide password" : "Show password";
+        reveal.setAttribute("aria-pressed", String(visible));
+      });
+      password.parentElement.appendChild(reveal);
       button.addEventListener("click", () => { password.value = randomPassword(win); password.focus(); password.select(); });
     }
     const matrix = win.document.createElement("div");
@@ -427,7 +437,13 @@
     win.document.querySelector("#accountList")?.parentNode?.insertBefore(matrix, win.document.querySelector("#accountList"));
 
     const role = win.document.querySelector("#inviteRole");
-    const toggle = () => { if (selectWrap) selectWrap.hidden = role?.value === "admin"; };
+    const toggle = () => {
+      const isPlayer = role?.value !== "admin";
+      selectWrap.hidden = !isPlayer;
+      selectWrap.querySelector("select").required = isPlayer;
+      if (playerInput) playerInput.required = false;
+      win.TennisRankAccounts?.syncDelivery();
+    };
     role?.addEventListener("change", toggle);
     toggle();
 
@@ -436,6 +452,7 @@
       event.stopImmediatePropagation();
       const button = win.document.querySelector("#inviteButton");
       const status = win.document.querySelector("#inviteStatus");
+      if (button?.disabled) return;
       if (button) button.disabled = true;
       if (status) { status.textContent = "Creating account…"; status.classList.remove("error"); }
       try {
@@ -448,14 +465,21 @@
             playerName: clean(playerInput?.value),
             playerId: role?.value === "player" ? clean(selected?.value) : "",
             role: role?.value || "player",
-            temporaryPassword: String(password?.value || ""),
+            temporaryPassword: win.document.querySelector("#inviteDelivery")?.value === "manual" ? String(password?.value || "") : "",
+            deliveryMethod: win.document.querySelector("#inviteDelivery")?.value || "email",
           }),
         });
-        if (status) status.textContent = payload.linkWarning || "Account created and linked to the roster.";
-        form.reset();
-        if (playerInput) playerInput.value = "";
+        if (status) {
+          status.textContent = win.TennisRankAccounts?.message(payload, true) || "Account created.";
+          status.classList.toggle("error", ["failed", "unknown"].includes(payload.delivery?.status));
+        }
+        if (win.document.querySelector("#inviteDelivery")?.value !== "manual") {
+          form.reset();
+          if (playerInput) playerInput.value = "";
+        }
         toggle();
-        await Promise.all([refreshRosterAccounts(win), refreshCoachDashboard(win)]);
+        const refreshed = await Promise.allSettled([refreshRosterAccounts(win), refreshCoachDashboard(win), win.TennisRankAccounts?.refresh()]);
+        if (status && refreshed.some(result => result.status === "rejected")) status.textContent += " The account is saved, but the list could not refresh. Reload to see it.";
       } catch (error) {
         if (status) { status.textContent = error.message; status.classList.add("error"); }
       } finally { if (button) button.disabled = false; }
@@ -476,8 +500,8 @@
         const player = roster.find(item => item.id === select.value);
         const nameInput = win.document.querySelector("#invitePlayerName");
         const full = win.document.querySelector("#inviteFullName");
-        if (player && nameInput) nameInput.value = player.display_name;
-        if (player && full && !full.value) full.value = player.display_name;
+        if (nameInput) nameInput.value = player?.display_name || "";
+        if (full) full.value = player?.display_name || "";
       };
     }
     const matrix = win.document.querySelector("#rosterAccountMatrix");

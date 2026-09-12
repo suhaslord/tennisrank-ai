@@ -58,8 +58,6 @@ body .table-card{border:0!important}body th{font-family:ui-monospace,Consolas,mo
 body .data-panel,body .accounts-panel{border:0!important;border-top:1px solid #b6bbae!important;background:transparent!important;border-radius:0!important;padding:50px 0!important;box-shadow:none!important}
 body .analyzer-card{background:#eff1eb!important;border:0!important;border-radius:0!important;padding:24px!important}body .coach-ops-columns{gap:40px!important}body .coach-ops-card{border:0!important;border-top:1px solid #dedfdb!important;padding:25px 0!important}
 .coach-workflow-guide,#insightStrip,.format-guide,.supported-formats{display:none!important}
-body .team-gallery{border-top:1px solid #b6bbae!important;margin-top:64px!important;margin-bottom:40px!important}.team-gallery summary{cursor:pointer;padding:26px 0;font:15px ui-monospace,Consolas,monospace;letter-spacing:.08em;text-transform:uppercase}
-body .team-gallery .story-rail{margin:0!important;padding:20px 0!important}.team-gallery .story-rail h2{font-size:32px!important}
 /* Sign-in follows the same open type, ruled grid, and restrained orange. */
 body .auth-gate{background:#fafbf9!important;grid-template-columns:1.1fr 1fr!important;min-height:100svh!important;align-items:center!important}
 body .auth-visual{background:transparent!important;min-height:700px!important;height:100%!important;overflow:hidden!important}
@@ -88,3 +86,38 @@ body .helper-text,body .analyzer-note,body .analyzer-stats span{color:#59604f!im
 body .auth-visual-copy p{font-weight:400!important}
 body .auth-visual-meta span::before{color:#ff7657!important}
 body .tr-motion-item .hero-note{z-index:1!important}
+/* Photography stays beside the work, with the complete team in frame. */
+body main#top>section.ladder-experience{display:grid!important;grid-template-columns:minmax(0,1fr) minmax(280px,.8fr)!important;column-gap:64px!important;align-items:start!important}
+body .ladder-experience .ladder-intro{grid-column:1/-1!important;width:100%!important}
+body .ladder-experience .ladder-metrics{grid-column:1!important;grid-row:2!important}
+body .ladder-experience .ladder-board{grid-column:1!important;grid-row:3!important;min-width:0!important}
+body .ladder-experience .ladder-stage{display:block!important;grid-column:2!important;grid-row:2/4!important;position:relative!important;min-height:0!important;height:auto!important;margin:0!important;background:transparent!important;border:0!important;border-radius:0!important;overflow:hidden!important}
+body .ladder-experience .ladder-stage::after,body .ladder-stage .ladder-spotlight{display:none!important}
+body .ladder-experience .ladder-stage-photo{display:block!important;position:static!important;width:100%!important;height:auto!important;aspect-ratio:959/673!important;object-fit:contain!important;filter:none!important;transform:none!important;opacity:1!important}
+body .ladder-stage figcaption{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:16px 0;border-bottom:1px solid #44473f;color:#c1c5ba;font:11px/1.6 ui-monospace,Consolas,monospace;text-transform:uppercase;letter-spacing:.06em}
+body .season-gallery{padding:64px 0 80px!important;border-top:1px solid #b6bbae;margin-top:64px!important}
+.season-gallery-heading{display:grid;grid-template-columns:1fr 1fr;column-gap:40px;align-items:end;margin-bottom:40px}
+.season-gallery-heading .eyebrow{grid-column:1/-1;margin:0 0 20px}
+body .season-gallery-heading h2{margin:0!important}.season-gallery-heading>p:last-child{max-width:330px;justify-self:end;margin:0;color:#59604f;font-size:16px;line-height:1.6}
+.season-photos{display:grid;grid-template-columns:1.3fr 1fr;gap:64px;max-width:1100px;margin:0 auto}
+.season-photo{margin:0;min-width:0}.season-photo img{display:block;width:100%;height:480px;object-fit:contain;object-position:center bottom;background:#eff1eb}
+.season-photo-singles{padding-top:90px}.season-photo-singles img{height:390px;background:#fff}
+.season-photo figcaption{display:flex;flex-direction:column;gap:8px;border-top:1px solid #dedfdb;padding-top:20px;margin-top:18px}
+.season-photo figcaption span{font:11px/1.6 ui-monospace,Consolas,monospace;letter-spacing:.06em;text-transform:uppercase;color:#59604f}.season-photo figcaption strong{font-size:24px;font-weight:400;letter-spacing:-.025em}
+/* A single court draw on interactive sign-in; no delay in opening the app. */
+.login-arrival{position:fixed;inset:0;z-index:10000;display:grid;place-items:center;background:#fafbf9;pointer-events:none;animation:arrival-leave 330ms cubic-bezier(.22,1,.36,1) 450ms both}
+.login-arrival-mark{width:min(360px,80vw);color:#20211f;text-align:center}.login-arrival-mark svg{display:block;width:100%;overflow:visible;color:#ff7657}
+.login-arrival-mark span{font:12px/1.6 ui-monospace,Consolas,monospace;letter-spacing:.13em;text-transform:uppercase}
+.arrival-court,.arrival-net{stroke:currentColor;stroke-width:1.5;stroke-dasharray:1;animation:arrival-draw 330ms cubic-bezier(.22,1,.36,1) both}.arrival-net{animation-delay:100ms;stroke:#20211f;stroke-width:1}
+.arrival-ball{fill:currentColor;animation:arrival-serve 330ms cubic-bezier(.22,1,.36,1) 100ms both}
+@keyframes arrival-draw{from{stroke-dashoffset:1}to{stroke-dashoffset:0}}
+@keyframes arrival-serve{from{transform:translate(-40px,20px);opacity:0}to{transform:translate(120px,-65px);opacity:1}}
+@keyframes arrival-leave{from{opacity:1}to{opacity:0;visibility:hidden}}
+@media(max-width:1100px){body main#top>section.ladder-experience{column-gap:30px!important;grid-template-columns:minmax(0,1fr) minmax(240px,.7fr)!important}.season-photos{gap:30px}}
+@media(max-width:800px){body main#top>section.ladder-experience{grid-template-columns:minmax(0,1fr)!important}body .ladder-experience .ladder-stage{grid-column:1!important;grid-row:4!important;margin-top:32px!important}.season-photo img{height:360px}.season-photo-singles img{height:290px}.season-photo-singles{padding-top:70px}.season-gallery-heading{grid-template-columns:1fr;gap:16px}.season-gallery-heading>p:last-child{justify-self:start}.season-gallery-heading .eyebrow{margin-bottom:0}}
+@media(max-width:520px){.season-photos{grid-template-columns:1fr;gap:40px}.season-photo-singles{padding-top:0}.season-photo img{height:auto;max-height:420px}.season-photo-singles img{height:360px}.season-photo figcaption strong{font-size:22px}body .season-gallery{padding:40px 0 50px!important}}
+@media(prefers-reduced-motion:reduce){.login-arrival{display:none!important}}
+body #invitePasswordWrap[hidden],body #inviteRosterWrap[hidden]{display:none!important}
+body .account-row{flex-wrap:wrap;gap:14px}body .account-row>div{min-width:0;overflow-wrap:anywhere}.account-email-button{min-height:44px;white-space:normal}
+body .topbar.is-scrolled{background:#fafbf9!important}
+body .account-row .account-email-button{grid-column:2/-1;justify-self:start;width:auto!important;text-align:left;max-width:100%;color:#a7351c!important}

@@ -9,7 +9,7 @@
   const SELECTOR_GROUPS = [
     ['.auth-card-topline,.auth-card>.eyebrow,#authTitle,.auth-copy,#loginForm,.text-button,.auth-footnote', true],
     ['.hero-content>.eyebrow,.hero-content>h1,.hero-copy,.hero-actions,.hero-note', true],
-    ['.section-heading,.summary-grid,.insight-strip,.story-card,.spotlight-card,.table-card,.matches-card,.data-panel,.accounts-panel', false],
+    ['.section-heading,.summary-grid,.insight-strip,.season-gallery-heading,.season-photo,.story-card,.spotlight-card,.table-card,.matches-card,.data-panel,.accounts-panel', false],
     ['.ladder-intro,.ladder-tabs,.ladder-stage,.ladder-board,.challenge-center,.coach-ladder-console', false],
     ['.ranking-card,.ladder-row,.match-row,.challenge-item,.approval-item,.coach-roster-row', false],
   ];
