@@ -110,9 +110,21 @@ async function ladderNames(page) {
 for(const width of [320,1440]) test(`editorial layout ${width}`,async({page})=>{
  await page.setViewportSize({width,height:950});await page.emulateMedia({reducedMotion:'reduce'});
  await installImportSyncMocks(page);await page.goto(BASE);await expect(page.locator('#appShell')).toBeVisible();
- await expect(page.locator('.hero-content h1')).toContainText('One board.');
+ await expect(page.locator('.hero-content h1')).toContainText('One team.');
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
- expect(await page.locator('.court-orbits span').first().evaluate(el=>getComputedStyle(el).animationName)).toBe('none');
+ expect(await page.locator('.court-ribbon').first().evaluate(el=>getComputedStyle(el).animationName)).toBe('none');
+ await page.evaluate(()=>document.fonts.ready);
  await page.screenshot({path:`/tmp/tennis-editorial-${width}.png`});
+ await page.locator('#ladderExperienceTitle').scrollIntoViewIfNeeded();
+ await page.screenshot({path:`/tmp/tennis-board-${width}.png`});
+ await page.locator('#openSettings').click();
+ await page.locator('#settingsPanel').scrollIntoViewIfNeeded();
+ await page.screenshot({path:`/tmp/tennis-import-${width}.png`});
  await page.locator('.team-gallery summary').click();await expect(page.locator('.team-gallery .story-rail')).toBeVisible();
+});
+
+test('sign in has the reference design',async({page})=>{
+ await page.emulateMedia({reducedMotion:'reduce'});await page.goto(BASE);
+ await expect(page.locator('#authGate')).toBeVisible();await page.evaluate(()=>document.fonts.ready);
+ await page.screenshot({path:'/tmp/tennis-auth-reference.png'});
 });

@@ -295,7 +295,7 @@
 
   function polishImportCopy(doc) {
     const copy = doc.querySelector('#settingsPanel .panel-copy');
-    if (copy) copy.textContent = 'Connect a public Google Sheet, upload an Excel / Numbers / ODS workbook, import CSV or TSV, or paste rows directly. TennisRank uses a tennis-trained schema model plus deterministic validation to understand unfamiliar layouts without silently guessing.';
+    if (copy) copy.textContent = 'Connect a Google Sheet, upload a workbook, or paste your results. Review the preview before publishing.';
     const urlLabel = doc.querySelector('label[for="sheetUrl"]');
     if (urlLabel) urlLabel.textContent = 'Public or published Google Sheet link';
     const guide = doc.querySelector('.format-guide span');
