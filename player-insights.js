@@ -24,8 +24,15 @@
     if (/restore|undo/.test(reason)) return "Undo / restore";
     return reason ? reason.replaceAll("_", " ").replace(/\b\w/g, c => c.toUpperCase()) : "Rank update";
   }
+  function dateOrder(value) {
+    const timestamp = Date.parse(clean(value));
+    return Number.isFinite(timestamp) ? timestamp : null;
+  }
   function deriveRankTrend(rankHistory, currentRank) {
-    const history = Array.isArray(rankHistory) ? rankHistory : [];
+    const history = (Array.isArray(rankHistory) ? rankHistory : []).filter(item => item && typeof item === "object").slice().sort((a, b) => {
+      const first = dateOrder(a.changed_at || a.changedAt), second = dateOrder(b.changed_at || b.changedAt);
+      return (first ?? -Infinity) - (second ?? -Infinity) || 0;
+    });
     const current = Number(currentRank);
     const validCurrent = Number.isInteger(current) && current > 0 ? current : null;
     const points = [];
@@ -45,7 +52,7 @@
   function deriveRecentForm(matches, playerName, limit = 5) {
     const relevant = (Array.isArray(matches) ? matches : [])
       .filter(match => belongs(match?.winner, playerName) || belongs(match?.loser, playerName))
-      .sort((a, b) => String(b?.date || "").localeCompare(String(a?.date || "")));
+      .sort((a, b) => (dateOrder(b?.date) ?? -Infinity) - (dateOrder(a?.date) ?? -Infinity) || 0);
     const wins = relevant.filter(match => belongs(match.winner, playerName)).length;
     const losses = relevant.length - wins;
     const last = relevant.slice(0, limit).map(match => ({
@@ -58,7 +65,9 @@
     return { wins, losses, last };
   }
   function chartMarkup(points) {
-    const safe = Array.isArray(points) && points.length ? points : [];
+    const safe = (Array.isArray(points) ? points : [])
+      .filter(item => item && Number.isSafeInteger(Number(item.rank)) && Number(item.rank) > 0)
+      .map(item => ({ ...item, rank: Number(item.rank) }));
     if (!safe.length) return `<div class="insights-empty">Rank history starts after the first official movement.</div>`;
     const width = 680, height = 180, padX = 28, padY = 22;
     const ranks = safe.map(item => item.rank);
