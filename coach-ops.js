@@ -11,6 +11,7 @@
   const OPEN = new Set(["pending_response", "accepted", "scheduled", "played", "score_submitted", "pending_coach_approval"]);
   let trackedRows = null;
   let trackedSource = "";
+  let importInProgress = false;
 
   function clean(value) {
     return String(value == null ? "" : value).replace(/\s+/g, " ").trim();
@@ -118,6 +119,9 @@
       rowCount: rows.length,
       rankingCount: nextEntries.length,
       detectedBoards,
+      newPlayerCount: newPlayers.length,
+      removedPlayerCount: removedPlayers.length,
+      rankChangeCount: rankChanges.length,
       newPlayers: newPlayers.slice(0, 50),
       removedPlayers: removedPlayers.slice(0, 50),
       rankChanges: rankChanges.slice(0, 100),
@@ -148,7 +152,7 @@
   function renderPreview(win, preview) {
     const modal = ensurePreviewModal(win);
     const body = modal.querySelector("#importPreviewBody");
-    body.innerHTML = `<div class="coach-preview-summary"><div><strong>${preview.rowCount}</strong><span>Rows</span></div><div><strong>${preview.detectedBoards.length}</strong><span>Boards</span></div><div><strong>${preview.newPlayers.length}</strong><span>New</span></div><div><strong>${preview.removedPlayers.length}</strong><span>Removed</span></div><div><strong>${preview.rankChanges.length}</strong><span>Rank moves</span></div></div>
+    body.innerHTML = `<div class="coach-preview-summary"><div><strong>${preview.rowCount}</strong><span>Rows</span></div><div><strong>${preview.detectedBoards.length}</strong><span>Boards</span></div><div><strong>${preview.newPlayerCount}</strong><span>New</span></div><div><strong>${preview.removedPlayerCount}</strong><span>Removed</span></div><div><strong>${preview.rankChangeCount}</strong><span>Rank moves</span></div></div>
       <div class="coach-preview-source"><span>Source</span><strong>${escapeHtml(preview.sourceLabel)}</strong></div>
       ${preview.warnings.length ? `<div class="coach-warning-box"><strong>Review before publishing</strong>${itemList(preview.warnings, item => `<li>${escapeHtml(item)}</li>`, "")}</div>` : `<div class="coach-safe-box"><i class="ph ph-shield-check"></i><span>No import warnings detected.</span></div>`}
       <div class="coach-preview-grid"><article><h3>New entries</h3>${itemList(preview.newPlayers, item => `<li><b>${escapeHtml(item.name)}</b><span>${escapeHtml(boardLabel(item.board))} · #${item.rank}</span></li>`, "No new players or teams.")}</article>
@@ -162,6 +166,7 @@
   }
 
   function awaitPreviewDecision(win, preview) {
+    const previousFocus = win.document.activeElement;
     const modal = renderPreview(win, preview);
     return new Promise(resolve => {
       const confirm = modal.querySelector("[data-preview-confirm]");
@@ -172,11 +177,19 @@
         confirm.removeEventListener("click", yes);
         cancels.forEach(button => button.removeEventListener("click", no));
         win.document.removeEventListener("keydown", keydown);
+        previousFocus?.focus?.();
         resolve(value);
       };
       const yes = () => finish(true);
       const no = () => finish(false);
-      const keydown = event => { if (event.key === "Escape") finish(false); };
+      const keydown = event => {
+        if (event.key === "Escape") { event.preventDefault(); finish(false); }
+        if (event.key !== "Tab") return;
+        const controls = [...modal.querySelectorAll('button:not([disabled]), a[href], input:not([disabled]), [tabindex="0"]')].filter(el => el.getClientRects().length);
+        const first = controls[0], last = controls[controls.length - 1];
+        if (event.shiftKey && win.document.activeElement === first) { event.preventDefault(); last?.focus(); }
+        else if (!event.shiftKey && win.document.activeElement === last) { event.preventDefault(); first?.focus(); }
+      };
       confirm.addEventListener("click", yes);
       cancels.forEach(button => button.addEventListener("click", no));
       win.document.addEventListener("keydown", keydown);
@@ -191,7 +204,15 @@
   }
 
   async function previewAndPublish(win, rows) {
-    const candidate = Array.isArray(rows) && rows.length ? rows : trackedRows;
+    if (importInProgress) throw new Error("Finish or cancel the current import before starting another one.");
+    importInProgress = true;
+    try { return await runImport(win, rows); }
+    finally { importInProgress = false; }
+  }
+
+  async function runImport(win, rows) {
+    const input = Array.isArray(rows) ? rows : trackedRows;
+    const candidate = input ? JSON.parse(JSON.stringify(input)) : null;
     if (!candidate?.length) throw new Error("No spreadsheet rows are ready to publish.");
     const source = sourceLabel(win);
     const serverPreview = await request(win, "/api/records", {
@@ -206,11 +227,24 @@
       error.code = "IMPORT_CANCELLED";
       throw error;
     }
-    const published = await request(win, "/api/records", {
+    let published;
+    try {
+      published = await request(win, "/api/records", {
       method: "POST",
       body: JSON.stringify({ action: "publish", rows: candidate, source, previewHash: serverPreview.previewHash, previewSummary: preview }),
     });
-    if (win.TennisRankImportAutoSync?.syncOfficialBoards) await win.TennisRankImportAutoSync.syncOfficialBoards(win, candidate);
+    } catch (error) {
+      await restoreLiveRows(win);
+      throw error;
+    }
+    try {
+      if (win.TennisRankImportAutoSync?.syncOfficialBoards) await win.TennisRankImportAutoSync.syncOfficialBoards(win, candidate);
+    } catch (error) {
+      const message = `Import saved, but official ladder sync failed: ${error.message}. Reload the board and retry ladder sync before using the new ranks.`;
+      const status = win.document.querySelector("#backendStatus");
+      if (status) { status.textContent = message; status.className = "error"; }
+      throw Object.assign(new Error(message), { code: "IMPORT_SAVED_SYNC_FAILED", snapshotId: published.snapshotId });
+    }
     const backend = win.document.querySelector("#backendStatus");
     if (backend) { backend.textContent = `Database connected · ${candidate.length} rows published with rollback history`; backend.className = "connected"; }
     win.dispatchEvent?.(new CustomEvent("tennisrank:coach-data-changed", { detail: { type: "import", snapshotId: published.snapshotId } }));

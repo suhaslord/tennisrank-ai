@@ -52,3 +52,10 @@
   transform:none!important;
   box-shadow:none!important;
 }
+
+/* Keep navigation legible after its background turns white. */
+.topbar.is-scrolled .topbar-links,
+.topbar.is-scrolled .topbar-links a { color:#393c41!important; opacity:1!important; }
+.topbar.is-scrolled .tr-logo-mark svg>path:first-of-type { fill:#393c41; stroke:#393c41; }
+.topbar:not(.is-scrolled) .tr-logo-wordmark-text { color:#fff!important; }
+#coachOpsDashboard { scroll-margin-top:88px; }

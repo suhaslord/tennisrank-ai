@@ -33,15 +33,27 @@ async function currentRows(context) {
   if (!latest.response.ok) throw Object.assign(new Error(latest.payload.message || "Database read failed."), { status: latest.response.status });
   const latestRecord = Array.isArray(latest.payload) ? latest.payload[0] : null;
   if (!latestRecord?.source_key) return { rows: [], count: 0, sourceKey: null };
-  const result = await rest(context, `tennis_records?source_key=eq.${encodeURIComponent(latestRecord.source_key)}&select=raw_data,row_index&order=row_index.asc,updated_at.asc`);
-  if (!result.response.ok) throw Object.assign(new Error(result.payload.message || "Database read failed."), { status: result.response.status });
-  const rows = (Array.isArray(result.payload) ? result.payload : []).map(record => record.raw_data).filter(Boolean);
+  const rows = [];
+  // Supabase caps each response; fetch all pages instead of silently dropping
+  // the remainder of a season with more than 1,000 rows.
+  for (let offset = 0; ; offset += 1000) {
+    const result = await rest(context, `tennis_records?source_key=eq.${encodeURIComponent(latestRecord.source_key)}&select=raw_data,row_index&order=row_index.asc,updated_at.asc&limit=1000&offset=${offset}`);
+    if (!result.response.ok) throw Object.assign(new Error(result.payload.message || "Database read failed."), { status: result.response.status });
+    if (!Array.isArray(result.payload)) throw new Error("The database returned invalid spreadsheet data.");
+    rows.push(...result.payload.map(record => record.raw_data).filter(Boolean));
+    if (result.payload.length < 1000) break;
+    if (offset >= 10000) throw new Error("Saved spreadsheet exceeds the supported size. Contact your administrator.");
+  }
   return { rows, count: rows.length, sourceKey: latestRecord.source_key };
 }
 
 function validateRows(rows) {
   if (!Array.isArray(rows) || !rows.length) return "No spreadsheet rows were provided.";
   if (rows.length > 10000) return "This import is too large. Split it into a smaller team sheet.";
+  if (rows.some(row => !row || typeof row !== "object" || Array.isArray(row) || !Object.keys(row).some(key => !key.startsWith("__") && String(row[key] ?? "").trim()))) {
+    return "Every spreadsheet row must contain named columns and at least one value.";
+  }
+  if (Buffer.byteLength(JSON.stringify(rows), "utf8") > 4 * 1024 * 1024) return "This import is too large. Keep the file below 4 MB.";
   return "";
 }
 
@@ -136,3 +148,6 @@ module.exports = async function handler(req, res) {
 module.exports.sourceKey = sourceKey;
 module.exports.contentHash = contentHash;
 module.exports.previewHash = previewHash;
+
+module.exports.currentRows = currentRows;
+module.exports.validateRows = validateRows;

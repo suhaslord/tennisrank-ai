@@ -1,5 +1,7 @@
-const COMMIT = '84db39f1a40d07531aee4b6471c59af3d77b41fa';
-const CDN = `https://cdn.jsdelivr.net/gh/suhaslord/tennisrank-ai@${COMMIT}`;
+const fs = require('node:fs/promises');
+const path = require('node:path');
+// Serve the same source and assets that were verified for this deployment.
+const CDN = '';
 const SHEETJS = 'https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js';
 
 function rewrite(html) {
@@ -38,9 +40,7 @@ async function handler(req, res) {
     return;
   }
   try {
-    const response = await fetch(`${CDN}/index.html`, { cache: 'no-store' });
-    if (!response.ok) throw new Error(`Frontend source returned ${response.status}`);
-    const html = rewrite(await response.text());
+    const html = rewrite(await fs.readFile(path.join(process.cwd(), 'index.html'), 'utf8'));
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.setHeader('Cache-Control', 'no-store');
     res.setHeader('X-Content-Type-Options', 'nosniff');
@@ -56,4 +56,3 @@ async function handler(req, res) {
 module.exports = handler;
 module.exports.rewrite = rewrite;
 module.exports.CDN = CDN;
-module.exports.COMMIT = COMMIT;

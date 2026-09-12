@@ -42,6 +42,8 @@ test('coach preview, snapshots, sharing, account roster and undo work together',
   let restoreCalls = 0;
   let undoCalls = 0;
   let seedCalls = 0;
+  let failPublish = false;
+  let failSeed = false;
 
   await page.addInitScript(({ admin }) => {
     localStorage.setItem('tennisRankAuthSessionV1', JSON.stringify({
@@ -66,7 +68,7 @@ test('coach preview, snapshots, sharing, account roster and undo work together',
     if (path === '/api/records' && req.method() === 'POST') {
       const body = req.postDataJSON();
       if (body.action === 'preview') { previewCalls += 1; return reply({ previewHash: 'preview-token', contentHash: 'hash', sourceKey: 'source', sourceLabel: body.source, rowCount: body.rows.length, unchanged: false }); }
-      if (body.action === 'publish') { publishCalls += 1; return reply({ saved: body.rows.length, snapshotId: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc' }); }
+      if (body.action === 'publish') { if (failPublish) return reply({error:'Save interrupted'},503); publishCalls += 1; return reply({ saved: body.rows.length, snapshotId: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc' }); }
       if (body.action === 'restore') { restoreCalls += 1; return reply({ restored: true, rows: currentRows, count: currentRows.length, snapshotId: 'dddddddd-dddd-4ddd-8ddd-dddddddddddd' }); }
     }
     if (path === '/api/ladder' && url.searchParams.get('mode') === 'coach' && req.method() === 'GET') return reply(dashboard());
@@ -82,7 +84,7 @@ test('coach preview, snapshots, sharing, account roster and undo work together',
       { id: 'p3', profile_id: null, display_name: 'Mateo Rivera', team_gender: 'boys', grade_level: 10, division: 'varsity', active_status: 'active', accountCreated: false, account: null },
     ] });
     if (path === '/api/users' && req.method() === 'POST') return reply({ profile: { id: 'new-user' }, linkedPlayerId: req.postDataJSON().playerId }, 201);
-    if (path === '/api/admin/seed-ladder') { seedCalls += 1; return reply({ seeded: 2 }); }
+    if (path === '/api/admin/seed-ladder') { if (failSeed) return reply({error:'Ladder offline'},503); seedCalls += 1; return reply({ seeded: 2 }); }
     return reply({ error: `Unhandled QA route ${req.method()} ${path}` }, 404);
   });
 
@@ -103,15 +105,40 @@ test('coach preview, snapshots, sharing, account roster and undo work together',
   await expect(page.locator('#rosterAccountMatrix')).toContainText('Not created');
   await expect(page.locator('#importHistoryList')).toContainText('Previous Coach Sheet');
 
+  await page.locator('#coachOpsDashboard').scrollIntoViewIfNeeded();
+  await expect(page.locator('.topbar-links a').first()).toHaveCSS('color', 'rgb(57, 60, 65)');
+  await page.screenshot({ path: '/tmp/tennis-coach-desktop.png' });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.locator('#coachOpsDashboard').scrollIntoViewIfNeeded();
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+  await page.screenshot({ path: '/tmp/tennis-coach-mobile.png' });
+  await page.setViewportSize({ width: 1440, height: 1000 });
   await page.locator('#tabCsv').click();
   await page.locator('#csvText').fill('Name,Gender,Division\nAiden Brooks,Boys,Singles\nEthan Cole,Boys,Singles\nMateo Rivera,Boys,Singles');
   await page.locator('#useCsv').click();
   await expect.poll(() => previewCalls).toBe(1);
   await expect(page.locator('#importPreviewModal')).toBeVisible();
   await expect(page.locator('#importPreviewBody')).toContainText('Mateo Rivera');
-  await page.locator('#importPreviewModal [data-preview-cancel]').last().click();
+  await page.keyboard.press('Tab');
+  await expect(page.locator('#importPreviewModal [data-preview-cancel]').first()).toBeFocused();
+  await page.keyboard.press('Shift+Tab');
+  await expect(page.locator('#importPreviewModal [data-preview-confirm]')).toBeFocused();
+  await page.keyboard.press('Escape');
   await expect(page.locator('#importPreviewModal')).toBeHidden();
   expect(publishCalls).toBe(0);
+  await expect(page.locator('#useCsv')).toBeEnabled();
+  // A second request must not share the first import's confirmation dialog.
+  await page.evaluate(() => {
+    const rows = [{Name:'Concurrency QA',Gender:'Boys',Division:'Singles'}];
+    window.qaPendingImport = window.TennisRankCoachOps.previewAndPublish(window, rows).catch(e => e.message);
+  });
+  await expect(page.locator('#importPreviewModal')).toBeVisible();
+  const overlapping = await page.evaluate(() => window.TennisRankCoachOps.previewAndPublish(window, [{Name:'Other QA'}]).catch(e => e.message));
+  expect(overlapping).toContain('Finish or cancel');
+  await page.keyboard.press('Escape');
+  await page.evaluate(() => window.qaPendingImport);
+  expect(publishCalls).toBe(0);
+
 
   await page.locator('#csvText').fill('Name,Gender,Division\nAiden Brooks,Boys,Singles\nEthan Cole,Boys,Singles\nMateo Rivera,Boys,Singles');
   await page.locator('#useCsv').click();
@@ -131,4 +158,24 @@ test('coach preview, snapshots, sharing, account roster and undo work together',
 
   await page.locator('[data-undo-snapshot]').click();
   await expect.poll(() => undoCalls).toBe(1);
+
+  failPublish = true;
+  const startImport = () => page.evaluate(() => {
+    window.qaPendingImport = window.TennisRankCoachOps.previewAndPublish(window, [{Name:'Failure QA',Gender:'Boys',Division:'Singles'}]).catch(e => ({message:e.message,code:e.code}));
+  });
+  await startImport();
+  await expect(page.locator('#importPreviewModal')).toBeVisible();
+  await page.locator('[data-preview-confirm]').click();
+  expect((await page.evaluate(() => window.qaPendingImport)).message).toContain('Save interrupted');
+  expect(publishCalls).toBe(1);
+  await expect(page.locator('#rankingTable')).not.toContainText('Failure QA');
+
+  failPublish = false;
+  failSeed = true;
+  await startImport();
+  await expect(page.locator('#importPreviewModal')).toBeVisible();
+  await page.locator('[data-preview-confirm]').click();
+  expect((await page.evaluate(() => window.qaPendingImport)).code).toBe('IMPORT_SAVED_SYNC_FAILED');
+  await expect(page.locator('#backendStatus')).toContainText('Import saved, but official ladder sync failed');
+  expect(publishCalls).toBe(2);
 });

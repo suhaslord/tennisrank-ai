@@ -43,3 +43,22 @@ assert.ok(out.includes(`${cdn}/coach-ops.css`));
 assert.equal(out.includes('class="cursor-ball"'), false);
 
 console.log('render rewrite tests passed');
+
+// Rendering must use deployed files even when an external CDN is unavailable.
+const fs = require('node:fs');
+const html = render.rewrite(fs.readFileSync(require('node:path').join(__dirname, '../index.html'), 'utf8'));
+for (const match of html.matchAll(/(?:src|href)="(\/[^"?#]+)"/g)) {
+  assert.ok(fs.existsSync(require('node:path').join(__dirname, '..', match[1])), `missing deployed asset ${match[1]}`);
+}
+const nativeFetch = global.fetch;
+global.fetch = () => { throw new Error('Renderer must not need the network'); };
+const response = {
+  status(code) { this.code = code; return this; },
+  setHeader() { return this; },
+  send(body) { this.body = body; return this; },
+  end() { return this; },
+};
+render({method:'GET'}, response).then(() => {
+  assert.equal(response.code, 200);
+  assert.ok(response.body.includes('/coach-ops.js'));
+}).finally(() => { global.fetch = nativeFetch; });
