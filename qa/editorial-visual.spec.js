@@ -106,13 +106,14 @@ async function ladderNames(page) {
   return page.locator('#ladderList .ladder-player-name').allTextContents();
 }
 
-
 for(const width of [320,1440]) test(`editorial layout ${width}`,async({page})=>{
  await page.setViewportSize({width,height:950});await page.emulateMedia({reducedMotion:'reduce'});
  await installImportSyncMocks(page);await page.goto(BASE);await expect(page.locator('#appShell')).toBeVisible();
  await expect(page.locator('.hero-content h1')).toContainText('One team.');
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
  expect(await page.locator('.court-ribbon').first().evaluate(el=>getComputedStyle(el).animationName)).toBe('none');
+ await expect(page.locator('.hero-photo')).toBeHidden();
+ await expect(page.locator('.season-gallery')).toBeHidden();
  await page.evaluate(()=>document.fonts.ready);
  await page.screenshot({path:`/tmp/tennis-editorial-${width}.png`});
  await page.locator('#ladderExperienceTitle').scrollIntoViewIfNeeded();
@@ -120,18 +121,13 @@ for(const width of [320,1440]) test(`editorial layout ${width}`,async({page})=>{
  await page.locator('#openSettings').click();
  await page.locator('#settingsPanel').scrollIntoViewIfNeeded();
  await page.screenshot({path:`/tmp/tennis-import-${width}.png`});
- await page.locator('.season-gallery').scrollIntoViewIfNeeded();
- await expect(page.locator('.season-photos')).toBeVisible();
- for (const selector of ['.ladder-stage-photo','.season-photo-awards img','.season-photo-singles img']) {
-   await expect(page.locator(selector)).toBeVisible();
-   await expect.poll(()=>page.locator(selector).evaluate(img=>img.complete && img.naturalWidth>0)).toBe(true);
- }
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
- await page.screenshot({path:`/tmp/tennis-season-${width}.png`});
 });
 
-test('sign in has the reference design',async({page})=>{
+test('sign in has the reference design without team photography',async({page})=>{
  await page.emulateMedia({reducedMotion:'reduce'});await page.goto(BASE);
- await expect(page.locator('#authGate')).toBeVisible();await page.evaluate(()=>document.fonts.ready);
+ await expect(page.locator('#authGate')).toBeVisible();
+ await expect(page.locator('.auth-visual > img')).toBeHidden();
+ await page.evaluate(()=>document.fonts.ready);
  await page.screenshot({path:'/tmp/tennis-auth-reference.png'});
 });
