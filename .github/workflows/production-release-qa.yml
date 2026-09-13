@@ -38,6 +38,7 @@ jobs:
             node --check "$file"
           done
           node --check qa/production-hardening.test.js
+          node --check qa/coach-feedback-regressions.test.js
 
       - name: Unit and import regression suite
         run: |
@@ -66,6 +67,7 @@ jobs:
           node qa/ugly-import-regression.test.js
           node qa/production-hardening.test.js
           node qa/import-reliability.test.js
+          node qa/coach-feedback-regressions.test.js
 
       - name: Coach/browser critical path
         run: |
