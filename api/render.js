@@ -3,9 +3,29 @@ const path = require('node:path');
 // Serve the same source and assets that were verified for this deployment.
 const CDN = '';
 const SHEETJS = 'https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js';
+const BLOCKED_TEAM_PHOTOS = [
+  '/assets/team-court.jpg',
+  '/assets/matchday-awards.jpg',
+  '/assets/singles-spotlight.jpg',
+];
+
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function stripBlockedTeamPhotos(html) {
+  let out = html;
+  for (const photo of BLOCKED_TEAM_PHOTOS) {
+    const escaped = escapeRegExp(photo);
+    out = out
+      .replace(new RegExp(`<link\\b[^>]*href=["']${escaped}["'][^>]*>\\s*`, 'gi'), '')
+      .replace(new RegExp(`<img\\b[^>]*src=["']${escaped}["'][^>]*>`, 'gi'), '');
+  }
+  return out;
+}
 
 function rewrite(html) {
-  let out = String(html || '');
+  let out = stripBlockedTeamPhotos(String(html || ''));
   if (out.includes('name="tennisrank-runtime"')) return out;
   out = out
     .replaceAll('src="/assets/', `src="${CDN}/assets/`)
@@ -57,3 +77,5 @@ async function handler(req, res) {
 module.exports = handler;
 module.exports.rewrite = rewrite;
 module.exports.CDN = CDN;
+module.exports.BLOCKED_TEAM_PHOTOS = BLOCKED_TEAM_PHOTOS;
+module.exports.stripBlockedTeamPhotos = stripBlockedTeamPhotos;
