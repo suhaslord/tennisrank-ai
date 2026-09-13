@@ -152,5 +152,34 @@ test('coach Google viewer link imports the exact RIHS-TL simple match format end
   await expect(page.locator('#rankingTable')).toContainText('a');
   await expect(page.locator('#rankingTable')).toContainText('b');
   await expect(page.locator('#rankingTable')).toContainText('c');
+  await expect.poll(async () => {
+    const text = await page.locator('#rankingTable').textContent();
+    return (text.match(/1-1/g) || []).length;
+  }).toBe(3);
+  expect(pageErrors).toEqual([]);
+});
+
+test('saved backend rows with player names in Result still restore real match records', async ({ page }) => {
+  const pageErrors = [];
+  page.on('pageerror', error => pageErrors.push(error.message));
+  const state = await installMocks(page);
+  state.savedRows.push(
+    { name: 'a', opponent: 'b', result: 'a', score: '6-1', gender: 'Boys', division: 'Singles', __sheetName: 'BoysS' },
+    { name: 'a', opponent: 'c', result: 'c', score: '6-2', gender: 'Boys', division: 'Singles', __sheetName: 'BoysS' },
+    { name: 'b', opponent: 'c', result: 'b', score: '6-3', gender: 'Boys', division: 'Singles', __sheetName: 'BoysS' },
+  );
+
+  await page.goto(BASE, { waitUntil: 'domcontentloaded' });
+  await expect(page.locator('#appShell')).toBeVisible();
+  await expect(page.locator('#rankingTable')).toContainText('a');
+  await expect(page.locator('#rankingTable')).toContainText('b');
+  await expect(page.locator('#rankingTable')).toContainText('c');
+  await expect.poll(async () => {
+    const text = await page.locator('#rankingTable').textContent();
+    return (text.match(/1-1/g) || []).length;
+  }).toBe(3);
+  await expect(page.locator('#matchesList')).toContainText('6-1');
+  await expect(page.locator('#matchesList')).toContainText('6-2');
+  await expect(page.locator('#matchesList')).toContainText('6-3');
   expect(pageErrors).toEqual([]);
 });
