@@ -192,7 +192,8 @@
   }
 
   function apply(win) {
-    if (/^\/qa(?:-|\/)/.test(String(win.location?.pathname || ''))) return;
+    const host = String(win.location?.hostname || '').toLowerCase();
+    if (host === '127.0.0.1' || host === 'localhost' || /^\/qa(?:-|\/)/.test(String(win.location?.pathname || ''))) return;
     const doc = win.document;
     if (!doc) return;
     installStyles(doc);
