@@ -34,8 +34,6 @@ async function currentRows(context) {
   const latestRecord = Array.isArray(latest.payload) ? latest.payload[0] : null;
   if (!latestRecord?.source_key) return { rows: [], count: 0, sourceKey: null };
   const rows = [];
-  // Supabase caps each response; fetch all pages instead of silently dropping
-  // the remainder of a season with more than 1,000 rows.
   for (let offset = 0; ; offset += 1000) {
     const result = await rest(context, `tennis_records?source_key=eq.${encodeURIComponent(latestRecord.source_key)}&select=raw_data,row_index&order=row_index.asc,updated_at.asc&limit=1000&offset=${offset}`);
     if (!result.response.ok) throw Object.assign(new Error(result.payload.message || "Database read failed."), { status: result.response.status });
@@ -78,9 +76,23 @@ module.exports = async function handler(req, res) {
     }
 
     if (req.method === "POST") {
-      if (context.profile.role !== "admin") return json(res, 403, { error: "Only an admin can publish team data." });
+      if (context.profile.role !== "admin") return json(res, 403, { error: "Only an admin can change team data." });
       const body = parseBody(req);
       const action = String(body.action || "publish").trim().toLowerCase();
+
+      if (action === "clear") {
+        const cleared = await rpc(context, "admin_clear_import", {
+          p_coach_profile_id: context.profile.id,
+        });
+        if (!cleared.response.ok) return json(res, cleared.response.status, { error: cleared.payload.message || "Team data could not be removed." });
+        return json(res, 200, {
+          cleared: true,
+          rows: [],
+          count: 0,
+          snapshotId: scalar(cleared.payload),
+          message: "Imported data and the live leaderboard were removed. Player accounts were kept.",
+        });
+      }
 
       if (action === "restore") {
         const snapshotId = String(body.snapshotId || "").trim();
@@ -148,6 +160,5 @@ module.exports = async function handler(req, res) {
 module.exports.sourceKey = sourceKey;
 module.exports.contentHash = contentHash;
 module.exports.previewHash = previewHash;
-
 module.exports.currentRows = currentRows;
 module.exports.validateRows = validateRows;
