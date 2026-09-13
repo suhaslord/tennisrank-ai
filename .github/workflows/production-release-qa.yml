@@ -34,7 +34,7 @@ jobs:
         run: |
           set -euo pipefail
           find api lib -type f -name '*.js' -print0 | xargs -0 -n1 node --check
-          for file in app.js auth.js coach-ops.js coach-sharing.js coach-preview-guard.js coach-polish.js import-auto-sync.js import-runtime-fixes.js import-v2.js spreadsheet-ai.js spreadsheet-ml.js ranking-policy.js player-dashboard-state.js player-insights.js; do
+          for file in app.js auth.js coach-ops.js coach-sharing.js coach-preview-guard.js coach-polish.js google-workbook-bridge.js import-auto-sync.js import-runtime-fixes.js import-v2.js spreadsheet-ai.js spreadsheet-ml.js ranking-policy.js player-dashboard-state.js player-insights.js; do
             node --check "$file"
           done
           node --check qa/production-hardening.test.js
@@ -88,7 +88,9 @@ jobs:
           test -f api/sheet-workbook.js
           test -f coach-polish.js
           test -f coach-polish.css
+          test -f google-workbook-bridge.js
           grep -q 'coach-polish.css' api/render.js
           grep -q 'coach-polish.js' api/render.js
+          grep -q 'google-workbook-bridge.js' brand-assets.js
           ! grep -R --exclude-dir=.git --exclude=.env.example -E 'SUPABASE_SERVICE_ROLE_KEY[[:space:]]*=' .
           ! grep -R --exclude-dir=.git --exclude=.env.example -E 'GEMINI_API_KEY[[:space:]]*=' .
