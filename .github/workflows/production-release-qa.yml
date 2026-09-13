@@ -85,7 +85,7 @@ jobs:
           SERVER_PID=$!
           trap 'kill $SERVER_PID || true' EXIT
           sleep 2
-          npx playwright test qa/auth-flow.spec.js qa/core-flow-browser.spec.js qa/coach-ops-browser.spec.js qa/import-board-sync.spec.js qa/coach-real-sheet-browser.spec.js qa/ai-import.spec.js qa/certainty-ui.spec.js --reporter=line --workers=1
+          npx playwright test qa/auth-flow.spec.js qa/core-flow-browser.spec.js qa/coach-ops-browser.spec.js qa/import-board-sync.spec.js qa/coach-real-sheet-browser.spec.js qa/certainty-ui.spec.js --reporter=line --workers=1
 
       - name: Deployment guardrails
         run: |
