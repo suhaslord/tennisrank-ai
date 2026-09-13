@@ -12,6 +12,7 @@
 
   // Vercel can serve the baked static index before the render rewrite. Keep
   // critical import/runtime compatibility loaded from that shell as well.
+  loadRuntimeScript('/import-certainty-gate.js', 'data-tennisrank-import-certainty');
   loadRuntimeScript('/spreadsheet-universal.js', 'data-tennisrank-universal-import');
   loadRuntimeScript('/match-result-compat.js', 'data-tennisrank-match-result-compat');
   loadRuntimeScript('/google-workbook-bridge.js', 'data-tennisrank-google-workbook-bridge');
