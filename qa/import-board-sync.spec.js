@@ -189,3 +189,45 @@ test('selected CSV file follows the same automatic official-board path', async (
   await expect(page.locator('#ladderBoardNote')).toContainText('Official coach-managed ladder');
   await expect.poll(() => ladderNames(page)).toEqual(boysSeed.players.map(player => player.name));
 });
+
+test('opaque coach columns are understood from values and relationships end to end', async ({ page }) => {
+  const pageErrors = [];
+  page.on('pageerror', error => pageErrors.push(error.message));
+  const state = await installImportSyncMocks(page);
+  await openCsvImport(page);
+
+  await expect.poll(() => page.evaluate(() => Boolean(
+    window.TennisRankUniversalImport && window.TennisRankImportV2?.__universalRelationalImport,
+  ))).toBe(true);
+
+  // Deliberately avoid TennisRank's canonical headers. The importer must infer
+  // competitors, outcome, score, gender and division from semantics + values.
+  const csv = [
+    'Field A,Field B,Decision,Numbers,Team,Match Type',
+    'Noah Williams,Ethan Kim,W,6-3,Boys,Singles',
+    'Noah Williams,Liam Chen,L,4-6,Boys,Singles',
+  ].join('\n');
+
+  await page.locator('#csvText').fill(csv);
+  await page.locator('#useCsv').click();
+  await expect(page.locator('#importPreviewModal')).toBeVisible();
+  await page.locator('[data-preview-confirm]').click();
+
+  await expect.poll(() => state.savedRows.length).toBe(2);
+  expect(state.savedRows.every(row => row.winner && row.loser)).toBe(true);
+  expect(state.savedRows.map(row => [row.winner, row.loser])).toEqual([
+    ['Noah Williams', 'Ethan Kim'],
+    ['Liam Chen', 'Noah Williams'],
+  ]);
+  expect(state.savedRows.every(row => String(row.gender).toLowerCase() === 'boys')).toBe(true);
+  expect(state.savedRows.every(row => String(row.division).toLowerCase() === 'singles')).toBe(true);
+
+  await expect(page.locator('#rankingTable')).toContainText('Noah Williams');
+  await expect(page.locator('#rankingTable')).toContainText('Ethan Kim');
+  await expect(page.locator('#rankingTable')).toContainText('Liam Chen');
+  await expect(page.locator('#matchesList')).toContainText('6-3');
+  await expect(page.locator('#matchesList')).toContainText('4-6');
+  await expect.poll(() => state.seedBodies.length).toBe(1);
+  expect(state.seedBodies[0].players.map(player => player.name).sort()).toEqual(['Ethan Kim', 'Liam Chen', 'Noah Williams']);
+  expect(pageErrors).toEqual([]);
+});
