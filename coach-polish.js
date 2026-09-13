@@ -58,8 +58,7 @@
   }
 
   function compactSheetHints(name) {
-    const text = String(name || '').trim();
-    const compact = text.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const compact = String(name || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
     let gender = '';
     let division = '';
 
@@ -84,6 +83,8 @@
 
   function normalizeCoachRow(row) {
     if (!row || typeof row !== 'object') return row;
+    delete row.__importWarning;
+
     const hints = compactSheetHints(row.__sheetName || '');
     if (hints.gender && !row.gender) row.gender = hints.gender;
     if (hints.division && !row.division) row.division = hints.division;
@@ -93,16 +94,26 @@
     const winner = String(row.winner || '').trim();
 
     if (player && opponent && winner && !row.loser) {
-      if (sameParticipant(winner, player)) row.loser = opponent;
-      else if (sameParticipant(winner, opponent)) row.loser = player;
-      else if (/^(a|1|playera|player1|first)$/i.test(winner)) {
+      if (sameParticipant(winner, player)) {
         row.winner = player;
         row.loser = opponent;
-      } else if (/^(b|2|playerb|player2|second)$/i.test(winner)) {
+      } else if (sameParticipant(winner, opponent)) {
+        row.winner = opponent;
+        row.loser = player;
+      } else if (/^(w|win|won|yes|y|true)$/i.test(winner)) {
+        row.winner = player;
+        row.loser = opponent;
+      } else if (/^(l|loss|lost|no|n|false)$/i.test(winner)) {
+        row.winner = opponent;
+        row.loser = player;
+      } else if (/^(player\s*a|player\s*1|side\s*a|side\s*1|first)$/i.test(winner)) {
+        row.winner = player;
+        row.loser = opponent;
+      } else if (/^(player\s*b|player\s*2|side\s*b|side\s*2|second)$/i.test(winner)) {
         row.winner = opponent;
         row.loser = player;
       } else {
-        row.__importWarning = `Winner “${winner}” does not match ${player} or ${opponent}.`;
+        row.__importWarning = `Winner “${winner}” does not match Player “${player}” or Opponent “${opponent}”.`;
       }
     }
 
@@ -115,11 +126,33 @@
     return rows;
   }
 
+  function importWarnings(rows) {
+    return [...new Set((Array.isArray(rows) ? rows : [])
+      .map(row => String(row?.__importWarning || '').trim())
+      .filter(Boolean))];
+  }
+
+  function applyImportWarnings(win, rows) {
+    const warnings = importWarnings(rows);
+    const note = win.document.querySelector('#analyzerNote');
+    if (!note) return warnings;
+
+    if (warnings.length) {
+      note.dataset.coachImportWarning = 'true';
+      note.textContent = `Warning: ${warnings.length} match row${warnings.length === 1 ? '' : 's'} have a winner that does not match Player or Opponent. Review those rows before publishing.`;
+    } else if (note.dataset.coachImportWarning === 'true') {
+      delete note.dataset.coachImportWarning;
+      note.textContent = '';
+    }
+    return warnings;
+  }
+
   function installRowNormalization(win) {
     if (win.__tennisRankCoachLoadRowsWrapped || typeof win.loadRows !== 'function') return;
     const original = win.loadRows;
     win.loadRows = function coachReadyLoadRows(rows, source) {
       normalizeCoachRows(rows);
+      applyImportWarnings(win, rows);
       return original.call(this, rows, source);
     };
     win.__tennisRankCoachLoadRowsWrapped = true;
@@ -142,7 +175,7 @@
     const note = guide.querySelector('span');
     if (strong) strong.textContent = 'Supported match columns';
     if (code) code.textContent = 'Player · Opponent · Won? · Score  OR  Player 1 · Player 2 · Winner · Loser · Score';
-    if (note) note.textContent = 'Tabs named BoysS, GirlsS, BoysD, or GirlsD are recognized automatically. In “Won?”, enter the winning player or team name. Score and Date are optional.';
+    if (note) note.textContent = 'Tabs named BoysS, GirlsS, BoysD, or GirlsD are recognized automatically. In “Won?”, enter the actual winning player/team name (or W/L for the Player column). Score and Date are optional.';
   }
 
   function setBusyFallback(win, button, busy) {
@@ -228,6 +261,7 @@
       win.localStorage?.setItem('tennisRankSheetUrl', input);
       if (typeof win.loadRows !== 'function') throw new Error('The TennisRank importer is not ready yet.');
       win.loadRows(rows, 'sheet');
+      applyImportWarnings(win, rows);
 
       let saved = false;
       if (typeof win.syncToBackend === 'function') {
@@ -353,6 +387,7 @@
       compactSheetHints,
       normalizeCoachRow,
       normalizeCoachRows,
+      importWarnings,
     };
   }
 
