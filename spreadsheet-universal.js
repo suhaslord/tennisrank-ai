@@ -9,6 +9,7 @@
   'use strict';
 
   const AGGREGATE_FIELDS = new Set(['rank', 'record', 'wins', 'losses']);
+  const MATCH_METADATA_FIELDS = ['score', 'date', 'gender', 'division'];
 
   function text(value) { return String(value ?? '').trim(); }
   function compact(value) {
@@ -252,14 +253,14 @@
       columns: headerValues.filter(value => text(value)),
       mapping: mapping.filter(item => item.field !== 'column').map(item => ({ source: item.source, field: item.field, method: item.method, confidence: item.confidence })),
       sourceName: sourceName || '',
-      engine: 'universal-relational-v3',
+      engine: 'universal-relational-v4',
     };
     return rows;
   }
 
   function quality(rows) {
     const list = Array.isArray(rows) ? rows : [];
-    let matches = 0; let aggregates = 0; let interpreted = 0;
+    let matches = 0; let aggregates = 0; let interpreted = 0; let completeMatches = 0; let metadata = 0;
     for (const row of list) {
       normalizeCanonicalRow(row);
       const match = Boolean((text(row.winner) && text(row.loser))
@@ -267,12 +268,27 @@
         || (text(row.player1) && text(row.player2) && (text(row.winner) || text(row.result))));
       const aggregate = Boolean(text(row.name) && (text(row.record) || text(row.rank) || text(row.wins) || text(row.losses)));
       const roster = Boolean(text(row.name) && (text(row.gender) || text(row.division)));
+      const rowMetadata = MATCH_METADATA_FIELDS.filter(field => text(row[field])).length;
+      metadata += rowMetadata;
       if (match) matches += 1;
+      if (match && text(row.score)) completeMatches += 1;
       if (aggregate) aggregates += 1;
       if (match || aggregate || roster) interpreted += 1;
     }
     const total = Math.max(list.length, 1);
-    return { matches, aggregates, interpreted, score: (matches / total) * 0.72 + (aggregates / total) * 0.2 + (interpreted / total) * 0.08 };
+    const metadataRatio = metadata / (total * MATCH_METADATA_FIELDS.length);
+    return {
+      matches,
+      aggregates,
+      interpreted,
+      completeMatches,
+      metadata,
+      score: (matches / total) * 0.6
+        + (aggregates / total) * 0.16
+        + (interpreted / total) * 0.08
+        + (completeMatches / total) * 0.1
+        + metadataRatio * 0.06,
+    };
   }
 
   function normalizeRows(rows) {
@@ -362,10 +378,17 @@
       const inferredRows = inferRows(textInput, sourceName, importer, ml);
       const inferredQuality = quality(inferredRows);
 
+      const noCoreRegression = inferredQuality.matches >= baseQuality.matches
+        && inferredQuality.aggregates >= baseQuality.aggregates;
+      const richerMatchData = noCoreRegression && (
+        inferredQuality.completeMatches > baseQuality.completeMatches
+        || inferredQuality.metadata > baseQuality.metadata
+      );
       const chooseInferred = inferredRows.length && (
         inferredQuality.matches > baseQuality.matches
         || inferredQuality.aggregates > baseQuality.aggregates
         || (baseQuality.matches === 0 && inferredQuality.matches > 0)
+        || richerMatchData
         || inferredQuality.score > baseQuality.score + 0.08
       );
       if (!chooseInferred) return baseRows;
