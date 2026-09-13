@@ -34,13 +34,15 @@ jobs:
         run: |
           set -euo pipefail
           find api lib -type f -name '*.js' -print0 | xargs -0 -n1 node --check
-          for file in app.js auth.js coach-ops.js coach-sharing.js coach-preview-guard.js coach-polish.js google-workbook-bridge.js match-result-compat.js spreadsheet-universal.js import-auto-sync.js import-runtime-fixes.js import-v2.js spreadsheet-ai.js spreadsheet-ml.js ranking-policy.js player-dashboard-state.js player-insights.js; do
+          for file in app.js auth.js coach-ops.js coach-sharing.js coach-preview-guard.js coach-polish.js google-workbook-bridge.js match-result-compat.js spreadsheet-universal.js import-certainty-gate.js import-auto-sync.js import-runtime-fixes.js import-v2.js spreadsheet-ai.js spreadsheet-ml.js ranking-policy.js player-dashboard-state.js player-insights.js; do
             node --check "$file"
           done
           node --check qa/production-hardening.test.js
           node --check qa/coach-feedback-regressions.test.js
           node --check qa/match-result-compat.test.js
           node --check qa/universal-import.test.js
+          node --check qa/certainty-workbook.test.js
+          node --check qa/certainty-ui.spec.js
           node --check qa/coach-real-sheet-browser.spec.js
 
       - name: Unit and import regression suite
@@ -66,6 +68,7 @@ jobs:
           node qa/spreadsheet-ml.test.js
           node qa/spreadsheet-ml-benchmark.test.js
           node qa/spreadsheet-ai.test.js
+          node qa/ai-thresholds.test.js
           node qa/import-auto-sync.test.js
           node qa/ugly-import-regression.test.js
           node qa/production-hardening.test.js
@@ -73,6 +76,7 @@ jobs:
           node qa/coach-feedback-regressions.test.js
           node qa/match-result-compat.test.js
           node qa/universal-import.test.js
+          node qa/certainty-workbook.test.js
 
       - name: Coach/browser critical path
         run: |
@@ -81,7 +85,7 @@ jobs:
           SERVER_PID=$!
           trap 'kill $SERVER_PID || true' EXIT
           sleep 2
-          npx playwright test qa/auth-flow.spec.js qa/core-flow-browser.spec.js qa/coach-ops-browser.spec.js qa/import-board-sync.spec.js qa/coach-real-sheet-browser.spec.js --reporter=line --workers=1
+          npx playwright test qa/auth-flow.spec.js qa/core-flow-browser.spec.js qa/coach-ops-browser.spec.js qa/import-board-sync.spec.js qa/coach-real-sheet-browser.spec.js qa/ai-import.spec.js qa/certainty-ui.spec.js --reporter=line --workers=1
 
       - name: Deployment guardrails
         run: |
@@ -95,11 +99,14 @@ jobs:
           test -f google-workbook-bridge.js
           test -f match-result-compat.js
           test -f spreadsheet-universal.js
+          test -f import-certainty-gate.js
           grep -q 'coach-polish.css' api/render.js
           grep -q 'coach-polish.js' api/render.js
           grep -q 'match-result-compat.js' api/render.js
+          grep -q 'import-certainty-gate.js' brand-assets.js
           grep -q 'google-workbook-bridge.js' brand-assets.js
           grep -q 'match-result-compat.js' brand-assets.js
           grep -q 'spreadsheet-universal.js' brand-assets.js
+          grep -q 'CERTAINTY_THRESHOLD = 0.85' import-certainty-gate.js
           ! grep -R --exclude-dir=.git --exclude=.env.example -E 'SUPABASE_SERVICE_ROLE_KEY[[:space:]]*=' .
           ! grep -R --exclude-dir=.git --exclude=.env.example -E 'GEMINI_API_KEY[[:space:]]*=' .
