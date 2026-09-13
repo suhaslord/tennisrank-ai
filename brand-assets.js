@@ -23,9 +23,6 @@
         && /\/spreadsheets\/(?:u\/\d+\/)?d\/[^/]+/i.test(url.pathname)
         && !/\/spreadsheets\/d\/e\//i.test(url.pathname);
       if (!standardWorkbook) return;
-      // A normal Google edit/view link often carries #gid=0 even when the coach
-      // intends the whole workbook. TennisRank imports all tabs and lets the
-      // per-sheet certainty gate decide which ones are valid tennis data.
       url.searchParams.delete('gid');
       url.hash = '';
       field.value = url.toString();
@@ -34,12 +31,11 @@
 
   document.addEventListener('click', normalizeGoogleWorkbookLinkOnConnect, true);
 
-  // Vercel can serve the baked static index before the render rewrite. Keep
-  // critical import/runtime compatibility loaded from that shell as well.
   loadRuntimeScript('/import-certainty-gate.js', 'data-tennisrank-import-certainty');
   loadRuntimeScript('/spreadsheet-universal.js', 'data-tennisrank-universal-import');
   loadRuntimeScript('/match-result-compat.js', 'data-tennisrank-match-result-compat');
   loadRuntimeScript('/google-workbook-bridge.js', 'data-tennisrank-google-workbook-bridge');
+  loadRuntimeScript('/coach-essential.js', 'data-tennisrank-coach-essential');
 
   const MARK_SVG = `
     <svg viewBox="0 0 96 72" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
