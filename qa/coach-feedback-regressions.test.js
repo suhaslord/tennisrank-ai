@@ -13,7 +13,7 @@ assert.equal(
 assert.equal(
   links.googleCsvTarget('https://docs.google.com/spreadsheets/d/abc123/edit?gid=42#gid=42'),
   'https://docs.google.com/spreadsheets/d/abc123/export?format=csv&gid=42',
-  'explicit tab ids must be preserved',
+  'explicit tab ids must be preserved for the legacy single-tab helper',
 );
 assert.equal(
   links.googleCsvTarget('https://docs.google.com/spreadsheets/d/e/pubABC/pubhtml'),
@@ -23,7 +23,7 @@ assert.equal(
 assert.match(
   links.googleCsvProxy('https://docs.google.com/spreadsheets/d/abc123/edit?usp=sharing'),
   /^\/api\/sheet-proxy\?url=/,
-  'Google Sheets must still pass through the same-origin proxy',
+  'Google Sheets CSV helper must still pass through the same-origin proxy',
 );
 assert.equal(
   links.isStandardGoogleWorkbookLink('https://docs.google.com/spreadsheets/d/abc123/edit?usp=sharing'),
@@ -32,8 +32,8 @@ assert.equal(
 );
 assert.equal(
   links.isStandardGoogleWorkbookLink('https://docs.google.com/spreadsheets/d/abc123/edit#gid=42'),
-  false,
-  'an explicitly selected tab should keep the single-tab path',
+  true,
+  'copied Google tab links must still import the whole workbook so other team tabs are not silently dropped',
 );
 
 assert.deepEqual(links.compactSheetHints('BoysS'), { gender: 'Boys', division: 'Singles' });
@@ -99,4 +99,4 @@ const privacyCss = fs.readFileSync(path.join(__dirname, '..', 'coach-polish.css'
 assert.match(privacyCss, /\.hero-photo[^}]*display:none!important|\.hero-photo[^,]*,/s, 'legacy hero photography must be suppressed');
 assert.match(privacyCss, /\.season-gallery\{display:none!important\}/, 'legacy season gallery must be suppressed');
 
-console.log('Coach feedback regression suite passed: exact RIHS-TL format, viewer-link import, warnings, and photo-consent safeguards.');
+console.log('Coach feedback regression suite passed: exact RIHS-TL format, full-workbook viewer links, warnings, and photo-consent safeguards.');
