@@ -116,6 +116,9 @@ test('below-85 local interpretation visibly escalates to Google AI and publishes
   await page.locator('#useCsv').click();
   await aiRequest;
 
+  await expect(page.locator('#importPreviewModal')).toBeVisible();
+  expect(state.savedRows).toHaveLength(0);
+  await page.locator('[data-preview-confirm]').click();
   await expect.poll(() => state.savedRows.length).toBe(2);
   await expect(page.locator('#tennisrankCertaintyMeter')).toBeVisible();
   await expect(page.locator('[data-certainty-value]')).toHaveText(/^(?:8[5-9]|9\d|100)%$/);
