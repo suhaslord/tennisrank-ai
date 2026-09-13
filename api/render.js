@@ -9,23 +9,17 @@ const BLOCKED_TEAM_PHOTOS = [
   '/assets/singles-spotlight.jpg',
 ];
 
-function escapeRegExp(value) {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
 function stripBlockedTeamPhotos(html) {
-  let out = html;
-  for (const photo of BLOCKED_TEAM_PHOTOS) {
-    const escaped = escapeRegExp(photo);
-    out = out
-      .replace(new RegExp(`<link\\b[^>]*href=["']${escaped}["'][^>]*>\\s*`, 'gi'), '')
-      .replace(new RegExp(`<img\\b[^>]*src=["']${escaped}["'][^>]*>`, 'gi'), '');
-  }
-  return out;
+  return String(html || '')
+    .replace('<link rel="preload" as="image" href="/assets/team-court.jpg" fetchpriority="high" />', '')
+    .replace('<img src="/assets/team-court.jpg" alt="" fetchpriority="high" decoding="async" />', '')
+    .replace('<img class="hero-photo" src="/assets/team-court.jpg" alt="Tennis players and coaches gathered on the court" fetchpriority="high" decoding="async" />', '')
+    .replace(/\s*<figure class="season-photo season-photo-awards">[\s\S]*?<\/figure>/, '')
+    .replace(/\s*<figure class="season-photo season-photo-singles">[\s\S]*?<\/figure>/, '');
 }
 
 function rewrite(html) {
-  let out = stripBlockedTeamPhotos(String(html || ''));
+  let out = stripBlockedTeamPhotos(html);
   if (out.includes('name="tennisrank-runtime"')) return out;
   out = out
     .replaceAll('src="/assets/', `src="${CDN}/assets/`)
