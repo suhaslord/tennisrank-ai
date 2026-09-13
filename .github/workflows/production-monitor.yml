@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: Check homepage and critical APIs
+      - name: Check homepage, workbook release assets, and critical APIs
         shell: bash
         run: |
           set -euo pipefail
@@ -21,10 +21,26 @@ jobs:
           tmp=$(mktemp -d)
           trap 'rm -rf "$tmp"' EXIT
 
+          fail_stale() {
+            echo "Production is reachable but stale: $1" >&2
+            echo "The latest verified Google workbook release is not fully deployed." >&2
+            exit 1
+          }
+
           code=$(curl --retry 2 --retry-delay 2 --silent --show-error --location --output "$tmp/home" --write-out '%{http_code}' "$BASE/")
           test "$code" = '200'
           grep -q 'TennisRank AI' "$tmp/home"
           grep -q 'id="authGate"' "$tmp/home"
+          grep -q '/brand-assets.js' "$tmp/home"
+
+          code=$(curl --retry 2 --retry-delay 2 --silent --show-error --location --output "$tmp/bridge" --write-out '%{http_code}' "$BASE/google-workbook-bridge.js")
+          test "$code" = '200' || fail_stale "/google-workbook-bridge.js returned HTTP $code"
+          grep -q 'TennisRankGoogleWorkbookBridge' "$tmp/bridge" || fail_stale 'Google workbook bridge marker is missing'
+          grep -q 'google-full-workbook-v1' "$tmp/bridge" || fail_stale 'Google workbook engine marker is missing'
+
+          code=$(curl --retry 2 --retry-delay 2 --silent --show-error --output "$tmp/workbook" --write-out '%{http_code}' "$BASE/api/sheet-workbook?url=not-a-url")
+          test "$code" = '400' || fail_stale "/api/sheet-workbook returned HTTP $code instead of 400 for an invalid URL"
+          grep -Eq 'valid Google Sheet|standard Google Sheets' "$tmp/workbook" || fail_stale 'Workbook API validation response is missing'
 
           code=$(curl --retry 2 --retry-delay 2 --silent --show-error --output "$tmp/config" --write-out '%{http_code}' "$BASE/api/config")
           test "$code" = '200'
@@ -42,4 +58,4 @@ jobs:
           test "$code" = '400'
           grep -q 'Invalid Google Sheets URL' "$tmp/sheet"
 
-          echo 'TennisRank production smoke checks passed.'
+          echo 'TennisRank production smoke checks passed, including workbook release assets.'
