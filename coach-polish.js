@@ -50,8 +50,7 @@
       const url = new URL(String(input || '').trim());
       return url.hostname.toLowerCase() === 'docs.google.com'
         && /\/spreadsheets\/(?:u\/\d+\/)?d\/[^/]+/i.test(url.pathname)
-        && !/\/spreadsheets\/d\/e\//i.test(url.pathname)
-        && !explicitGid(url);
+        && !/\/spreadsheets\/d\/e\//i.test(url.pathname);
     } catch {
       return false;
     }
