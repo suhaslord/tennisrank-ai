@@ -39,7 +39,7 @@
   function sameParticipant(a, b) {
     const left = comparable(a);
     const right = comparable(b);
-    return Boolean(left && right && (left === right || left.includes(right) || right.includes(left)));
+    return Boolean(left && right && left === right);
   }
 
   function normalizeMatchRow(row, sheetName) {
@@ -51,27 +51,35 @@
 
     const player = String(row.name || row.player || '').trim();
     const opponent = String(row.opponent || '').trim();
-    const winner = String(row.winner || '').trim();
+    // Some schema/AI paths canonicalize the coach's “Won?” column as result
+    // instead of winner. Treat either field as the winner signal.
+    const winner = String(row.winner || row.result || '').trim();
     if (!player || !opponent || !winner || row.loser) return row;
 
     if (sameParticipant(winner, player)) {
       row.winner = player;
       row.loser = opponent;
+      delete row.__importWarning;
     } else if (sameParticipant(winner, opponent)) {
       row.winner = opponent;
       row.loser = player;
+      delete row.__importWarning;
     } else if (/^(w|win|won|yes|y|true)$/i.test(winner)) {
       row.winner = player;
       row.loser = opponent;
+      delete row.__importWarning;
     } else if (/^(l|loss|lost|no|n|false)$/i.test(winner)) {
       row.winner = opponent;
       row.loser = player;
+      delete row.__importWarning;
     } else if (/^(player\s*a|player\s*1|side\s*a|side\s*1|first)$/i.test(winner)) {
       row.winner = player;
       row.loser = opponent;
+      delete row.__importWarning;
     } else if (/^(player\s*b|player\s*2|side\s*b|side\s*2|second)$/i.test(winner)) {
       row.winner = opponent;
       row.loser = player;
+      delete row.__importWarning;
     } else {
       row.__importWarning = `Winner “${winner}” does not match Player “${player}” or Opponent “${opponent}”.`;
     }
