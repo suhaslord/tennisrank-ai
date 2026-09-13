@@ -1,13 +1,19 @@
 (() => {
   'use strict';
 
-  if (!document.querySelector('script[data-tennisrank-google-workbook-bridge]')) {
-    const bridge = document.createElement('script');
-    bridge.src = '/google-workbook-bridge.js';
-    bridge.async = false;
-    bridge.dataset.tennisrankGoogleWorkbookBridge = 'true';
-    document.head.appendChild(bridge);
+  function loadRuntimeScript(src, dataKey) {
+    if (document.querySelector(`script[${dataKey}]`) || Array.from(document.scripts).some(script => script.src.endsWith(src))) return;
+    const script = document.createElement('script');
+    script.src = src;
+    script.async = false;
+    script.setAttribute(dataKey, 'true');
+    document.head.appendChild(script);
   }
+
+  // Vercel can serve the baked static index before the render rewrite. Keep
+  // critical import/runtime compatibility loaded from that shell as well.
+  loadRuntimeScript('/match-result-compat.js', 'data-tennisrank-match-result-compat');
+  loadRuntimeScript('/google-workbook-bridge.js', 'data-tennisrank-google-workbook-bridge');
 
   const MARK_SVG = `
     <svg viewBox="0 0 96 72" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
