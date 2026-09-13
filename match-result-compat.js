@@ -79,8 +79,25 @@
     return true;
   }
 
+  function repairLoadedBackend(win) {
+    if (!win || win.__matchResultCompatInitialRepairRequested) return false;
+    const profile = win.TennisRankAuth?.getProfile?.();
+    if (!profile || typeof win.fetchBackendRecords !== 'function') return false;
+    win.__matchResultCompatInitialRepairRequested = true;
+    Promise.resolve()
+      .then(() => win.fetchBackendRecords())
+      .catch(() => {
+        // Keep the app usable if the repair read fails; a normal reload can retry.
+      });
+    return true;
+  }
+
   function scheduleBrowserInstall(win) {
-    const apply = () => installBrowser(win);
+    const apply = () => {
+      const installed = installBrowser(win);
+      if (installed) repairLoadedBackend(win);
+      return installed;
+    };
     apply();
     if (win?.document?.readyState === 'loading') {
       win.document.addEventListener('DOMContentLoaded', apply, { once: true });
@@ -92,5 +109,5 @@
 
   if (typeof window !== 'undefined' && window.document) scheduleBrowserInstall(window);
 
-  return { compact, sameParticipant, normalizeRow, normalizeRows, installBrowser, scheduleBrowserInstall };
+  return { compact, sameParticipant, normalizeRow, normalizeRows, installBrowser, repairLoadedBackend, scheduleBrowserInstall };
 });
