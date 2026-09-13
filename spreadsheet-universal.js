@@ -252,7 +252,7 @@
       columns: headerValues.filter(value => text(value)),
       mapping: mapping.filter(item => item.field !== 'column').map(item => ({ source: item.source, field: item.field, method: item.method, confidence: item.confidence })),
       sourceName: sourceName || '',
-      engine: 'universal-relational-v2',
+      engine: 'universal-relational-v3',
     };
     return rows;
   }
@@ -281,40 +281,69 @@
     return rows;
   }
 
-  function semanticHeaderStrength(matrix, headerIndex, sourceName, importer, ml) {
-    const header = matrix?.[headerIndex] || [];
-    const total = Math.max(header.length, ...matrix.slice(headerIndex + 1, headerIndex + 8).map(row => row?.length || 0), 0);
+  function candidateHeader(matrix, index, sourceName, importer, ml) {
+    const header = matrix[index] || [];
+    const nonEmpty = header.map(text).filter(Boolean);
+    if (nonEmpty.length < 2) return { index, score: -Infinity, count: 0, structuralCount: 0, guesses: [] };
+    const total = Math.max(header.length, ...matrix.slice(index + 1, index + 8).map(row => row?.length || 0), 0);
     const guesses = Array.from({ length: total }, (_, column) => headerField(
       importer,
       ml,
       header[column] || `Column ${column + 1}`,
-      valuesFor(matrix, headerIndex, column),
+      valuesFor(matrix, index, column),
       { position: column, totalColumns: total, sheetName: sourceName },
     ));
     const strong = guesses.filter(item => item.field !== 'column' && Number(item.confidence || 0) >= 0.6);
     const structural = strong.filter(item => !['score', 'date', 'gender', 'division'].includes(item.field));
-    return { count: strong.length, structuralCount: structural.length, guesses };
+    const explicitHeaders = guesses.filter((item, column) => {
+      if (!['rule', 'semantic-rule'].includes(item.method)) return false;
+      const raw = text(header[column]);
+      return raw && !looksResult(raw) && !looksScore(raw) && !looksDate(raw) && !looksRecord(raw) && !looksNumber(raw);
+    }).length;
+    const dataPenalty = guesses.reduce((sum, item, column) => {
+      const raw = text(header[column]);
+      if (!raw) return sum;
+      if (looksPerson(raw) && !['rule', 'semantic-rule'].includes(item.method)) return sum + 2.8;
+      if (looksResult(raw) || looksScore(raw) || looksDate(raw) || looksRecord(raw) || looksNumber(raw)) return sum + 2.2;
+      return sum;
+    }, 0);
+    const followers = matrix.slice(index + 1, index + 6).filter(row => (row || []).filter(value => text(value)).length >= Math.max(2, Math.floor(nonEmpty.length * 0.55))).length;
+    const score = strong.length * 2.2 + structural.length * 1.45 + explicitHeaders * 1.35 + followers * 0.25 - dataPenalty - index * 0.08;
+    return { index, score, count: strong.length, structuralCount: structural.length, guesses };
+  }
+
+  function chooseHeader(matrix, sourceName, importer, ml) {
+    let best = { index: 0, score: -Infinity, count: 0, structuralCount: 0, guesses: [] };
+    const limit = Math.min(Math.max(matrix.length - 1, 1), 16);
+    for (let index = 0; index < limit; index += 1) {
+      const candidate = candidateHeader(matrix, index, sourceName, importer, ml);
+      if (candidate.score > best.score) best = candidate;
+    }
+    return best;
+  }
+
+  function semanticHeaderStrength(matrix, headerIndex, sourceName, importer, ml) {
+    return candidateHeader(matrix, headerIndex, sourceName, importer, ml);
   }
 
   function inferRows(textInput, sourceName, importer, ml) {
     const parsed = importer?.parseDelimited?.(String(textInput || '').replace(/^\uFEFF/, ''));
     if (!parsed?.matrix?.length) return [];
     let matrix = parsed.matrix;
-    let headerIndex = Number(importer?.detectHeaderRow?.(matrix)?.index || 0);
+    const chosen = chooseHeader(matrix, sourceName, importer, ml);
+    let headerIndex = Number.isInteger(chosen.index) ? chosen.index : 0;
     let orientation = 'rows';
 
-    // Never let the statistical fallback replace a header that is already
-    // semantically strong. This is critical for ordinary standings exports such
-    // as Order | Member | Season Mark, where the words are clear even if they are
-    // not part of a rigid alias list.
-    const initialStrength = semanticHeaderStrength(matrix, headerIndex, sourceName, importer, ml);
-    if (ml?.inferTable && (initialStrength.count < 2 || initialStrength.structuralCount < 1)) {
+    if (ml?.inferTable && (chosen.count < 2 || chosen.structuralCount < 1)) {
       try {
         const inferred = ml.inferTable(matrix, sourceName || '');
         if (inferred?.matrix?.length && Number(inferred.semanticCount || 0) >= 2 && Number(inferred.anchorCount || 0) >= 1) {
-          matrix = inferred.matrix;
-          headerIndex = Number(inferred.index || 0);
-          orientation = inferred.orientation || 'rows';
+          const inferredHeader = candidateHeader(inferred.matrix, Number(inferred.index || 0), sourceName, importer, ml);
+          if (inferredHeader.score > chosen.score + 0.75) {
+            matrix = inferred.matrix;
+            headerIndex = Number(inferred.index || 0);
+            orientation = inferred.orientation || 'rows';
+          }
         }
       } catch {}
     }
@@ -322,7 +351,7 @@
     const mapping = inferMapping(matrix, headerIndex, sourceName, importer, ml);
     const rows = buildRows(matrix, headerIndex, mapping, sourceName, importer);
     rows.__analysis.orientation = orientation;
-    rows.__analysis.initialHeaderStrength = initialStrength.count;
+    rows.__analysis.headerConfidence = chosen.score;
     return rows;
   }
 
@@ -380,6 +409,8 @@
     normalizeCanonicalRow,
     normalizeRows,
     quality,
+    candidateHeader,
+    chooseHeader,
     semanticHeaderStrength,
     inferRows,
     createParser,
