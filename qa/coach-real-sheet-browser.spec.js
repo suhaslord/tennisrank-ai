@@ -119,7 +119,26 @@ test('coach Google viewer link imports the exact RIHS-TL simple match format end
   await page.locator('#openSettings').click();
   await expect(page.locator('#settingsPanel')).toBeVisible();
   await page.locator('#sheetUrl').fill(COACH_SHEET);
+
+  const before = await page.evaluate(() => ({
+    loadRows: typeof window.loadRows,
+    syncToBackend: typeof window.syncToBackend,
+    importV2: typeof window.TennisRankImportV2,
+    xlsxRead: typeof window.XLSX?.read,
+    workbookReady: document.querySelector('#connectSheet')?.dataset.workbookImportReady || '',
+    previewFinal: Boolean(window.syncToBackend?.__coachOpsPreviewFinal),
+  }));
+  console.log('COACH_IMPORT_BEFORE', JSON.stringify(before));
+
   await page.locator('#connectSheet').click();
+  await page.waitForTimeout(1200);
+  const after = await page.evaluate(() => ({
+    status: document.querySelector('#statusMessage')?.textContent || '',
+    analyzer: document.querySelector('#analyzerNote')?.textContent || '',
+    preview: Boolean(document.querySelector('#importPreviewModal')),
+    previewHidden: document.querySelector('#importPreviewModal')?.hidden,
+  }));
+  console.log('COACH_IMPORT_AFTER', JSON.stringify(after), 'PATHS', JSON.stringify(state.requestedPaths), 'SAVED', state.savedRows.length, 'ERRORS', JSON.stringify(pageErrors));
 
   await expect(page.locator('#importPreviewModal')).toBeVisible();
   await expect(page.locator('#importPreviewBody')).toContainText('3');
