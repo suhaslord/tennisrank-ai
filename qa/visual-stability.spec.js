@@ -79,9 +79,7 @@ async function expectLoginState(page) {
   expect(await css(page, '#authStatus', 'color')).toBe('rgb(92, 94, 98)');
   const visualBefore = await page.locator('.auth-visual').evaluate(node => getComputedStyle(node, '::before').display);
   expect(visualBefore).toBe('none');
-
-  const imageLoaded = await page.locator('.auth-visual img').evaluate(img => img.complete && img.naturalWidth > 0);
-  expect(imageLoaded).toBe(true);
+  await expect(page.locator('.auth-visual img')).toBeHidden();
   await expectVerticalOrder(page, ['#loginEmail', '#loginPassword', '#loginButton']);
   await expectTouchHeight(page, '#loginButton');
   await expectNoHorizontalOverflow(page);
@@ -131,7 +129,7 @@ test('reduced-motion mode is effectively static', async ({ page }) => {
   expect(seconds).toBeLessThanOrEqual(0.001);
 });
 
-test('authenticated hero preserves Tesla photography and hierarchy', async ({ page }) => {
+test('authenticated hero preserves hierarchy without team photography', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto(BASE, { waitUntil: 'networkidle' });
   await showApp(page, 'admin');
@@ -140,8 +138,7 @@ test('authenticated hero preserves Tesla photography and hierarchy', async ({ pa
   await expect(page.locator('.bottom-nav')).toBeHidden();
   await expect(page.locator('.hero-section h1')).toContainText('Your season');
   expect(await css(page, '.hero-section h1', 'color')).toBe('rgb(255, 255, 255)');
-  const photoLoaded = await page.locator('.hero-photo').evaluate(img => img.complete && img.naturalWidth > 0);
-  expect(photoLoaded).toBe(true);
+  await expect(page.locator('.hero-photo')).toBeHidden();
   expect(await page.locator('.hero-actions button').count()).toBeLessThanOrEqual(2);
   await expectNoHorizontalOverflow(page);
   await page.evaluate(() => window.scrollTo(0, 120));
