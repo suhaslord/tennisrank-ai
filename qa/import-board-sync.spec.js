@@ -57,7 +57,32 @@ async function installImportSyncMocks(page) {
       return route.fulfill(ok({ saved: savedRows.length }));
     }
     if (path === '/api/ai-analyze-sheet' && request.method() === 'POST') {
-      return route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ error: 'AI verifier unavailable in deterministic sync QA.' }) });
+      const body = bodyOf(request);
+      const keys = Object.keys(body.rows?.[0] || {});
+      const mappingByKey = {
+        'Field A': 'name',
+        'Field B': 'opponent',
+        Decision: 'result',
+        Numbers: 'score',
+        Team: 'gender',
+        'Match Type': 'division',
+      };
+      const mappings = keys
+        .filter(key => !key.startsWith('__') && mappingByKey[key])
+        .map(key => ({ inputKey: key, target: mappingByKey[key], confidence: 0.99, reason: 'QA Google AI schema verification' }));
+      return route.fulfill(ok({
+        model: 'gemini-qa',
+        privacy: { redactedBeforeProvider: true, providerStorageDisabled: true },
+        ai: {
+          supported: true,
+          sheetKind: 'match_log',
+          confidence: 0.99,
+          globalGender: 'unknown',
+          globalDivision: 'unknown',
+          mappings,
+          warnings: [],
+        },
+      }));
     }
     if (path === '/api/admin/seed-ladder' && request.method() === 'POST') {
       const body = bodyOf(request);
@@ -200,8 +225,8 @@ test('opaque coach columns are understood from values and relationships end to e
     window.TennisRankUniversalImport && window.TennisRankImportV2?.__universalRelationalImport,
   ))).toBe(true);
 
-  // Deliberately avoid TennisRank's canonical headers. The importer must infer
-  // competitors, outcome, score, gender and division from semantics + values.
+  // Deliberately avoid TennisRank's canonical headers. Local parsing falls below
+  // the 85% publish threshold, so the Google AI verifier must resolve the schema.
   const csv = [
     'Field A,Field B,Decision,Numbers,Team,Match Type',
     'Noah Williams,Ethan Kim,W,6-3,Boys,Singles',
@@ -209,7 +234,9 @@ test('opaque coach columns are understood from values and relationships end to e
   ].join('\n');
 
   await page.locator('#csvText').fill(csv);
+  const aiRequest = page.waitForRequest(request => new URL(request.url()).pathname === '/api/ai-analyze-sheet' && request.method() === 'POST');
   await page.locator('#useCsv').click();
+  await aiRequest;
   await expect(page.locator('#importPreviewModal')).toBeVisible();
   await page.locator('[data-preview-confirm]').click();
 
@@ -227,6 +254,8 @@ test('opaque coach columns are understood from values and relationships end to e
   await expect(page.locator('#rankingTable')).toContainText('Liam Chen');
   await expect(page.locator('#matchesList')).toContainText('6-3');
   await expect(page.locator('#matchesList')).toContainText('4-6');
+  await expect(page.locator('[data-certainty-value]')).toHaveText(/^(?:8[5-9]|9\d|100)%$/);
+  await expect(page.locator('[data-certainty-note]')).toContainText('Google AI verified');
   await expect.poll(() => state.seedBodies.length).toBe(1);
   expect(state.seedBodies[0].players.map(player => player.name).sort()).toEqual(['Ethan Kim', 'Liam Chen', 'Noah Williams']);
   expect(pageErrors).toEqual([]);
