@@ -1,6 +1,63 @@
 (function () {
   'use strict';
 
+  function explicitGid(url) {
+    return url.hash.match(/(?:^|[&#])gid=(\d+)/)?.[1] || url.searchParams.get('gid') || '';
+  }
+
+  function googleCsvTarget(input) {
+    let url;
+    try { url = new URL(String(input || '').trim()); }
+    catch { throw new Error('Enter a valid spreadsheet link.'); }
+
+    const host = url.hostname.toLowerCase();
+    const gid = explicitGid(url);
+    const gidSuffix = gid ? `&gid=${encodeURIComponent(gid)}` : '';
+
+    if (host === 'docs.google.com') {
+      const published = url.pathname.match(/^\/spreadsheets\/d\/e\/([^/]+)/i);
+      if (published) return `https://docs.google.com/spreadsheets/d/e/${published[1]}/pub?output=csv${gidSuffix}`;
+
+      const standard = url.pathname.match(/\/spreadsheets\/(?:u\/\d+\/)?d\/([^/]+)/i);
+      if (standard) return `https://docs.google.com/spreadsheets/d/${standard[1]}/export?format=csv${gidSuffix}`;
+    }
+
+    if (host === 'drive.google.com') {
+      const id = url.searchParams.get('id');
+      if (id) return `https://docs.google.com/spreadsheets/d/${id}/export?format=csv${gidSuffix}`;
+    }
+
+    return url.href;
+  }
+
+  function googleCsvProxy(input) {
+    const target = googleCsvTarget(input);
+    const parsed = new URL(target);
+    return parsed.hostname.toLowerCase() === 'docs.google.com'
+      ? `/api/sheet-proxy?url=${encodeURIComponent(target)}`
+      : target;
+  }
+
+  function installSheetLinkFix(win) {
+    win.googleCsvUrl = googleCsvProxy;
+    if (win.TennisRankImportV2) {
+      win.TennisRankImportV2.googleCsvUrl = googleCsvTarget;
+      win.TennisRankImportV2.googleCsvProxyUrl = googleCsvProxy;
+    }
+  }
+
+  function installDataGuide(win) {
+    const guide = win.document.querySelector('.format-guide');
+    if (!guide || guide.dataset.matchFormatReady === 'true') return;
+    guide.dataset.matchFormatReady = 'true';
+    const strong = guide.querySelector('strong');
+    const code = guide.querySelector('code');
+    const note = guide.querySelector('span');
+    if (strong) strong.textContent = 'Expected match columns';
+    if (code) code.textContent = 'Name · Gender · Division · Player 1 · Player 2 · Winner · Loser · Score · Date';
+    if (note) note.textContent = 'For each match, include Gender, Division, Player 1, Player 2, Winner, and Loser. Score and Date are optional but recommended. Doubles teams should use the same “Name & Name” text throughout.';
+  }
+
   function scrollTo(win, selector) {
     const target = win.document.querySelector(selector);
     if (!target) return false;
@@ -19,6 +76,9 @@
   }
 
   function install(win) {
+    installSheetLinkFix(win);
+    installDataGuide(win);
+
     const dashboard = win.document.querySelector('#coachOpsDashboard');
     if (!dashboard || dashboard.dataset.polished === 'true') return false;
     dashboard.dataset.polished = 'true';
@@ -61,12 +121,20 @@
   }
 
   function boot(win) {
+    installSheetLinkFix(win);
+    installDataGuide(win);
     if (install(win)) return;
     let attempts = 0;
     const timer = win.setInterval(() => {
       attempts += 1;
+      installSheetLinkFix(win);
+      installDataGuide(win);
       if (install(win) || attempts >= 80) win.clearInterval(timer);
     }, 100);
+  }
+
+  if (typeof module === 'object' && module.exports) {
+    module.exports = { explicitGid, googleCsvTarget, googleCsvProxy };
   }
 
   if (typeof window !== 'undefined' && window.document) {
