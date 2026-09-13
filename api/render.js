@@ -18,9 +18,21 @@ function stripBlockedTeamPhotos(html) {
     .replace(/\s*<figure class="season-photo season-photo-singles">[\s\S]*?<\/figure>/, '');
 }
 
+function ensureRuntimePatch(html) {
+  let out = String(html || '');
+  if (!out.includes('match-result-compat.js')) {
+    const before = '<script src="/tesla-motion.js"></script>';
+    if (out.includes(before)) out = out.replace(before, '<script src="/match-result-compat.js"></script>' + before);
+    else out = out.replace('</body>', '<script src="/match-result-compat.js"></script></body>');
+  }
+  return out;
+}
+
 function rewrite(html) {
   let out = stripBlockedTeamPhotos(html);
-  if (out.includes('name="tennisrank-runtime"')) return out;
+  // index.html already contains the historical runtime bundle. Do not skip new
+  // hotfix scripts just because that marker is present.
+  if (out.includes('name="tennisrank-runtime"')) return ensureRuntimePatch(out);
   out = out
     .replaceAll('src="/assets/', `src="${CDN}/assets/`)
     .replaceAll('href="/assets/', `href="${CDN}/assets/`)
@@ -45,6 +57,7 @@ function rewrite(html) {
     `<script src="${CDN}/app.js"></script><script src="${CDN}/import-runtime-fixes.js"></script><script src="${CDN}/import-v2.js"></script><script src="${CDN}/import-delimiter-fix.js"></script><script src="${CDN}/spreadsheet-ml.js"></script><script src="${CDN}/import-v2-fixes.js"></script><script src="${CDN}/import-row-safety-fix.js"></script><script src="${CDN}/import-multiblock-fix.js"></script><script src="${CDN}/spreadsheet-semantic-calibration.js"></script><script src="${CDN}/spreadsheet-ai.js"></script><script src="${CDN}/ai-quota-guard.js"></script><script src="${CDN}/import-auto-sync.js"></script><script src="${CDN}/ranking-policy.js"></script><script src="${CDN}/player-dashboard-state.js"></script><script src="${CDN}/player-insights.js"></script><script src="${CDN}/coach-ops.js"></script><script src="${CDN}/coach-sharing.js"></script><script src="${CDN}/coach-preview-guard.js"></script><script src="${CDN}/coach-polish.js"></script><script src="${CDN}/match-result-compat.js"></script><script src="${CDN}/tesla-motion.js"></script><script src="${CDN}/brand-assets.js"></script>`,
   );
 
+  out = ensureRuntimePatch(out);
   out = out.replace('<div class="cursor-ball" aria-hidden="true"><span class="cursor-ball-core"></span></div>', '');
   return out;
 }
@@ -70,6 +83,7 @@ async function handler(req, res) {
 
 module.exports = handler;
 module.exports.rewrite = rewrite;
+module.exports.ensureRuntimePatch = ensureRuntimePatch;
 module.exports.CDN = CDN;
 module.exports.BLOCKED_TEAM_PHOTOS = BLOCKED_TEAM_PHOTOS;
 module.exports.stripBlockedTeamPhotos = stripBlockedTeamPhotos;
