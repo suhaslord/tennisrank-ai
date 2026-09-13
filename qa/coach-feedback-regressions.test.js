@@ -2,6 +2,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const links = require('../coach-polish.js');
+const importer = require('../import-v2.js');
 const workbookProxy = require('../api/sheet-workbook.js');
 
 assert.equal(
@@ -40,19 +41,45 @@ assert.deepEqual(links.compactSheetHints('GirlsS'), { gender: 'Girls', division:
 assert.deepEqual(links.compactSheetHints('BoysD'), { gender: 'Boys', division: 'Doubles' });
 assert.deepEqual(links.compactSheetHints('GirlsD'), { gender: 'Girls', division: 'Doubles' });
 
-const boysRow = links.normalizeCoachRow({ __sheetName: 'BoysS', name: 'a', opponent: 'b', winner: 'a', score: '6-1' });
-assert.equal(boysRow.gender, 'Boys');
-assert.equal(boysRow.division, 'Singles');
-assert.equal(boysRow.winner, 'a');
-assert.equal(boysRow.loser, 'b');
+// Exact simple format from the coach's RIHS-TL screenshot.
+const boysCsv = [
+  'Player,Opponent,Won?,Score',
+  'a,b,a,6-1',
+  'a,c,c,6-2',
+  'b,c,b,6-3',
+].join('\n');
+const boysRows = importer.parseText(boysCsv, 'BoysS');
+links.normalizeCoachRows(boysRows);
+assert.equal(boysRows.length, 3);
+assert.deepEqual(
+  boysRows.map(row => ({ player: row.name, opponent: row.opponent, winner: row.winner, loser: row.loser, score: row.score, gender: row.gender, division: row.division })),
+  [
+    { player: 'a', opponent: 'b', winner: 'a', loser: 'b', score: '6-1', gender: 'Boys', division: 'Singles' },
+    { player: 'a', opponent: 'c', winner: 'c', loser: 'a', score: '6-2', gender: 'Boys', division: 'Singles' },
+    { player: 'b', opponent: 'c', winner: 'b', loser: 'c', score: '6-3', gender: 'Boys', division: 'Singles' },
+  ],
+  'the coach screenshot format must normalize into three complete matches',
+);
+assert.deepEqual(links.importWarnings(boysRows), [], 'the valid simple coach sheet must import with no warnings');
 
-const sideLabelRow = links.normalizeCoachRow({ __sheetName: 'GirlsS', name: 'x', opponent: 'y', winner: 'a', score: '6-4' });
-assert.equal(sideLabelRow.winner, 'x', 'A should mean the player column when A is not a participant name');
-assert.equal(sideLabelRow.loser, 'y');
-assert.equal(sideLabelRow.gender, 'Girls');
+// Never guess a winner when Won? does not identify either participant.
+const invalidGirlsCsv = [
+  'Player,Opponent,Won?,Score',
+  'x,y,a,6-4',
+  'x,z,c,6-4',
+  'y,z,b,7-6',
+].join('\n');
+const invalidGirlsRows = importer.parseText(invalidGirlsCsv, 'GirlsS');
+links.normalizeCoachRows(invalidGirlsRows);
+assert.equal(links.importWarnings(invalidGirlsRows).length, 3, 'mismatched winners must be flagged instead of silently fabricated');
+assert.equal(invalidGirlsRows.some(row => row.loser), false, 'invalid winner rows must not invent losers');
 
-const badWinnerRow = links.normalizeCoachRow({ __sheetName: 'GirlsS', name: 'x', opponent: 'z', winner: 'c', score: '6-4' });
-assert.match(badWinnerRow.__importWarning, /does not match/i, 'ambiguous winner codes must be flagged instead of silently inventing a result');
+const yesNoRow = links.normalizeCoachRow({ __sheetName: 'BoysS', name: 'Noah', opponent: 'Ethan', winner: 'yes', score: '6-2' });
+assert.equal(yesNoRow.winner, 'Noah');
+assert.equal(yesNoRow.loser, 'Ethan');
+const lossRow = links.normalizeCoachRow({ __sheetName: 'GirlsS', name: 'Ava', opponent: 'Mia', winner: 'L', score: '4-6' });
+assert.equal(lossRow.winner, 'Mia');
+assert.equal(lossRow.loser, 'Ava');
 
 assert.equal(
   workbookProxy.exportUrlFor('https://docs.google.com/spreadsheets/d/abc123/edit?usp=sharing'),
@@ -72,4 +99,4 @@ const privacyCss = fs.readFileSync(path.join(__dirname, '..', 'coach-polish.css'
 assert.match(privacyCss, /\.hero-photo[^}]*display:none!important|\.hero-photo[^,]*,/s, 'legacy hero photography must be suppressed');
 assert.match(privacyCss, /\.season-gallery\{display:none!important\}/, 'legacy season gallery must be suppressed');
 
-console.log('Coach feedback regression suite passed: real workbook format, viewer-link import, and photo-consent safeguards.');
+console.log('Coach feedback regression suite passed: exact RIHS-TL format, viewer-link import, warnings, and photo-consent safeguards.');
