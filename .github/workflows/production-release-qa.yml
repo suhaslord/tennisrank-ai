@@ -39,6 +39,7 @@ jobs:
           done
           node --check qa/production-hardening.test.js
           node --check qa/coach-feedback-regressions.test.js
+          node --check qa/coach-real-sheet-browser.spec.js
 
       - name: Unit and import regression suite
         run: |
@@ -76,7 +77,7 @@ jobs:
           SERVER_PID=$!
           trap 'kill $SERVER_PID || true' EXIT
           sleep 2
-          npx playwright test qa/auth-flow.spec.js qa/core-flow-browser.spec.js qa/coach-ops-browser.spec.js qa/import-board-sync.spec.js --reporter=line --workers=1
+          npx playwright test qa/auth-flow.spec.js qa/core-flow-browser.spec.js qa/coach-ops-browser.spec.js qa/import-board-sync.spec.js qa/coach-real-sheet-browser.spec.js --reporter=line --workers=1
 
       - name: Deployment guardrails
         run: |
@@ -84,6 +85,7 @@ jobs:
           test -f vercel.json
           test -f api/render.js
           test -f api/sheet-proxy.js
+          test -f api/sheet-workbook.js
           test -f coach-polish.js
           test -f coach-polish.css
           grep -q 'coach-polish.css' api/render.js
