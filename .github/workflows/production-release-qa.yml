@@ -96,5 +96,6 @@ jobs:
           grep -q 'coach-polish.js' api/render.js
           grep -q 'match-result-compat.js' api/render.js
           grep -q 'google-workbook-bridge.js' brand-assets.js
+          grep -q 'match-result-compat.js' brand-assets.js
           ! grep -R --exclude-dir=.git --exclude=.env.example -E 'SUPABASE_SERVICE_ROLE_KEY[[:space:]]*=' .
           ! grep -R --exclude-dir=.git --exclude=.env.example -E 'GEMINI_API_KEY[[:space:]]*=' .
