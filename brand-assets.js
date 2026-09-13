@@ -1,6 +1,14 @@
 (() => {
   'use strict';
 
+  if (!document.querySelector('script[data-tennisrank-google-workbook-bridge]')) {
+    const bridge = document.createElement('script');
+    bridge.src = '/google-workbook-bridge.js';
+    bridge.async = false;
+    bridge.dataset.tennisrankGoogleWorkbookBridge = 'true';
+    document.head.appendChild(bridge);
+  }
+
   const MARK_SVG = `
     <svg viewBox="0 0 96 72" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
       <defs>
