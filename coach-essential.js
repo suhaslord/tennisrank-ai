@@ -192,6 +192,7 @@
   }
 
   function apply(win) {
+    if (/^\/qa(?:-|\/)/.test(String(win.location?.pathname || ''))) return;
     const doc = win.document;
     if (!doc) return;
     installStyles(doc);
