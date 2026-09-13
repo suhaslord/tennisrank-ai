@@ -10,6 +10,30 @@
     document.head.appendChild(script);
   }
 
+  function normalizeGoogleWorkbookLinkOnConnect(event) {
+    const button = event.target?.closest?.('#connectSheet');
+    if (!button) return;
+    const field = document.querySelector('#sheetUrl');
+    const raw = String(field?.value || '').trim();
+    if (!field || !raw) return;
+    try {
+      const url = new URL(raw);
+      const standardWorkbook = url.protocol === 'https:'
+        && url.hostname.toLowerCase() === 'docs.google.com'
+        && /\/spreadsheets\/(?:u\/\d+\/)?d\/[^/]+/i.test(url.pathname)
+        && !/\/spreadsheets\/d\/e\//i.test(url.pathname);
+      if (!standardWorkbook) return;
+      // A normal Google edit/view link often carries #gid=0 even when the coach
+      // intends the whole workbook. TennisRank imports all tabs and lets the
+      // per-sheet certainty gate decide which ones are valid tennis data.
+      url.searchParams.delete('gid');
+      url.hash = '';
+      field.value = url.toString();
+    } catch (_) {}
+  }
+
+  document.addEventListener('click', normalizeGoogleWorkbookLinkOnConnect, true);
+
   // Vercel can serve the baked static index before the render rewrite. Keep
   // critical import/runtime compatibility loaded from that shell as well.
   loadRuntimeScript('/import-certainty-gate.js', 'data-tennisrank-import-certainty');
