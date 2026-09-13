@@ -31,25 +31,30 @@
     if (sameParticipant(winnerCell, player)) {
       row.winner = player;
       row.loser = opponent;
+      delete row.__importWarning;
       return row;
     }
     if (sameParticipant(winnerCell, opponent)) {
       row.winner = opponent;
       row.loser = player;
+      delete row.__importWarning;
       return row;
     }
 
     if (/^(w|win|won|winner|yes|y|true)$/i.test(winnerCell)) {
       row.winner = player;
       row.loser = opponent;
+      delete row.__importWarning;
       return row;
     }
     if (/^(l|loss|lost|loser|no|n|false)$/i.test(winnerCell)) {
       row.winner = opponent;
       row.loser = player;
+      delete row.__importWarning;
       return row;
     }
 
+    row.__importWarning = `Winner “${winnerCell}” does not match Player “${player}” or Opponent “${opponent}”.`;
     return row;
   }
 
@@ -74,5 +79,18 @@
     return true;
   }
 
-  return { compact, sameParticipant, normalizeRow, normalizeRows, installBrowser };
+  function scheduleBrowserInstall(win) {
+    const apply = () => installBrowser(win);
+    apply();
+    if (win?.document?.readyState === 'loading') {
+      win.document.addEventListener('DOMContentLoaded', apply, { once: true });
+    }
+    win?.addEventListener?.('tennisrank:auth-ready', apply);
+    win?.addEventListener?.('tennisrank:coach-data-changed', apply);
+    for (const delay of [25, 100, 300, 1000]) win?.setTimeout?.(apply, delay);
+  }
+
+  if (typeof window !== 'undefined' && window.document) scheduleBrowserInstall(window);
+
+  return { compact, sameParticipant, normalizeRow, normalizeRows, installBrowser, scheduleBrowserInstall };
 });
