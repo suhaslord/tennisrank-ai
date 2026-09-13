@@ -76,14 +76,14 @@ jobs:
           ready=false
           for attempt in {1..12}; do
             bridge_code=$(curl --silent --show-error --location --output "$tmp/bridge" --write-out '%{http_code}' "$BASE/google-workbook-bridge.js" || true)
-            universal_code=$(curl --silent --show-error --location --output "$tmp/universal" --write-out '%{http_code}' "$BASE/spreadsheet-universal.js" || true)
+            certainty_code=$(curl --silent --show-error --location --output "$tmp/certainty" --write-out '%{http_code}' "$BASE/import-certainty-gate.js" || true)
             workbook_code=$(curl --silent --show-error --output "$tmp/workbook" --write-out '%{http_code}' "$BASE/api/sheet-workbook?url=not-a-url" || true)
             sha_code=$(curl --silent --show-error --location --output "$tmp/release-sha" --write-out '%{http_code}' "$BASE/release-sha.txt" || true)
             deployed_sha=$(tr -d '\r\n' < "$tmp/release-sha" 2>/dev/null || true)
             if [ "$bridge_code" = '200' ] \
-              && grep -q 'google-full-workbook-universal-v2' "$tmp/bridge" \
-              && [ "$universal_code" = '200' ] \
-              && grep -q 'universal-relational-v5' "$tmp/universal" \
+              && grep -q 'google-full-workbook' "$tmp/bridge" \
+              && [ "$certainty_code" = '200' ] \
+              && grep -q 'CERTAINTY_THRESHOLD = 0.85' "$tmp/certainty" \
               && [ "$workbook_code" = '400' ] \
               && [ "$sha_code" = '200' ] \
               && [ "$deployed_sha" = "$VERIFIED_SHA" ]; then
@@ -94,8 +94,8 @@ jobs:
           done
 
           if [ "$ready" != 'true' ]; then
-            echo "Production alias did not expose verified revision $VERIFIED_SHA." >&2
+            echo "Production alias did not expose verified revision $VERIFIED_SHA with the 85% certainty gate." >&2
             echo "Observed deployed revision: ${deployed_sha:-missing}." >&2
             exit 1
           fi
-          echo "Verified production alias is serving revision $VERIFIED_SHA with the universal importer, workbook bridge, and workbook API."
+          echo "Verified production alias is serving revision $VERIFIED_SHA with the universal workbook importer and 85% certainty gate."
