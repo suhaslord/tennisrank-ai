@@ -48,10 +48,44 @@
   }
 
   function headerField(importer, ml, header, values, context) {
-    const deterministic = importer?.canonicalField?.(header) || 'column';
-    if (deterministic !== 'column') return { field: deterministic, confidence: 1, method: 'rule' };
-
     const normalized = compact(header);
+    const genderRatio = ratio(values, looksGender);
+    const divisionRatio = ratio(values, looksDivision);
+    const scoreRatio = ratio(values, looksScore);
+    const dateRatio = ratio(values, looksDate);
+    const resultRatio = ratio(values, looksResult);
+    const recordRatio = ratio(values, looksRecord);
+
+    // Generic spreadsheet labels are inherently ambiguous. Resolve them from the
+    // values before applying exact aliases. This keeps "Team" usable for either
+    // player/team names or Boys/Girls, and "Group/Category" usable for either a
+    // division or team grouping without hard-coding a coach's template.
+    if (/^(?:team|group|category|class|section|squad|roster|pool)$/i.test(normalized) && genderRatio >= 0.8) {
+      return { field: 'gender', confidence: Math.max(0.94, genderRatio), method: 'header+value' };
+    }
+    if (/^(?:type|matchtype|format|matchformat|event|eventtype|group|category|class|section|draw|discipline|bracket|flight)$/i.test(normalized) && divisionRatio >= 0.8) {
+      return { field: 'division', confidence: Math.max(0.94, divisionRatio), method: 'header+value' };
+    }
+    if (/^(?:numbers?|final|finalresult|points?|tally|games?|setsplayed)$/i.test(normalized) && scoreRatio >= 0.7) {
+      return { field: 'score', confidence: Math.max(0.92, scoreRatio), method: 'header+value' };
+    }
+    if (/^(?:when|played|matchday|dayplayed)$/i.test(normalized) && dateRatio >= 0.7) {
+      return { field: 'date', confidence: Math.max(0.92, dateRatio), method: 'header+value' };
+    }
+
+    const deterministic = importer?.canonicalField?.(header) || 'column';
+    if (deterministic !== 'column') {
+      // Even a known alias can be overloaded in real sheets. Let very strong
+      // value evidence disambiguate only the broad aliases, not precise labels.
+      if (['name', 'division'].includes(deterministic) && genderRatio >= 0.92 && /^(?:team|group|category|class|section|roster)$/i.test(normalized)) {
+        return { field: 'gender', confidence: genderRatio, method: 'value-override' };
+      }
+      if (deterministic === 'name' && divisionRatio >= 0.92 && /^(?:team|group|category|class|section)$/i.test(normalized)) {
+        return { field: 'division', confidence: divisionRatio, method: 'value-override' };
+      }
+      return { field: deterministic, confidence: 1, method: 'rule' };
+    }
+
     const looseRules = [
       ['name', /^(who|member|entrant|person|studentname|playerlabel|competitorname)$/],
       ['opponent', /^(rival|otherplayer|otherside|playedagainst|opposition)$/],
@@ -68,12 +102,12 @@
     if (loose) return { field: loose[0], confidence: 0.9, method: 'semantic-rule' };
 
     const typed = [
-      ['score', ratio(values, looksScore), 0.62],
-      ['date', ratio(values, looksDate), 0.68],
-      ['gender', ratio(values, looksGender), 0.72],
-      ['division', ratio(values, looksDivision), 0.68],
-      ['result', ratio(values, looksResult), 0.72],
-      ['record', ratio(values, looksRecord), 0.78],
+      ['score', scoreRatio, 0.62],
+      ['date', dateRatio, 0.68],
+      ['gender', genderRatio, 0.72],
+      ['division', divisionRatio, 0.68],
+      ['result', resultRatio, 0.72],
+      ['record', recordRatio, 0.78],
     ].sort((a, b) => b[1] - a[1])[0];
     if (typed && typed[1] >= typed[2]) return { field: typed[0], confidence: typed[1], method: 'value-type' };
 
@@ -253,7 +287,7 @@
       columns: headerValues.filter(value => text(value)),
       mapping: mapping.filter(item => item.field !== 'column').map(item => ({ source: item.source, field: item.field, method: item.method, confidence: item.confidence })),
       sourceName: sourceName || '',
-      engine: 'universal-relational-v4',
+      engine: 'universal-relational-v5',
     };
     return rows;
   }
@@ -312,14 +346,14 @@
     const strong = guesses.filter(item => item.field !== 'column' && Number(item.confidence || 0) >= 0.6);
     const structural = strong.filter(item => !['score', 'date', 'gender', 'division'].includes(item.field));
     const explicitHeaders = guesses.filter((item, column) => {
-      if (!['rule', 'semantic-rule'].includes(item.method)) return false;
+      if (!['rule', 'semantic-rule', 'header+value'].includes(item.method)) return false;
       const raw = text(header[column]);
       return raw && !looksResult(raw) && !looksScore(raw) && !looksDate(raw) && !looksRecord(raw) && !looksNumber(raw);
     }).length;
     const dataPenalty = guesses.reduce((sum, item, column) => {
       const raw = text(header[column]);
       if (!raw) return sum;
-      if (looksPerson(raw) && !['rule', 'semantic-rule'].includes(item.method)) return sum + 2.8;
+      if (looksPerson(raw) && !['rule', 'semantic-rule', 'header+value'].includes(item.method)) return sum + 2.8;
       if (looksResult(raw) || looksScore(raw) || looksDate(raw) || looksRecord(raw) || looksNumber(raw)) return sum + 2.2;
       return sum;
     }, 0);
