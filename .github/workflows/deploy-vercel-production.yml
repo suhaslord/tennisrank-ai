@@ -48,6 +48,11 @@ jobs:
           printf '%s\n' '{"orgId":"team_4fHq5Px7I3sXJ9v8FOyXNOHD","projectId":"prj_p1VA7WLWT5fCRL4eep6DinNntvU1"}' > .vercel/project.json
           npx --yes vercel@latest pull --yes --environment=production --token="$VERCEL_TOKEN"
 
+      - name: Stamp verified revision
+        env:
+          VERIFIED_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: printf '%s\n' "$VERIFIED_SHA" > release-sha.txt
+
       - name: Build verified source
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
@@ -58,8 +63,10 @@ jobs:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: npx --yes vercel@latest deploy --prebuilt --prod --token="$VERCEL_TOKEN"
 
-      - name: Verify production alias contains the verified workbook release
+      - name: Verify production alias contains the exact verified release
         shell: bash
+        env:
+          VERIFIED_SHA: ${{ github.event.workflow_run.head_sha }}
         run: |
           set -euo pipefail
           BASE='https://tennisrank-ai.vercel.app'
@@ -70,9 +77,13 @@ jobs:
           for attempt in {1..12}; do
             bridge_code=$(curl --silent --show-error --location --output "$tmp/bridge" --write-out '%{http_code}' "$BASE/google-workbook-bridge.js" || true)
             workbook_code=$(curl --silent --show-error --output "$tmp/workbook" --write-out '%{http_code}' "$BASE/api/sheet-workbook?url=not-a-url" || true)
+            sha_code=$(curl --silent --show-error --location --output "$tmp/release-sha" --write-out '%{http_code}' "$BASE/release-sha.txt" || true)
+            deployed_sha=$(tr -d '\r\n' < "$tmp/release-sha" 2>/dev/null || true)
             if [ "$bridge_code" = '200' ] \
               && grep -q 'google-full-workbook-v1' "$tmp/bridge" \
-              && [ "$workbook_code" = '400' ]; then
+              && [ "$workbook_code" = '400' ] \
+              && [ "$sha_code" = '200' ] \
+              && [ "$deployed_sha" = "$VERIFIED_SHA" ]; then
               ready=true
               break
             fi
@@ -80,7 +91,8 @@ jobs:
           done
 
           if [ "$ready" != 'true' ]; then
-            echo "Production alias did not expose the verified Google workbook release." >&2
+            echo "Production alias did not expose verified revision $VERIFIED_SHA." >&2
+            echo "Observed deployed revision: ${deployed_sha:-missing}." >&2
             exit 1
           fi
-          echo 'Verified production alias contains the Google workbook bridge and workbook API.'
+          echo "Verified production alias is serving revision $VERIFIED_SHA with the workbook bridge and workbook API."
