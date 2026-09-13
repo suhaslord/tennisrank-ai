@@ -13,17 +13,23 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: Check homepage, workbook release assets, and critical APIs
+      - name: Check out current main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Check exact production revision, workbook release assets, and critical APIs
         shell: bash
         run: |
           set -euo pipefail
           BASE='https://tennisrank-ai.vercel.app'
+          EXPECTED_SHA=$(git rev-parse HEAD)
           tmp=$(mktemp -d)
           trap 'rm -rf "$tmp"' EXIT
 
           fail_stale() {
             echo "Production is reachable but stale: $1" >&2
-            echo "The latest verified Google workbook release is not fully deployed." >&2
+            echo "Expected current main revision: $EXPECTED_SHA" >&2
             exit 1
           }
 
@@ -32,6 +38,11 @@ jobs:
           grep -q 'TennisRank AI' "$tmp/home"
           grep -q 'id="authGate"' "$tmp/home"
           grep -q '/brand-assets.js' "$tmp/home"
+
+          code=$(curl --retry 2 --retry-delay 2 --silent --show-error --location --output "$tmp/release-sha" --write-out '%{http_code}' "$BASE/release-sha.txt")
+          test "$code" = '200' || fail_stale "/release-sha.txt returned HTTP $code"
+          DEPLOYED_SHA=$(tr -d '\r\n' < "$tmp/release-sha")
+          test "$DEPLOYED_SHA" = "$EXPECTED_SHA" || fail_stale "production is $DEPLOYED_SHA"
 
           code=$(curl --retry 2 --retry-delay 2 --silent --show-error --location --output "$tmp/bridge" --write-out '%{http_code}' "$BASE/google-workbook-bridge.js")
           test "$code" = '200' || fail_stale "/google-workbook-bridge.js returned HTTP $code"
@@ -58,4 +69,4 @@ jobs:
           test "$code" = '400'
           grep -q 'Invalid Google Sheets URL' "$tmp/sheet"
 
-          echo 'TennisRank production smoke checks passed, including workbook release assets.'
+          echo "TennisRank production smoke checks passed for exact revision $EXPECTED_SHA."
