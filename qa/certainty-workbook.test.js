@@ -123,6 +123,7 @@ test('Google AI cannot force publication when the combined certainty stays below
     ['C1', 'C2', 'C3', 'C4', 'C5', 'C6'],
     ['Noah Williams', 'Ethan Kim', 'Noah Williams', '6-3', 'Boys', 'Singles'],
     ['Noah Williams', 'Liam Chen', 'Liam Chen', '4-6', 'Boys', 'Singles'],
+    ['Liam Chen', 'Ethan Kim', 'Liam Chen', '7-5', 'Boys', 'Singles'],
   ]]]);
 
   await assert.rejects(
