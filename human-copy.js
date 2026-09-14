@@ -174,7 +174,15 @@
 
   function setText(doc, selector, value) {
     const el = doc.querySelector(selector);
-    if (el) el.textContent = value;
+    if (!el) return;
+    if (!el.children.length) {
+      el.textContent = value;
+      return;
+    }
+    for (const node of [...el.childNodes]) {
+      if (node.nodeType === 3) node.remove();
+    }
+    el.appendChild(doc.createTextNode(` ${value}`));
   }
 
   function applyStaticCopy(doc) {
@@ -197,7 +205,13 @@
     const current = String(el.textContent || '').trim();
     if (!current) return;
     const next = humanizeText(current);
-    if (next !== current) el.textContent = next;
+    if (next !== current) {
+      if (!el.children.length) el.textContent = next;
+      else {
+        for (const node of [...el.childNodes]) if (node.nodeType === 3) node.remove();
+        el.appendChild(el.ownerDocument.createTextNode(` ${next}`));
+      }
+    }
   }
 
   function humanizeStatusArea(doc, root) {
@@ -205,7 +219,6 @@
     if (root.matches?.(STATUS_SELECTORS)) humanizeElement(root);
     root.querySelectorAll?.(STATUS_SELECTORS).forEach(humanizeElement);
 
-    // Exact short labels generated later by coach/import dialogs.
     root.querySelectorAll?.('button span, h2, h3, .eyebrow, .coach-preview-summary span, .coach-preview-source span').forEach(el => {
       const current = String(el.textContent || '').trim();
       if (EXACT.has(current)) el.textContent = EXACT.get(current);
@@ -236,7 +249,7 @@
     });
     if (doc.documentElement) observer.observe(doc.documentElement, { childList: true, subtree: true, characterData: true });
 
-    win.addEventListener('tennisrank:auth-ready', applyStaticCopy.bind(null, doc));
+    win.addEventListener('tennisrank:auth-ready', () => applyStaticCopy(doc));
   }
 
   return { COPY, HTML_COPY, SELECT_COPY, EXACT, STATUS_RULES, humanizeText, applyStaticCopy, install };
