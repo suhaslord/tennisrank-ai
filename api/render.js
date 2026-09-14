@@ -43,6 +43,19 @@ function stripBlockedTeamPhotos(html) {
     .replace(/\s*<figure class="season-photo season-photo-singles">[\s\S]*?<\/figure>/, '');
 }
 
+function ensureHumanPresentation(html) {
+  let out = String(html || '');
+  if (!out.includes('human-theme.css')) {
+    out = out.replace('</head>', '<link rel="stylesheet" href="/human-theme.css" data-tennisrank-human-theme="true"></head>');
+  }
+  if (!out.includes('human-copy.js')) {
+    const before = '<script src="/brand-assets.js"></script>';
+    if (out.includes(before)) out = out.replace(before, '<script src="/human-copy.js" data-tennisrank-human-copy="true"></script>' + before);
+    else out = out.replace('</body>', '<script src="/human-copy.js" data-tennisrank-human-copy="true"></script></body>');
+  }
+  return out;
+}
+
 function ensureRuntimePatch(html) {
   let out = String(html || '');
   if (!out.includes('match-result-compat.js')) {
@@ -50,7 +63,7 @@ function ensureRuntimePatch(html) {
     if (out.includes(before)) out = out.replace(before, '<script src="/match-result-compat.js"></script>' + before);
     else out = out.replace('</body>', '<script src="/match-result-compat.js"></script></body>');
   }
-  return out;
+  return ensureHumanPresentation(out);
 }
 
 function rewrite(html) {
@@ -70,7 +83,7 @@ function rewrite(html) {
     .replaceAll('src="./app.js"', `src="${CDN}/app.js"`)
     .replaceAll('src="./ladder.js"', `src="${CDN}/ladder.js"`)
     .replaceAll('src="./challenge-ui.js"', `src="${CDN}/challenge-ui.js"`)
-    .replaceAll('src="./challenge-ui-state.js"', `src="${CDN}/challenge-ui-state.js"`);
+    .replaceAll('src="./challenge-ui-state.js"', `src="${CDN}/challenge-ui-state.js`);
 
   out = out.replace(
     '</head>',
@@ -129,6 +142,7 @@ async function handler(req, res) {
 module.exports = handler;
 module.exports.rewrite = rewrite;
 module.exports.ensureRuntimePatch = ensureRuntimePatch;
+module.exports.ensureHumanPresentation = ensureHumanPresentation;
 module.exports.CDN = CDN;
 module.exports.BLOCKED_TEAM_PHOTOS = BLOCKED_TEAM_PHOTOS;
 module.exports.PHOTO_PLACEHOLDER_SVG = PHOTO_PLACEHOLDER_SVG;
