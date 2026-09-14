@@ -115,6 +115,18 @@
     return compared >= 3 && positionalMatches >= 3 && positionalMatches / compared >= 0.4;
   }
 
+  function verifiedRuleConfidence(analysis) {
+    const mappings = Array.isArray(analysis?.mapping) ? analysis.mapping : [];
+    const exactRules = mappings.filter(item => {
+      const field = String(item?.field || "");
+      const method = String(item?.method || "");
+      const confidence = Number(item?.confidence || 0);
+      return field && field !== "column" && /^(?:rule|semantic-rule|secondary-rule|matrix)$/.test(method) && confidence >= 0.9;
+    });
+    if (exactRules.length < 4) return 0;
+    return exactRules.reduce((sum, item) => sum + Math.min(1, Number(item.confidence || 0)), 0) / exactRules.length;
+  }
+
   function attachAnalysis(rows, blocks, sourceName) {
     const confidences = blocks.map(block => Number(block.review?.confidence || 0)).filter(Number.isFinite);
     rows.__analysis = {
@@ -142,18 +154,22 @@
     if (!suspicious.length) return rows;
     const cleaned = rows.filter(row => !headerLikeParsedRow(row, importer));
     if (!cleaned.length) return rows;
-    const review = typeof importer?.validateInterpretation === "function"
-      ? importer.validateInterpretation(cleaned)
-      : { valid: true, confidence: 1 };
-    if (!review?.valid) return rows;
+
     const previous = rows.__analysis || {};
+    const schemaConfidence = verifiedRuleConfidence(previous);
     cleaned.__analysis = {
       ...previous,
       sourceName: sourceName || previous.sourceName || "",
       engine: "v5-repeated-header-cleanup",
       repeatedHeadersRemoved: suspicious.length,
-      review,
+      ...(schemaConfidence > 0 && previous.mlConfidence == null ? { confidence: schemaConfidence, deterministicSchemaConfidence: schemaConfidence } : {}),
     };
+
+    const review = typeof importer?.validateInterpretation === "function"
+      ? importer.validateInterpretation(cleaned)
+      : { valid: true, confidence: schemaConfidence || 1 };
+    if (!review?.valid) return rows;
+    cleaned.__analysis.review = review;
     return cleaned;
   }
 
@@ -218,5 +234,5 @@
     return importer;
   }
 
-  return { valueLike, findTableStarts, matrixToCsv, sparseContext, headerLikeParsedRow, attachAnalysis, cleanRepeatedHeaders, wrapImporter };
+  return { valueLike, findTableStarts, matrixToCsv, sparseContext, headerLikeParsedRow, verifiedRuleConfidence, attachAnalysis, cleanRepeatedHeaders, wrapImporter };
 });
