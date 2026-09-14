@@ -2,7 +2,7 @@ const http=require('node:http'), fs=require('node:fs'), path=require('node:path'
 const root=process.cwd(); const render=require(path.join(root,'api/render.js'));
 http.createServer(async(req,res)=>{
  const pathname=new URL(req.url,'http://localhost').pathname;
- if(['/','/index.html','/qa-coach-index.html','/qa-ai-index.html','/admin','/player'].includes(pathname)) {
+ if(['/','/index.html','/qa-index.html','/qa-coach-index.html','/qa-ai-index.html','/admin','/player'].includes(pathname)) {
   res.status=function(s){this.statusCode=s;return this};res.send=function(s){this.end(s);return this};return render(req,res);
  }
  const file=path.resolve(root,'.'+pathname);
