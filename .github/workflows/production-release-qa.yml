@@ -34,7 +34,7 @@ jobs:
         run: |
           set -euo pipefail
           find api lib -type f -name '*.js' -print0 | xargs -0 -n1 node --check
-          for file in app.js auth.js coach-ops.js coach-sharing.js coach-preview-guard.js coach-polish.js google-workbook-bridge.js match-result-compat.js spreadsheet-universal.js repeated-header-runtime-guard.js import-certainty-gate.js import-auto-sync.js import-runtime-fixes.js import-v2.js spreadsheet-ai.js spreadsheet-ml.js ranking-policy.js player-dashboard-state.js player-insights.js; do
+          for file in app.js auth.js coach-ops.js coach-sharing.js coach-preview-guard.js coach-polish.js google-workbook-bridge.js match-result-compat.js spreadsheet-universal.js repeated-header-runtime-guard.js import-certainty-gate.js import-auto-sync.js import-runtime-fixes.js import-v2.js spreadsheet-ai.js spreadsheet-ml.js ranking-policy.js player-dashboard-state.js player-insights.js human-copy.js; do
             node --check "$file"
           done
           node --check qa/production-hardening.test.js
@@ -48,6 +48,9 @@ jobs:
           node --check qa/repeated-header-runtime.test.js
           node --check qa/import-concurrency.test.js
           node --check qa/photo-placeholder.test.js
+          node --check qa/human-copy.test.js
+          node --check qa/human-theme.test.js
+          node --check qa/human-ui.spec.js
           node --check qa/certainty-ui.spec.js
           node --check qa/coach-real-sheet-browser.spec.js
           node --check qa/coach-failure-recovery.spec.js
@@ -86,6 +89,8 @@ jobs:
           node qa/repeated-header-runtime.test.js
           node qa/import-concurrency.test.js
           node qa/photo-placeholder.test.js
+          node qa/human-copy.test.js
+          node qa/human-theme.test.js
           node qa/ugly-import-regression.test.js
           node qa/production-hardening.test.js
           node qa/import-reliability.test.js
@@ -104,6 +109,7 @@ jobs:
           sleep 2
           npx playwright test \
             qa/auth-flow.spec.js \
+            qa/human-ui.spec.js \
             qa/browser.spec.js \
             qa/core-flow-browser.spec.js \
             qa/coach-ops-browser.spec.js \
@@ -131,11 +137,20 @@ jobs:
           test -f spreadsheet-universal.js
           test -f repeated-header-runtime-guard.js
           test -f import-certainty-gate.js
+          test -f human-theme.css
+          test -f human-copy.js
+          test -f qa/human-copy.test.js
+          test -f qa/human-theme.test.js
+          test -f qa/human-ui.spec.js
           test -f supabase/import_publish_concurrency_guard.sql
           grep -q 'coach-polish.css' api/render.js
           grep -q 'coach-polish.js' api/render.js
           grep -q 'match-result-compat.js' api/render.js
           grep -q 'PHOTO_PLACEHOLDER_SVG' api/render.js
+          grep -q 'human-theme.css' api/render.js
+          grep -q 'human-copy.js' api/render.js
+          grep -q 'human-theme.css' brand-assets.js
+          grep -q 'human-copy.js' brand-assets.js
           grep -q 'import-certainty-gate.js' brand-assets.js
           grep -q 'google-workbook-bridge.js' brand-assets.js
           grep -q 'match-result-compat.js' brand-assets.js
