@@ -352,3 +352,60 @@ body.role-admin main {
     transition: none !important;
   }
 }
+
+/* Win against older editorial !important rules without changing their global theme. */
+body .auth-gate {
+  grid-template-columns: minmax(0, 1fr) !important;
+  place-items: center !important;
+  padding: 40px 20px !important;
+  background:
+    radial-gradient(circle at 18% 8%, rgba(240, 90, 58, .08), transparent 22rem),
+    radial-gradient(circle at 84% 90%, rgba(240, 90, 58, .05), transparent 24rem),
+    var(--human-bg) !important;
+}
+
+body .auth-visual {
+  display: none !important;
+  min-height: 0 !important;
+}
+
+body .auth-card {
+  width: min(calc(100% - 40px), 480px) !important;
+  max-width: 480px !important;
+  margin: 0 !important;
+  padding: 42px !important;
+  background: rgba(255, 255, 255, .96) !important;
+  border: 1px solid var(--human-line) !important;
+  border-radius: 24px !important;
+  box-shadow: var(--human-shadow) !important;
+}
+
+body main#top > section.accounts-panel {
+  width: min(calc(100% - 48px), 1080px) !important;
+  max-width: 1080px !important;
+  margin: 40px auto 120px !important;
+  padding: clamp(28px, 4vw, 44px) !important;
+  background: var(--human-surface) !important;
+  border: 1px solid var(--human-line) !important;
+  border-radius: 20px !important;
+  box-shadow: 0 14px 40px rgba(66, 47, 38, .06) !important;
+}
+
+@media (max-width: 760px) {
+  body .auth-gate {
+    padding: 20px 14px !important;
+  }
+
+  body .auth-card {
+    width: min(calc(100% - 28px), 480px) !important;
+    padding: 30px 22px !important;
+    border-radius: 18px !important;
+  }
+
+  body main#top > section.accounts-panel {
+    width: calc(100% - 28px) !important;
+    margin-top: 26px !important;
+    padding: 26px 20px !important;
+    border-radius: 16px !important;
+  }
+}
