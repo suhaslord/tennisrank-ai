@@ -8,6 +8,9 @@
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
   "use strict";
 
+  const SHEET_URL_KEY = "tennisRankSheetUrl";
+  const REFRESH_RATE_KEY = "tennisRankRefreshRate";
+
   function cleanName(value) {
     return String(value || "").replace(/\s+/g, " ").trim();
   }
@@ -152,9 +155,130 @@
     return { teams, results };
   }
 
+  function storageGet(win, key) {
+    try {
+      return cleanName(win.localStorage?.getItem?.(key));
+    } catch {
+      return "";
+    }
+  }
+
+  function storageSet(win, key, value) {
+    try {
+      win.localStorage?.setItem?.(key, String(value));
+    } catch {
+      // Auto-refresh can still work for this tab when browser storage is unavailable.
+    }
+  }
+
+  function storageRemove(win, key) {
+    try {
+      win.localStorage?.removeItem?.(key);
+    } catch {
+      // Ignore blocked browser storage; the in-memory refresh controller still stops.
+    }
+  }
+
+  function connectedSheetUrl(win) {
+    return storageGet(win, SHEET_URL_KEY);
+  }
+
+  function installConnectedSheetRefresh(win) {
+    if (!win?.document || win.__tennisrankConnectedSheetRefreshInstalled) return null;
+    if (typeof win.startRefresh !== "function") return null;
+    win.__tennisrankConnectedSheetRefreshInstalled = true;
+
+    const baseStartRefresh = win.startRefresh.bind(win);
+    const refreshSelect = win.document.querySelector?.("#refreshRate") || null;
+    const sheetInput = win.document.querySelector?.("#sheetUrl") || null;
+    let rememberedUrl = connectedSheetUrl(win);
+    let managedTimer = null;
+
+    const clearManagedTimer = () => {
+      if (managedTimer === null) return;
+      (win.clearInterval || clearInterval)(managedTimer);
+      managedTimer = null;
+    };
+
+    const restore = profile => {
+      const currentProfile = profile || win.TennisRankAuth?.getProfile?.();
+      if (currentProfile?.role !== "admin" || !rememberedUrl) return false;
+      storageSet(win, SHEET_URL_KEY, rememberedUrl);
+      if (sheetInput && !cleanName(sheetInput.value)) sheetInput.value = rememberedUrl;
+      return true;
+    };
+
+    const stopNativeRefresh = () => {
+      if (!refreshSelect) return;
+      const desired = refreshSelect.value;
+      refreshSelect.value = "0";
+      baseStartRefresh();
+      refreshSelect.value = desired;
+      storageSet(win, REFRESH_RATE_KEY, desired || "0");
+    };
+
+    const start = () => {
+      clearManagedTimer();
+      const profile = win.TennisRankAuth?.getProfile?.();
+      const storedUrl = connectedSheetUrl(win);
+      if (storedUrl) rememberedUrl = storedUrl;
+      const seconds = Number(refreshSelect?.value || 0);
+
+      if (profile?.role === "admin" && rememberedUrl && seconds > 0 && typeof win.fetchSheet === "function" && typeof win.syncToBackend === "function") {
+        restore(profile);
+        // Clear app.js's backend timer first. Otherwise signing back in can leave
+        // the board polling the database while the connected Sheet goes stale.
+        stopNativeRefresh();
+        const tick = async () => {
+          try {
+            await win.fetchSheet();
+            await win.syncToBackend();
+          } catch (error) {
+            if (typeof win.setStatus === "function") win.setStatus(error.message || "Automatic Sheet refresh failed.", true);
+          }
+        };
+        managedTimer = (win.setInterval || setInterval)(tick, seconds * 1000);
+        win.__tennisrankConnectedSheetRefreshTimer = managedTimer;
+        storageSet(win, REFRESH_RATE_KEY, seconds);
+        return { mode: "sheet", seconds, sourceUrl: rememberedUrl };
+      }
+
+      baseStartRefresh();
+      return { mode: "native", seconds };
+    };
+
+    const disconnect = () => {
+      rememberedUrl = "";
+      storageRemove(win, SHEET_URL_KEY);
+      clearManagedTimer();
+      stopNativeRefresh();
+      win.__tennisrankConnectedSheetRefreshTimer = null;
+    };
+
+    // app.js registered its select listener first, so this listener runs second and
+    // replaces any accidental backend polling with the coach's connected Sheet.
+    refreshSelect?.addEventListener?.("change", start);
+    win.addEventListener?.("tennisrank:auth-ready", event => {
+      if (event?.detail?.profile?.role !== "admin") return;
+      restore(event.detail.profile);
+      start();
+    });
+
+    const existingProfile = win.TennisRankAuth?.getProfile?.();
+    if (existingProfile?.role === "admin" && rememberedUrl) {
+      win.setTimeout?.(() => {
+        restore(existingProfile);
+        start();
+      }, 0);
+    }
+
+    return { start, disconnect, restore, sourceUrl: () => rememberedUrl };
+  }
+
   function installBrowser(win) {
     if (win.__tennisrankImportAutoSyncInstalled) return;
     win.__tennisrankImportAutoSyncInstalled = true;
+    const refreshController = installConnectedSheetRefresh(win);
 
     const install = () => {
       if (typeof win.loadRows !== "function" || typeof win.syncToBackend !== "function") {
@@ -167,7 +291,13 @@
       const baseLoadRows = win.loadRows;
       const trackedLoadRows = function (rows, source) {
         if (Array.isArray(rows) && rows.length) lastRows = rows;
-        return baseLoadRows.apply(this, arguments);
+        try {
+          return baseLoadRows.apply(this, arguments);
+        } finally {
+          // A successful local CSV/file import is a deliberate source switch.
+          // Stop the old Sheet timer so it cannot overwrite the new upload later.
+          if (source === "csv" && !connectedSheetUrl(win)) refreshController?.disconnect();
+        }
       };
       trackedLoadRows.__tracksImportRows = true;
       trackedLoadRows.__baseLoadRows = baseLoadRows;
@@ -212,6 +342,11 @@
     syncTeam,
     dispatch,
     syncOfficialBoards,
+    storageGet,
+    storageSet,
+    storageRemove,
+    connectedSheetUrl,
+    installConnectedSheetRefresh,
     installBrowser,
   };
 });
