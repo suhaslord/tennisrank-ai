@@ -1,6 +1,8 @@
 const crypto = require("node:crypto");
 const { json, authenticatedContext, rest, rpc, allowApi, parseBody } = require("./_supabase");
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
 function hash(value) {
   return crypto.createHash("sha256").update(String(value || "")).digest("hex");
 }
@@ -15,6 +17,25 @@ function contentHash(rows) {
 
 function previewHash(rows, source) {
   return hash(`${sourceKey(source)}:${contentHash(rows)}`);
+}
+
+function previewToken(rows, source, expectedLatestSnapshotId = null) {
+  const snapshot = UUID_RE.test(String(expectedLatestSnapshotId || "")) ? String(expectedLatestSnapshotId).toLowerCase() : "none";
+  const digest = hash(`${sourceKey(source)}:${contentHash(rows)}:${snapshot}`);
+  return `v2.${snapshot}.${digest}`;
+}
+
+function parsePreviewToken(token, rows, source) {
+  const match = /^v2\.([^.]+)\.([0-9a-f]{64})$/i.exec(String(token || "").trim());
+  if (!match) return { valid: false, expectedLatestSnapshotId: null };
+  const snapshot = match[1].toLowerCase();
+  if (snapshot !== "none" && !UUID_RE.test(snapshot)) return { valid: false, expectedLatestSnapshotId: null };
+  const expectedLatestSnapshotId = snapshot === "none" ? null : snapshot;
+  const expected = previewToken(rows, source, expectedLatestSnapshotId);
+  const actualBuffer = Buffer.from(String(token));
+  const expectedBuffer = Buffer.from(expected);
+  const valid = actualBuffer.length === expectedBuffer.length && crypto.timingSafeEqual(actualBuffer, expectedBuffer);
+  return { valid, expectedLatestSnapshotId: valid ? expectedLatestSnapshotId : null };
 }
 
 function scalar(payload) {
@@ -81,7 +102,7 @@ module.exports = async function handler(req, res) {
       const action = String(body.action || "publish").trim().toLowerCase();
 
       if (action === "clear") {
-        const cleared = await rpc(context, "admin_clear_import", {
+        const cleared = await rpc(context, "admin_clear_import_checked", {
           p_coach_profile_id: context.profile.id,
         });
         if (!cleared.response.ok) return json(res, cleared.response.status, { error: cleared.payload.message || "Team data could not be removed." });
@@ -96,10 +117,10 @@ module.exports = async function handler(req, res) {
 
       if (action === "restore") {
         const snapshotId = String(body.snapshotId || "").trim();
-        if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(snapshotId)) {
+        if (!UUID_RE.test(snapshotId)) {
           return json(res, 400, { error: "Choose a valid import snapshot to restore." });
         }
-        const restored = await rpc(context, "admin_restore_import_snapshot", {
+        const restored = await rpc(context, "admin_restore_import_snapshot_checked", {
           p_coach_profile_id: context.profile.id,
           p_snapshot_id: snapshotId,
         });
@@ -114,14 +135,13 @@ module.exports = async function handler(req, res) {
       if (invalid) return json(res, rows.length > 10000 ? 413 : 400, { error: invalid });
       const key = sourceKey(source);
       const rowsHash = contentHash(rows);
-      const token = previewHash(rows, source);
 
       if (action === "preview") {
-        const latest = await rest(context, "import_snapshots?select=id,source_label,row_count,content_hash,created_at&order=created_at.desc&limit=1");
+        const latest = await rest(context, "import_snapshots?select=id,source_label,row_count,content_hash,created_at&order=created_at.desc,id.desc&limit=1");
         if (!latest.response.ok) return json(res, latest.response.status, { error: latest.payload.message || "Current import snapshot could not be loaded." });
         const current = Array.isArray(latest.payload) ? latest.payload[0] : null;
         return json(res, 200, {
-          previewHash: token,
+          previewHash: previewToken(rows, source, current?.id || null),
           contentHash: rowsHash,
           sourceKey: key,
           sourceLabel: source,
@@ -132,13 +152,14 @@ module.exports = async function handler(req, res) {
       }
 
       if (action !== "publish") return json(res, 400, { error: "Unsupported import action." });
-      if (!body.previewHash || String(body.previewHash) !== token) {
-        return json(res, 428, { error: "Preview this import before publishing it." });
+      const parsedPreview = parsePreviewToken(body.previewHash, rows, source);
+      if (!parsedPreview.valid) {
+        return json(res, 428, { error: "Preview this import again before publishing it." });
       }
       const summary = body.previewSummary && typeof body.previewSummary === "object" ? body.previewSummary : {};
       if (JSON.stringify(summary).length > 150000) return json(res, 413, { error: "Import preview summary is too large." });
 
-      const published = await rpc(context, "admin_publish_import", {
+      const published = await rpc(context, "admin_publish_import_checked", {
         p_coach_profile_id: context.profile.id,
         p_source_key: key,
         p_source_label: source,
@@ -146,8 +167,13 @@ module.exports = async function handler(req, res) {
         p_content_hash: rowsHash,
         p_summary: summary,
         p_restored_from_snapshot_id: null,
+        p_expected_latest_snapshot_id: parsedPreview.expectedLatestSnapshotId,
       });
-      if (!published.response.ok) return json(res, published.response.status, { error: published.payload.message || "Database save failed." });
+      if (!published.response.ok) {
+        const message = published.payload.message || "Database save failed.";
+        const stale = /live team data changed since this preview/i.test(message);
+        return json(res, stale ? 409 : published.response.status, { error: stale ? "The live team data changed after your preview. Review the latest board and publish again." : message });
+      }
       return json(res, 200, { saved: rows.length, snapshotId: scalar(published.payload), contentHash: rowsHash });
     }
 
@@ -160,5 +186,7 @@ module.exports = async function handler(req, res) {
 module.exports.sourceKey = sourceKey;
 module.exports.contentHash = contentHash;
 module.exports.previewHash = previewHash;
+module.exports.previewToken = previewToken;
+module.exports.parsePreviewToken = parsePreviewToken;
 module.exports.currentRows = currentRows;
 module.exports.validateRows = validateRows;
