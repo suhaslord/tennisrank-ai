@@ -10,6 +10,15 @@
     document.head.appendChild(script);
   }
 
+  function loadRuntimeStyle(href, dataKey) {
+    if (document.querySelector(`link[${dataKey}]`) || Array.from(document.styleSheets).some(sheet => String(sheet.href || '').endsWith(href))) return;
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = href;
+    link.setAttribute(dataKey, 'true');
+    document.head.appendChild(link);
+  }
+
   function normalizeGoogleWorkbookLinkOnConnect(event) {
     const button = event.target?.closest?.('#connectSheet');
     if (!button) return;
@@ -37,6 +46,8 @@
   loadRuntimeScript('/match-result-compat.js', 'data-tennisrank-match-result-compat');
   loadRuntimeScript('/google-workbook-bridge.js', 'data-tennisrank-google-workbook-bridge');
   loadRuntimeScript('/coach-essential.js', 'data-tennisrank-coach-essential');
+  loadRuntimeStyle('/human-theme.css', 'data-tennisrank-human-theme');
+  loadRuntimeScript('/human-copy.js', 'data-tennisrank-human-copy');
 
   const MARK_SVG = `
     <svg viewBox="0 0 96 72" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
