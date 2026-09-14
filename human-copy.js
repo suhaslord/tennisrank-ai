@@ -23,7 +23,7 @@
     ['.hero-copy', 'Check rankings, recent results, and player stats. Coaches can update everything from the same sheet the team already uses.'],
     ['#heroRankings span', 'See rankings'],
     ['#heroData span', 'Update team data'],
-    ['#heroSourceLabel', 'No sheet connected yet'],
+    ['#heroSourceLabel', 'Ready to import'],
     ['#heroRowCount', 'No rows yet'],
     ['.visual-topline > span:first-child', 'Season snapshot'],
     ['.visual-status', 'Ready'],
@@ -105,7 +105,7 @@
   };
 
   const EXACT = new Map([
-    ['Choose your password.', 'Set your password.'],
+    ['Choose your password.', 'Choose your password.'],
     ['For security, choose a new password before opening your dashboard.', 'Before you continue, set a new password.'],
     ['This password link is invalid or has expired. Request a new link using Forgot password.', 'That password link expired or isn’t valid. Use “Forgot your password?” to get a new one.'],
     ['Invitation accepted. Choose a password to finish your account.', 'You’re in. Create a password to finish setting up your account.'],
@@ -113,7 +113,7 @@
     ['Signing in...', 'Signing in…'],
     ['Password saved. Loading your dashboard...', 'Password saved. Opening your dashboard…'],
     ['Enter your email first, then choose Forgot password.', 'Enter your email first, then choose “Forgot your password?”'],
-    ['If an account exists for this email, a password reset link has been requested. Check your inbox and spam folder.', 'If that email has an account, we sent a reset link. Check your inbox and spam folder.'],
+    ['If an account exists for this email, a password reset link has been requested. Check your inbox and spam folder.', 'Your password reset link has been requested. Check your inbox and spam folder.'],
     ['Too many email requests. Please wait before trying again.', 'Too many email requests right now. Try again in a little while.'],
     ['The email service could not send a reset link. Ask your coach to check email delivery settings.', 'We couldn’t send the reset email. Ask your coach to check the email setup.'],
     ['Creating the first admin account...', 'Creating the admin account…'],
