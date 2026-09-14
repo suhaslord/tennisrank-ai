@@ -136,17 +136,39 @@
     return rows;
   }
 
+  function cleanRepeatedHeaders(rows, importer, sourceName) {
+    if (!Array.isArray(rows) || !rows.length) return rows;
+    const suspicious = rows.filter(row => headerLikeParsedRow(row, importer));
+    if (!suspicious.length) return rows;
+    const cleaned = rows.filter(row => !headerLikeParsedRow(row, importer));
+    if (!cleaned.length) return rows;
+    const review = typeof importer?.validateInterpretation === "function"
+      ? importer.validateInterpretation(cleaned)
+      : { valid: true, confidence: 1 };
+    if (!review?.valid) return rows;
+    const previous = rows.__analysis || {};
+    cleaned.__analysis = {
+      ...previous,
+      sourceName: sourceName || previous.sourceName || "",
+      engine: "v5-repeated-header-cleanup",
+      repeatedHeadersRemoved: suspicious.length,
+      review,
+    };
+    return cleaned;
+  }
+
   function wrapImporter(importer) {
     if (!importer || importer.__multiBlockFix) return importer;
     const baseParseText = importer.parseText.bind(importer);
 
     importer.parseText = (sourceText, sourceName) => {
-      const fullResult = baseParseText(sourceText, sourceName);
+      const rawFullResult = baseParseText(sourceText, sourceName);
+      const cleanedFullResult = cleanRepeatedHeaders(rawFullResult, importer, sourceName);
       let parsed;
-      try { parsed = importer.parseDelimited(String(sourceText || "")); } catch { return fullResult; }
+      try { parsed = importer.parseDelimited(String(sourceText || "")); } catch { return cleanedFullResult; }
       const matrix = parsed.matrix || [];
       const starts = findTableStarts(matrix, importer);
-      if (starts.length < 2) return fullResult;
+      if (starts.length < 2) return cleanedFullResult;
 
       const blocks = [];
       for (let blockIndex = 0; blockIndex < starts.length; blockIndex += 1) {
@@ -167,7 +189,7 @@
         blocks.push({ start, end, context, rows, review });
       }
 
-      if (blocks.length < 2) return fullResult;
+      if (blocks.length < 2) return cleanedFullResult;
       const merged = [];
       const seen = new Set();
       for (const block of blocks) {
@@ -179,16 +201,16 @@
         }
       }
 
-      const suspiciousFullRows = fullResult.filter(row => headerLikeParsedRow(row, importer)).length;
-      const usableFullRows = Math.max(0, fullResult.length - suspiciousFullRows);
+      const suspiciousFullRows = rawFullResult.filter(row => headerLikeParsedRow(row, importer)).length;
+      const usableFullRows = Math.max(0, rawFullResult.length - suspiciousFullRows);
       const blockReview = typeof importer.validateInterpretation === "function"
         ? importer.validateInterpretation(merged)
         : { valid: merged.length > 0 };
       const blocksAreBetter = blockReview.valid && (
-        merged.length > fullResult.length
+        merged.length > rawFullResult.length
         || (suspiciousFullRows > 0 && merged.length >= usableFullRows)
       );
-      if (!blocksAreBetter) return fullResult;
+      if (!blocksAreBetter) return cleanedFullResult;
       return attachAnalysis(merged, blocks, sourceName || "");
     };
 
@@ -196,5 +218,5 @@
     return importer;
   }
 
-  return { valueLike, findTableStarts, matrixToCsv, sparseContext, headerLikeParsedRow, attachAnalysis, wrapImporter };
+  return { valueLike, findTableStarts, matrixToCsv, sparseContext, headerLikeParsedRow, attachAnalysis, cleanRepeatedHeaders, wrapImporter };
 });
