@@ -128,7 +128,7 @@ test('cancelled import cannot be resurrected by Save current data',async({page})
  await page.locator('#csvText').fill(csv);await page.locator('#useCsv').click();
  await expect(page.locator('#importPreviewModal')).toBeVisible();await page.getByRole('button',{name:'Cancel',exact:true}).click();
  await expect(page.locator('#statusMessage')).toContainText('cancelled');
- await page.getByRole('button',{name:'Save current data',exact:true}).click();
+ await page.locator('#saveBackend').click();
  await expect(page.locator('#importPreviewModal')).toBeHidden();expect(state.savedRows).toHaveLength(0);
  await expect(page.locator('#rankingTable')).toContainText('No ranking data');
 });
