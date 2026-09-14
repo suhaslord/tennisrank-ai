@@ -48,7 +48,7 @@ create or replace function public.admin_restore_import_snapshot_checked(
 ) returns uuid
 language plpgsql
 set search_path to 'public'
-as $$;
+as $$
 begin
   perform pg_advisory_xact_lock(hashtext('tennisrank_import_mutation'));
   return public.admin_restore_import_snapshot(p_coach_profile_id, p_snapshot_id);
@@ -60,7 +60,7 @@ create or replace function public.admin_clear_import_checked(
 ) returns uuid
 language plpgsql
 set search_path to 'public'
-as $$;
+as $$
 begin
   perform pg_advisory_xact_lock(hashtext('tennisrank_import_mutation'));
   return public.admin_clear_import(p_coach_profile_id);
