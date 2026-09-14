@@ -32,6 +32,8 @@ function fakeWindow({ sheetUrl = '', role = 'admin', refreshRate = '60' } = {}) 
   let nextInterval = 1;
   let profile = role ? { role } : null;
   let nativeStarts = 0;
+  let fetchSheetCalls = 0;
+  let syncCalls = 0;
 
   const win = {
     document: {
@@ -52,8 +54,8 @@ function fakeWindow({ sheetUrl = '', role = 'admin', refreshRate = '60' } = {}) 
     },
     calculateRankings: () => ({ rankings: [] }),
     startRefresh() { nativeStarts += 1; },
-    async fetchSheet() {},
-    async syncToBackend() { return { saved: true }; },
+    async fetchSheet() { fetchSheetCalls += 1; },
+    async syncToBackend() { syncCalls += 1; return { saved: true }; },
     loadRows() { return 'loaded'; },
     setInterval(callback, milliseconds) {
       const id = nextInterval++;
@@ -77,51 +79,81 @@ function fakeWindow({ sheetUrl = '', role = 'admin', refreshRate = '60' } = {}) 
     sheet,
     intervals,
     nativeStarts: () => nativeStarts,
+    fetchSheetCalls: () => fetchSheetCalls,
+    syncCalls: () => syncCalls,
     setProfile(next) { profile = next; },
   };
 }
 
-(function restoresConnectedSheetAfterAdminSignIn() {
-  const fixture = fakeWindow({ sheetUrl: 'https://docs.google.com/spreadsheets/d/test/edit#gid=0' });
-  const controller = autoSync.installConnectedSheetRefresh(fixture.win);
+async function main() {
+  {
+    const fixture = fakeWindow({ sheetUrl: 'https://docs.google.com/spreadsheets/d/test/edit#gid=0' });
+    const controller = autoSync.installConnectedSheetRefresh(fixture.win);
 
-  assert.ok(controller, 'refresh controller should install in the browser');
-  assert.equal(fixture.sheet.value, 'https://docs.google.com/spreadsheets/d/test/edit#gid=0');
-  assert.equal(fixture.win.localStorage.getItem('tennisRankSheetUrl'), 'https://docs.google.com/spreadsheets/d/test/edit#gid=0');
-  assert.equal(fixture.intervals.size, 1, 'connected Sheet should own the recurring refresh');
-  assert.equal([...fixture.intervals.values()][0].milliseconds, 60000);
-  assert.ok(fixture.nativeStarts() >= 1, 'native backend timer should be cleared before Sheet polling starts');
-})();
+    assert.ok(controller, 'refresh controller should install in the browser');
+    assert.equal(fixture.sheet.value, 'https://docs.google.com/spreadsheets/d/test/edit#gid=0');
+    assert.equal(fixture.win.localStorage.getItem('tennisRankSheetUrl'), 'https://docs.google.com/spreadsheets/d/test/edit#gid=0');
+    assert.equal(fixture.intervals.size, 1, 'connected Sheet should own the recurring refresh');
+    assert.equal([...fixture.intervals.values()][0].milliseconds, 60000);
+    assert.ok(fixture.nativeStarts() >= 1, 'native backend timer should be cleared before Sheet polling starts');
+  }
 
-(function survivesAppInitializationClearingStoredUrl() {
-  const fixture = fakeWindow({ sheetUrl: 'https://docs.google.com/spreadsheets/d/persist/edit', role: null });
-  const controller = autoSync.installConnectedSheetRefresh(fixture.win);
-  assert.ok(controller);
+  {
+    const fixture = fakeWindow({ sheetUrl: 'https://docs.google.com/spreadsheets/d/persist/edit', role: null });
+    const controller = autoSync.installConnectedSheetRefresh(fixture.win);
+    assert.ok(controller);
 
-  fixture.win.localStorage.removeItem('tennisRankSheetUrl');
-  fixture.sheet.value = '';
-  fixture.setProfile({ role: 'admin' });
-  fixture.win.dispatch('tennisrank:auth-ready', { profile: { role: 'admin' } });
+    fixture.win.localStorage.removeItem('tennisRankSheetUrl');
+    fixture.sheet.value = '';
+    fixture.setProfile({ role: 'admin' });
+    fixture.win.dispatch('tennisrank:auth-ready', { profile: { role: 'admin' } });
 
-  assert.equal(fixture.win.localStorage.getItem('tennisRankSheetUrl'), 'https://docs.google.com/spreadsheets/d/persist/edit');
-  assert.equal(fixture.sheet.value, 'https://docs.google.com/spreadsheets/d/persist/edit');
-  assert.equal(fixture.intervals.size, 1);
-})();
+    assert.equal(fixture.win.localStorage.getItem('tennisRankSheetUrl'), 'https://docs.google.com/spreadsheets/d/persist/edit');
+    assert.equal(fixture.sheet.value, 'https://docs.google.com/spreadsheets/d/persist/edit');
+    assert.equal(fixture.intervals.size, 1);
+  }
 
-(function csvSourceSwitchStopsOldSheetTimer() {
-  const fixture = fakeWindow({ sheetUrl: 'https://docs.google.com/spreadsheets/d/old/edit' });
-  fixture.win.loadRows = function loadRows(rows, source) {
-    if (source === 'csv') fixture.win.localStorage.removeItem('tennisRankSheetUrl');
-    return rows.length;
-  };
+  {
+    const fixture = fakeWindow({ sheetUrl: 'https://docs.google.com/spreadsheets/d/old/edit' });
+    fixture.win.loadRows = function loadRows(rows, source) {
+      if (source === 'csv') fixture.win.localStorage.removeItem('tennisRankSheetUrl');
+      return rows.length;
+    };
 
-  autoSync.installBrowser(fixture.win);
-  assert.equal(fixture.intervals.size, 1, 'Sheet polling should begin for the remembered coach source');
+    autoSync.installBrowser(fixture.win);
+    assert.equal(fixture.intervals.size, 1, 'Sheet polling should begin for the remembered coach source');
 
-  const result = fixture.win.loadRows([{ name: 'New CSV Player' }], 'csv');
-  assert.equal(result, 1);
-  assert.equal(fixture.win.localStorage.getItem('tennisRankSheetUrl'), null);
-  assert.equal(fixture.intervals.size, 0, 'CSV import must stop the previous Sheet timer');
-})();
+    const result = fixture.win.loadRows([{ name: 'New CSV Player' }], 'csv');
+    assert.equal(result, 1);
+    assert.equal(fixture.win.localStorage.getItem('tennisRankSheetUrl'), null);
+    assert.equal(fixture.intervals.size, 0, 'CSV import must stop the previous Sheet timer');
+  }
 
-console.log('Connected Sheet refresh regression tests passed.');
+  {
+    const fixture = fakeWindow({ sheetUrl: 'https://docs.google.com/spreadsheets/d/certainty/edit', refreshRate: '15' });
+    fixture.win.__tennisRankCertaintyGateInstalled = true;
+    fixture.win.TennisRankImportCertainty = { publishRows() {} };
+    autoSync.installConnectedSheetRefresh(fixture.win);
+    const timer = [...fixture.intervals.values()][0];
+    assert.ok(timer, 'certainty-gated Sheet should still receive a refresh timer');
+    await timer.callback();
+    assert.equal(fixture.fetchSheetCalls(), 1, 'automatic refresh should fetch the Sheet once');
+    assert.equal(fixture.syncCalls(), 0, 'certainty-gated fetch already publishes and must not trigger a second save');
+  }
+
+  {
+    const fixture = fakeWindow({ sheetUrl: 'https://docs.google.com/spreadsheets/d/legacy/edit', refreshRate: '15' });
+    autoSync.installConnectedSheetRefresh(fixture.win);
+    const timer = [...fixture.intervals.values()][0];
+    await timer.callback();
+    assert.equal(fixture.fetchSheetCalls(), 1);
+    assert.equal(fixture.syncCalls(), 1, 'legacy fetch-only flow still needs the explicit backend save');
+  }
+
+  console.log('Connected Sheet refresh regression tests passed, including single-publish certainty refresh.');
+}
+
+main().catch(error => {
+  console.error(error);
+  process.exitCode = 1;
+});
