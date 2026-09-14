@@ -47,6 +47,7 @@ jobs:
           node --check qa/connected-sheet-refresh.test.js
           node --check qa/repeated-header-runtime.test.js
           node --check qa/import-concurrency.test.js
+          node --check qa/photo-placeholder.test.js
           node --check qa/certainty-ui.spec.js
           node --check qa/coach-real-sheet-browser.spec.js
           node --check qa/coach-failure-recovery.spec.js
@@ -84,6 +85,7 @@ jobs:
           node qa/connected-sheet-refresh.test.js
           node qa/repeated-header-runtime.test.js
           node qa/import-concurrency.test.js
+          node qa/photo-placeholder.test.js
           node qa/ugly-import-regression.test.js
           node qa/production-hardening.test.js
           node qa/import-reliability.test.js
@@ -121,6 +123,7 @@ jobs:
           test -f api/render.js
           test -f api/sheet-proxy.js
           test -f api/sheet-workbook.js
+          test -f api/photo-placeholder.js
           test -f coach-polish.js
           test -f coach-polish.css
           test -f google-workbook-bridge.js
@@ -140,5 +143,7 @@ jobs:
           grep -q 'CERTAINTY_THRESHOLD = 0.85' import-certainty-gate.js
           grep -q 'admin_publish_import_checked' api/records.js
           grep -q 'pg_advisory_xact_lock' supabase/import_publish_concurrency_guard.sql
+          grep -q '/assets/team-court.jpg' vercel.json
+          grep -q '/api/photo-placeholder' vercel.json
           ! grep -R --exclude-dir=.git --exclude=.env.example -E 'SUPABASE_SERVICE_ROLE_KEY[[:space:]]*=' .
           ! grep -R --exclude-dir=.git --exclude=.env.example -E 'GEMINI_API_KEY[[:space:]]*=' .
