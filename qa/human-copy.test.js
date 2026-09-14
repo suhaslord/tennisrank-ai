@@ -2,7 +2,7 @@ const assert = require('node:assert/strict');
 const copy = require('../human-copy');
 
 assert.equal(copy.humanizeText('Authentication failed.'), 'We couldn’t sign you in.');
-assert.equal(copy.humanizeText('Import cancelled. The live board was not changed.'), 'Import canceled. Nothing changed.');
+assert.equal(copy.humanizeText('Import cancelled. The live board was not changed.'), 'Import cancelled. Nothing changed.');
 assert.equal(
   copy.humanizeText('Live team data changed since this preview. Preview the latest board again before publishing.'),
   'The team data changed while you were reviewing this. Preview it again before publishing.',
@@ -10,6 +10,10 @@ assert.equal(
 assert.equal(
   copy.humanizeText('Database connected · 24 rows published with rollback history'),
   'Saved · 24 rows live · Undo available',
+);
+assert.equal(
+  copy.humanizeText('Import saved, but official ladder sync failed: Ladder offline.'),
+  'Import saved, but official ladder sync failed. The ladder didn’t finish updating: Ladder offline.',
 );
 
 const staticText = copy.COPY.map(([, value]) => value).join('\n');
