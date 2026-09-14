@@ -33,6 +33,7 @@
 
   loadRuntimeScript('/import-certainty-gate.js', 'data-tennisrank-import-certainty');
   loadRuntimeScript('/spreadsheet-universal.js', 'data-tennisrank-universal-import');
+  loadRuntimeScript('/repeated-header-runtime-guard.js', 'data-tennisrank-repeated-header-guard');
   loadRuntimeScript('/match-result-compat.js', 'data-tennisrank-match-result-compat');
   loadRuntimeScript('/google-workbook-bridge.js', 'data-tennisrank-google-workbook-bridge');
   loadRuntimeScript('/coach-essential.js', 'data-tennisrank-coach-essential');
@@ -85,6 +86,24 @@
         .tr-logo-wordmark-text{display:none}
         .tr-logo-wordmark .tr-logo-mark{width:36px;height:30px}
         .topbar>.brand-mark.tr-logo-link{width:38px;min-width:38px}
+      }
+      @media (prefers-reduced-motion:reduce){
+        html[data-tr-motion="reduced"] *,
+        html[data-tr-motion="reduced"] *::before,
+        html[data-tr-motion="reduced"] *::after{
+          animation-duration:.01ms!important;
+          animation-iteration-count:1!important;
+          transition-duration:.01ms!important;
+          transition-delay:0ms!important;
+        }
+        html[data-tr-motion="reduced"] .tr-motion-item,
+        html[data-tr-motion="reduced"] .auth-visual img,
+        html[data-tr-motion="reduced"] .auth-visual-rule,
+        html[data-tr-motion="reduced"] .hero-photo{
+          opacity:1!important;
+          transform:none!important;
+          will-change:auto!important;
+        }
       }
     `;
     document.head.appendChild(style);
