@@ -86,4 +86,21 @@ assert.deepEqual(
 assert.deepEqual(synonymRows.slice(3, 6).map(row => row.gender), ["Girls", "Girls", "Girls"]);
 assert.deepEqual(synonymRows.slice(6).map(row => row.division), ["Doubles", "Doubles"]);
 
-console.log("Multi-block import suite passed: mixed schemas and synonym section headers stay isolated without fake player rows.");
+const repeatedHeaders = [
+  "Team results,,,,,,,",
+  "Name,Opponent,Result,Score,Gender,Division,Date,Notes",
+  "José O’Neil,Zoë D'Arcy,W,10-8,Boys,Singles,2026-09-01,first block",
+  "Zoë D'Arcy,José O’Neil,W,6-4,Boys,Singles,2026-09-02,first block",
+  "Name,Opponent,Result,Score,Gender,Division,Date,Notes",
+  "Maya Long-Surname,Nia Patel,W,6-3,Girls,Singles,2026-09-03,second block",
+  "Maya Long-Surname,Nia Patel,W,6-2,Girls,Singles,2026-09-04,second block",
+].join("\n");
+
+const repeatedRows = importer.parseText(repeatedHeaders, "Repeated Headers");
+const repeatedReview = importer.validateInterpretation(repeatedRows);
+assert.equal(repeatedReview.valid, true, repeatedReview.reason);
+assert.equal(repeatedRows.length, 4, "repeated identical headers must be discarded without dropping match rows");
+assert.ok(!repeatedRows.some(row => String(row.name || "").toLowerCase() === "name"), "a repeated header must never become a player");
+assert.deepEqual(repeatedRows.map(row => row.name), ["José O’Neil", "Zoë D'Arcy", "Maya Long-Surname", "Maya Long-Surname"]);
+
+console.log("Multi-block import suite passed: mixed schemas, repeated headers, and synonym section headers stay isolated without fake player rows.");
