@@ -2,6 +2,18 @@
   "cleanUrls": true,
   "rewrites": [
     {
+      "source": "/assets/team-court.jpg",
+      "destination": "/api/photo-placeholder"
+    },
+    {
+      "source": "/assets/matchday-awards.jpg",
+      "destination": "/api/photo-placeholder"
+    },
+    {
+      "source": "/assets/singles-spotlight.jpg",
+      "destination": "/api/photo-placeholder"
+    },
+    {
       "source": "/api/config",
       "destination": "/api/auth-api?route=config"
     },
