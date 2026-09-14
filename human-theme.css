@@ -1,0 +1,354 @@
+/* Final human-facing theme overrides. Keep the app warm, simple, and team-first. */
+:root {
+  --human-bg: #faf8f5;
+  --human-surface: #ffffff;
+  --human-surface-soft: #fff6ef;
+  --human-line: #e9e2dc;
+  --human-text: #241f1c;
+  --human-muted: #6f6964;
+  --human-accent: #f05a3a;
+  --human-accent-dark: #d9482b;
+  --human-accent-soft: #fff0e9;
+  --human-shadow: 0 18px 50px rgba(66, 47, 38, .08);
+}
+
+/* Login: remove the split-screen marketing/photo treatment entirely. */
+body.auth-loading {
+  background: var(--human-bg) !important;
+}
+
+.auth-gate {
+  min-height: 100dvh !important;
+  display: grid !important;
+  grid-template-columns: 1fr !important;
+  place-items: center !important;
+  padding: 40px 20px !important;
+  background:
+    radial-gradient(circle at 18% 8%, rgba(240, 90, 58, .08), transparent 22rem),
+    radial-gradient(circle at 84% 90%, rgba(240, 90, 58, .05), transparent 24rem),
+    var(--human-bg) !important;
+}
+
+.auth-gate::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  opacity: .5;
+  background-image:
+    linear-gradient(rgba(71, 56, 49, .035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(71, 56, 49, .035) 1px, transparent 1px);
+  background-size: 56px 56px;
+  mask-image: radial-gradient(circle at center, #000, transparent 76%);
+}
+
+.auth-visual {
+  display: none !important;
+}
+
+.auth-card {
+  position: relative !important;
+  z-index: 2 !important;
+  width: min(100%, 480px) !important;
+  margin: 0 !important;
+  padding: 42px !important;
+  color: var(--human-text) !important;
+  background: rgba(255, 255, 255, .96) !important;
+  border: 1px solid var(--human-line) !important;
+  border-radius: 24px !important;
+  box-shadow: var(--human-shadow) !important;
+}
+
+.auth-card::before {
+  content: "";
+  display: block;
+  width: 42px;
+  height: 5px;
+  margin-bottom: 30px;
+  border-radius: 999px;
+  background: var(--human-accent);
+}
+
+.auth-card-topline {
+  margin-bottom: 34px !important;
+  color: var(--human-muted) !important;
+  font-size: 12px !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+}
+
+.auth-card .eyebrow {
+  margin-bottom: 9px !important;
+  color: var(--human-accent) !important;
+  font-size: 12px !important;
+  font-weight: 650 !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+}
+
+.auth-card h1 {
+  margin: 0 !important;
+  color: var(--human-text) !important;
+  font-size: clamp(40px, 8vw, 56px) !important;
+  font-weight: 560 !important;
+  line-height: 1 !important;
+  letter-spacing: -.055em !important;
+}
+
+.auth-copy {
+  max-width: 370px !important;
+  margin: 16px 0 28px !important;
+  color: var(--human-muted) !important;
+  font-size: 15px !important;
+  line-height: 1.55 !important;
+}
+
+.auth-form {
+  gap: 9px !important;
+}
+
+.auth-form label,
+.invite-grid label {
+  color: var(--human-text) !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+}
+
+.auth-form input,
+.bootstrap-form input {
+  min-height: 50px !important;
+  padding: 0 15px !important;
+  color: var(--human-text) !important;
+  background: #fff !important;
+  border: 1px solid var(--human-line) !important;
+  border-radius: 12px !important;
+  box-shadow: none !important;
+}
+
+.auth-form input:focus,
+.bootstrap-form input:focus {
+  border-color: var(--human-accent) !important;
+  box-shadow: 0 0 0 4px rgba(240, 90, 58, .11) !important;
+}
+
+.auth-card .primary-button,
+.auth-card .secondary-button {
+  min-height: 50px !important;
+  margin-top: 12px !important;
+  justify-content: center !important;
+  color: #fff !important;
+  background: var(--human-accent) !important;
+  border-color: var(--human-accent) !important;
+  border-radius: 12px !important;
+  box-shadow: none !important;
+}
+
+.auth-card .primary-button:hover,
+.auth-card .secondary-button:hover {
+  background: var(--human-accent-dark) !important;
+  border-color: var(--human-accent-dark) !important;
+  transform: none !important;
+}
+
+.auth-card .text-button {
+  margin-top: 16px !important;
+  color: var(--human-muted) !important;
+  font-size: 13px !important;
+  text-decoration: none !important;
+}
+
+.auth-card .text-button:hover {
+  color: var(--human-accent-dark) !important;
+}
+
+.auth-footnote {
+  margin-top: 24px !important;
+  color: var(--human-muted) !important;
+  font-size: 12px !important;
+}
+
+.auth-status {
+  margin-top: 16px !important;
+  color: #36785d !important;
+}
+
+.auth-status.error {
+  color: #b33e32 !important;
+}
+
+/* Admin/player account screen: make it feel like a normal team settings page. */
+.accounts-panel {
+  width: min(100%, 1080px) !important;
+  margin: 40px auto 120px !important;
+  padding: clamp(28px, 4vw, 44px) !important;
+  color: var(--human-text) !important;
+  background: var(--human-surface) !important;
+  border: 1px solid var(--human-line) !important;
+  border-radius: 20px !important;
+  box-shadow: 0 14px 40px rgba(66, 47, 38, .06) !important;
+}
+
+.accounts-panel .panel-heading {
+  align-items: flex-start !important;
+  gap: 18px !important;
+}
+
+.accounts-panel .eyebrow {
+  margin-bottom: 7px !important;
+  color: var(--human-accent) !important;
+  font-size: 12px !important;
+  font-weight: 650 !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+}
+
+.accounts-panel h2 {
+  color: var(--human-text) !important;
+  font-size: clamp(30px, 4vw, 42px) !important;
+  font-weight: 540 !important;
+  letter-spacing: -.04em !important;
+}
+
+.accounts-panel .role-pill {
+  padding: 7px 10px !important;
+  color: #9c3d28 !important;
+  background: var(--human-accent-soft) !important;
+  border: 1px solid #f7d8ca !important;
+  font-size: 11px !important;
+  font-weight: 650 !important;
+  text-transform: none !important;
+}
+
+.accounts-panel .panel-copy {
+  max-width: 690px !important;
+  margin-top: 12px !important;
+  color: var(--human-muted) !important;
+  font-size: 14px !important;
+  line-height: 1.6 !important;
+}
+
+.invite-grid {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 18px 20px !important;
+  margin-top: 30px !important;
+  padding-top: 28px !important;
+  border-top: 1px solid var(--human-line) !important;
+}
+
+.invite-grid > div {
+  gap: 8px !important;
+}
+
+.invite-grid input,
+.invite-grid select {
+  width: 100% !important;
+  min-height: 48px !important;
+  padding: 0 14px !important;
+  color: var(--human-text) !important;
+  background: #fff !important;
+  border: 1px solid var(--human-line) !important;
+  border-radius: 11px !important;
+  box-shadow: none !important;
+}
+
+.invite-grid input:focus,
+.invite-grid select:focus {
+  border-color: var(--human-accent) !important;
+  box-shadow: 0 0 0 4px rgba(240, 90, 58, .10) !important;
+}
+
+.invite-grid .primary-button {
+  min-height: 48px !important;
+  align-self: end !important;
+  padding: 0 20px !important;
+  color: #fff !important;
+  background: var(--human-accent) !important;
+  border-color: var(--human-accent) !important;
+  border-radius: 11px !important;
+  box-shadow: none !important;
+}
+
+.invite-grid .primary-button:hover {
+  background: var(--human-accent-dark) !important;
+  border-color: var(--human-accent-dark) !important;
+  transform: none !important;
+}
+
+#inviteStatus {
+  margin-top: 16px !important;
+  color: var(--human-muted) !important;
+}
+
+.account-list {
+  margin-top: 30px !important;
+  border-top-color: var(--human-line) !important;
+}
+
+.account-row {
+  padding: 17px 0 !important;
+  border-bottom-color: var(--human-line) !important;
+}
+
+.account-row strong {
+  color: var(--human-text) !important;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+}
+
+.account-row small {
+  color: var(--human-muted) !important;
+}
+
+/* Keep the surrounding admin page light instead of the large pink field. */
+body.role-admin {
+  background:
+    radial-gradient(circle at 92% 0%, rgba(240, 90, 58, .07), transparent 25rem),
+    var(--human-bg) !important;
+}
+
+body.role-admin main {
+  background: transparent !important;
+}
+
+@media (max-width: 760px) {
+  .auth-gate {
+    padding: 20px 14px !important;
+  }
+
+  .auth-card {
+    padding: 30px 22px !important;
+    border-radius: 18px !important;
+  }
+
+  .auth-card::before {
+    margin-bottom: 24px;
+  }
+
+  .auth-card h1 {
+    font-size: 42px !important;
+  }
+
+  .accounts-panel {
+    margin-top: 26px !important;
+    padding: 26px 20px !important;
+    border-radius: 16px !important;
+  }
+
+  .invite-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .invite-grid .primary-button {
+    width: 100% !important;
+    justify-content: center !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .auth-card,
+  .accounts-panel {
+    animation: none !important;
+    transition: none !important;
+  }
+}
