@@ -3,15 +3,15 @@
   "rewrites": [
     {
       "source": "/assets/team-court.jpg",
-      "destination": "/api/photo-placeholder"
+      "destination": "/api/render?asset=photo-placeholder"
     },
     {
       "source": "/assets/matchday-awards.jpg",
-      "destination": "/api/photo-placeholder"
+      "destination": "/api/render?asset=photo-placeholder"
     },
     {
       "source": "/assets/singles-spotlight.jpg",
-      "destination": "/api/photo-placeholder"
+      "destination": "/api/render?asset=photo-placeholder"
     },
     {
       "source": "/api/config",
