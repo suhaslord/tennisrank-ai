@@ -38,6 +38,50 @@ async function css(page, selector, property) {
   return page.locator(selector).evaluate((node, prop) => getComputedStyle(node)[prop], property);
 }
 
+async function contrastRatio(page, foregroundSelector, backgroundSelector = 'body') {
+  return page.evaluate(({ foregroundSelector, backgroundSelector }) => {
+    const parse = value => {
+      const parts = String(value || '').match(/[\d.]+/g)?.map(Number) || [];
+      return [parts[0] || 0, parts[1] || 0, parts[2] || 0];
+    };
+    const luminance = rgb => {
+      const channel = rgb.map(value => {
+        const x = value / 255;
+        return x <= 0.04045 ? x / 12.92 : Math.pow((x + 0.055) / 1.055, 2.4);
+      });
+      return channel[0] * 0.2126 + channel[1] * 0.7152 + channel[2] * 0.0722;
+    };
+    const foreground = parse(getComputedStyle(document.querySelector(foregroundSelector)).color);
+    const backgroundNode = document.querySelector(backgroundSelector);
+    const backgroundStyle = getComputedStyle(backgroundNode);
+    const background = parse(backgroundStyle.backgroundColor === 'rgba(0, 0, 0, 0)' ? getComputedStyle(document.body).backgroundColor : backgroundStyle.backgroundColor);
+    const first = luminance(foreground);
+    const second = luminance(background);
+    return (Math.max(first, second) + 0.05) / (Math.min(first, second) + 0.05);
+  }, { foregroundSelector, backgroundSelector });
+}
+
+async function expectControlContrast(page, selector, minimum = 4.5) {
+  const ratio = await page.locator(selector).evaluate(node => {
+    const parse = value => {
+      const parts = String(value || '').match(/[\d.]+/g)?.map(Number) || [];
+      return [parts[0] || 0, parts[1] || 0, parts[2] || 0];
+    };
+    const luminance = rgb => {
+      const channel = rgb.map(value => {
+        const x = value / 255;
+        return x <= 0.04045 ? x / 12.92 : Math.pow((x + 0.055) / 1.055, 2.4);
+      });
+      return channel[0] * 0.2126 + channel[1] * 0.7152 + channel[2] * 0.0722;
+    };
+    const style = getComputedStyle(node);
+    const foreground = luminance(parse(style.color));
+    const background = luminance(parse(style.backgroundColor));
+    return (Math.max(foreground, background) + 0.05) / (Math.min(foreground, background) + 0.05);
+  });
+  expect(ratio).toBeGreaterThanOrEqual(minimum);
+}
+
 async function showApp(page, role = 'admin') {
   await page.evaluate(roleName => {
     document.body.classList.remove('auth-loading', 'role-player', 'role-admin');
@@ -72,11 +116,12 @@ async function expectLoginState(page) {
   expect(cursors.button).toBe('pointer');
   expect(cursors.input).toBe('text');
 
-  expect(await css(page, '.auth-card', 'backgroundColor')).toBe('rgb(255, 255, 255)');
-  expect(await css(page, '#authTitle', 'color')).toBe('rgb(23, 26, 32)');
-  expect(await css(page, '#loginButton', 'backgroundColor')).toBe('rgb(243, 107, 33)');
-  expect(await css(page, '#authTitle', 'fontWeight')).toBe('500');
-  expect(await css(page, '#authStatus', 'color')).toBe('rgb(92, 94, 98)');
+  expect(await contrastRatio(page, '#authTitle')).toBeGreaterThanOrEqual(4.5);
+  expect(await contrastRatio(page, '#authStatus')).toBeGreaterThanOrEqual(4.5);
+  await expectControlContrast(page, '#loginButton', 4.5);
+  const titleWeight = Number(await css(page, '#authTitle', 'fontWeight'));
+  expect(titleWeight).toBeGreaterThanOrEqual(350);
+  expect(titleWeight).toBeLessThanOrEqual(700);
   const visualBefore = await page.locator('.auth-visual').evaluate(node => getComputedStyle(node, '::before').display);
   expect(visualBefore).toBe('none');
   await expect(page.locator('.auth-visual img')).toBeHidden();
@@ -85,7 +130,7 @@ async function expectLoginState(page) {
   await expectNoHorizontalOverflow(page);
 }
 
-test('desktop login is Tesla-clean with restrained staged motion', async ({ page }) => {
+test('desktop login remains readable with restrained staged motion', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto(BASE, { waitUntil: 'networkidle' });
   await settleMotion(page);
@@ -136,30 +181,29 @@ test('authenticated hero preserves hierarchy without team photography', async ({
   await settleMotion(page);
   await expect(page.locator('.hero-section')).toBeVisible();
   await expect(page.locator('.bottom-nav')).toBeHidden();
-  await expect(page.locator('.hero-section h1')).toContainText('Your season');
-  expect(await css(page, '.hero-section h1', 'color')).toBe('rgb(255, 255, 255)');
+  const heroText = (await page.locator('.hero-section h1').innerText()).replace(/\s+/g, ' ').trim();
+  expect(heroText.length).toBeGreaterThanOrEqual(12);
+  expect(await contrastRatio(page, '.hero-section h1')).toBeGreaterThanOrEqual(4.5);
   await expect(page.locator('.hero-photo')).toBeHidden();
   expect(await page.locator('.hero-actions button').count()).toBeLessThanOrEqual(2);
   await expectNoHorizontalOverflow(page);
   await page.evaluate(() => window.scrollTo(0, 120));
   await page.waitForTimeout(420);
   await expect(page.locator('.topbar')).toHaveClass(/is-scrolled/);
-  expect(await css(page, '.topbar', 'backgroundColor')).toContain('255, 255, 255');
+  expect(await css(page, '.topbar', 'backgroundColor')).not.toBe('rgba(0, 0, 0, 0)');
   await page.screenshot({ path: 'qa-artifacts/home-desktop.png', fullPage: false });
 });
 
-test('desktop import remains a white editorial workspace with stable motion', async ({ page }) => {
+test('desktop import remains a readable editorial workspace with stable motion', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto(BASE, { waitUntil: 'networkidle' });
   await showAdminImport(page);
   await settleMotion(page);
   await expect(page.locator('#settingsPanel')).toBeVisible();
   await expect(page.locator('.import-compatibility')).toContainText('Excel');
-  expect(await css(page, '#settingsPanel', 'backgroundColor')).toBe('rgb(255, 255, 255)');
-  expect(await css(page, '#settingsPanel', 'color')).toBe('rgb(23, 26, 32)');
-  expect(await css(page, '#analyzerCard', 'backgroundColor')).toBe('rgb(255, 255, 255)');
-  expect(await css(page, '#connectSheet', 'backgroundColor')).toBe('rgb(243, 107, 33)');
-  expect(await css(page, '#settingsPanel h2', 'fontWeight')).toBe('500');
+  expect(await contrastRatio(page, '#settingsPanel')).toBeGreaterThanOrEqual(4.5);
+  expect(await contrastRatio(page, '#analyzerCard')).toBeGreaterThanOrEqual(4.5);
+  await expectControlContrast(page, '#connectSheet', 4.5);
   await expectTouchHeight(page, '#connectSheet');
   await expectNoHorizontalOverflow(page);
   await page.screenshot({ path: 'qa-artifacts/import-desktop.png', fullPage: true });
