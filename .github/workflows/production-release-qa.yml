@@ -45,6 +45,7 @@ jobs:
           node --check qa/universal-import.test.js
           node --check qa/certainty-workbook.test.js
           node --check qa/connected-sheet-refresh.test.js
+          node --check qa/repeated-header-runtime.test.js
           node --check qa/certainty-ui.spec.js
           node --check qa/coach-real-sheet-browser.spec.js
           node --check qa/coach-failure-recovery.spec.js
@@ -80,6 +81,7 @@ jobs:
           node qa/ai-thresholds.test.js
           node qa/import-auto-sync.test.js
           node qa/connected-sheet-refresh.test.js
+          node qa/repeated-header-runtime.test.js
           node qa/ugly-import-regression.test.js
           node qa/production-hardening.test.js
           node qa/import-reliability.test.js
