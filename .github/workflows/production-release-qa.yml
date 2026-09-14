@@ -39,12 +39,18 @@ jobs:
           done
           node --check qa/production-hardening.test.js
           node --check qa/coach-feedback-regressions.test.js
+          node --check qa/coach-failure-recovery.test.js
+          node --check qa/account-access.test.js
           node --check qa/match-result-compat.test.js
           node --check qa/universal-import.test.js
           node --check qa/certainty-workbook.test.js
           node --check qa/connected-sheet-refresh.test.js
           node --check qa/certainty-ui.spec.js
           node --check qa/coach-real-sheet-browser.spec.js
+          node --check qa/coach-failure-recovery.spec.js
+          node --check qa/messy-form-factors.spec.js
+          node --check qa/messy-player-charts.spec.js
+          node --check qa/visual-stability.spec.js
 
       - name: Unit and import regression suite
         run: |
@@ -59,6 +65,8 @@ jobs:
           node qa/ladder-engine.test.js
           node qa/challenge-api.test.js
           node qa/coach-ops.test.js
+          node qa/account-access.test.js
+          node qa/coach-failure-recovery.test.js
           node qa/import-regression.test.js
           node qa/import-v2.test.js
           node qa/delimiter-fuzz.test.js
@@ -77,17 +85,30 @@ jobs:
           node qa/import-reliability.test.js
           node qa/coach-feedback-regressions.test.js
           node qa/match-result-compat.test.js
+          node qa/messy-charts.test.js
           node qa/universal-import.test.js
           node qa/certainty-workbook.test.js
 
-      - name: Coach/browser critical path
+      - name: Coach/browser strict path
         run: |
           set -euo pipefail
           node qa/server.js >/tmp/tennisrank-release-http.log 2>&1 &
           SERVER_PID=$!
           trap 'kill $SERVER_PID || true' EXIT
           sleep 2
-          npx playwright test qa/auth-flow.spec.js qa/core-flow-browser.spec.js qa/coach-ops-browser.spec.js qa/import-board-sync.spec.js qa/coach-real-sheet-browser.spec.js qa/certainty-ui.spec.js --reporter=line --workers=1
+          npx playwright test \
+            qa/auth-flow.spec.js \
+            qa/browser.spec.js \
+            qa/core-flow-browser.spec.js \
+            qa/coach-ops-browser.spec.js \
+            qa/coach-failure-recovery.spec.js \
+            qa/import-board-sync.spec.js \
+            qa/coach-real-sheet-browser.spec.js \
+            qa/certainty-ui.spec.js \
+            qa/messy-form-factors.spec.js \
+            qa/messy-player-charts.spec.js \
+            qa/visual-stability.spec.js \
+            --reporter=line --workers=1
 
       - name: Deployment guardrails
         run: |
