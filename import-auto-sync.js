@@ -73,9 +73,6 @@
           gradeLevel = normalizeGradeLevel(value);
         }
       }
-      // Some coach sheets use a generic "Division" column for Varsity/JV, while
-      // others use the same header for Singles/Doubles. Only accept explicit
-      // Varsity/JV values here so match-format values cannot be confused.
       if (!division) division = entries.map(([, value]) => normalizeRosterDivision(value)).find(Boolean) || null;
       if (!gradeLevel) gradeLevel = entries.map(([, value]) => normalizeGradeLevel(value)).find(Boolean) || null;
       if (division && gradeLevel) break;
@@ -143,8 +140,6 @@
       results.push(await syncTeam(win, team, teams[team]));
     }
 
-    // Reuse challenge-ui's existing auth-ready listener as the single official
-    // workflow refresh path. app.js safely ignores duplicate initialization.
     if (results.length) {
       dispatch(win, "tennisrank:auth-ready", {
         profile,
@@ -181,6 +176,10 @@
 
   function connectedSheetUrl(win) {
     return storageGet(win, SHEET_URL_KEY);
+  }
+
+  function certaintyGateOwnsSheetPublish(win) {
+    return Boolean(win?.__tennisRankCertaintyGateInstalled && win?.TennisRankImportCertainty?.publishRows);
   }
 
   function installConnectedSheetRefresh(win) {
@@ -226,13 +225,13 @@
 
       if (profile?.role === "admin" && rememberedUrl && seconds > 0 && typeof win.fetchSheet === "function" && typeof win.syncToBackend === "function") {
         restore(profile);
-        // Clear app.js's backend timer first. Otherwise signing back in can leave
-        // the board polling the database while the connected Sheet goes stale.
         stopNativeRefresh();
         const tick = async () => {
           try {
             await win.fetchSheet();
-            await win.syncToBackend();
+            // The certainty-gated Sheet importer performs its own preview + publish.
+            // Calling syncToBackend again would trigger a second coach confirmation/save.
+            if (!certaintyGateOwnsSheetPublish(win)) await win.syncToBackend();
           } catch (error) {
             if (typeof win.setStatus === "function") win.setStatus(error.message || "Automatic Sheet refresh failed.", true);
           }
@@ -255,8 +254,6 @@
       win.__tennisrankConnectedSheetRefreshTimer = null;
     };
 
-    // app.js registered its select listener first, so this listener runs second and
-    // replaces any accidental backend polling with the coach's connected Sheet.
     refreshSelect?.addEventListener?.("change", start);
     win.addEventListener?.("tennisrank:auth-ready", event => {
       if (event?.detail?.profile?.role !== "admin") return;
@@ -294,8 +291,6 @@
         try {
           return baseLoadRows.apply(this, arguments);
         } finally {
-          // A successful local CSV/file import is a deliberate source switch.
-          // Stop the old Sheet timer so it cannot overwrite the new upload later.
           if (source === "csv" && !connectedSheetUrl(win)) refreshController?.disconnect();
         }
       };
@@ -324,8 +319,6 @@
       win.syncToBackend = synced;
     };
 
-    // Import runtime patches its own wrappers with a zero-delay task. Install one
-    // tick later so this becomes the final publish hook regardless of script order.
     win.setTimeout(install, 0);
   }
 
@@ -346,6 +339,7 @@
     storageSet,
     storageRemove,
     connectedSheetUrl,
+    certaintyGateOwnsSheetPublish,
     installConnectedSheetRefresh,
     installBrowser,
   };
