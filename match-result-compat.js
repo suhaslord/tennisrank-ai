@@ -60,6 +60,14 @@
     return names.length === 1 ? names[0] : names.sort((a, b) => a.localeCompare(b, 'en', { sensitivity: 'base', numeric: true })).join(' & ');
   }
 
+  function genderKind(value) {
+    const key = compact(value);
+    if (['m', 'male', 'boy', 'boys', 'man', 'men'].includes(key)) return 'boys';
+    if (['f', 'female', 'girl', 'girls', 'woman', 'women'].includes(key)) return 'girls';
+    if (['mixed', 'coed', 'xd', 'mxd'].includes(key)) return 'mixed';
+    return '';
+  }
+
   function setHidden(row, key, value) {
     try {
       Object.defineProperty(row, key, { value, writable: true, configurable: true, enumerable: false });
@@ -116,7 +124,18 @@
     }
 
     if (partnerStyle) {
-      if (!text(row.division || row.format || row.event || row.matchtype)) row.division = 'Doubles';
+      const divisionText = text(row.division || row.format || row.event || row.matchtype);
+      if (!divisionText) row.division = 'Doubles';
+      if (/\b(?:mixed|co[- ]?ed|coed|xd|mxd)\b/i.test(divisionText)) {
+        row.gender = 'Mixed';
+        row.division = 'Doubles';
+      } else {
+        const playerGender = genderKind(valueFor(row, ['gender', 'player gender', 'playergender', 'gender1', 'player1 gender']));
+        const partnerGender = genderKind(valueFor(row, ['partner gender', 'partnergender', 'gender2', 'player2 gender', 'teammate gender']));
+        if ((playerGender === 'boys' && partnerGender === 'girls') || (playerGender === 'girls' && partnerGender === 'boys')) {
+          row.gender = 'Mixed';
+        }
+      }
       setHidden(row, '__doublesPartnerStyle', true);
       if (primary && selfPair) {
         setHidden(row, '__doublesPrimary', compact(primary));
@@ -273,6 +292,7 @@
     valueFor,
     splitPairNames,
     pairLabel,
+    genderKind,
     normalizeDoublesPartners,
     normalizeRow,
     normalizeRows,
