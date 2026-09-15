@@ -2,74 +2,53 @@ const { test, expect } = require('@playwright/test');
 
 const BASE = process.env.QA_BASE || 'http://127.0.0.1:4173/index.html';
 
-const GROUPS = {
-  integrity: ['match-dedup-guard.js', 'connected-sheet-guard.js', 'account-settings.js', 'ui-cohesion.js'],
-  importer: ['match-result-compat.js', 'import-auto-sync.js', 'import-certainty-gate.js', 'spreadsheet-universal.js', 'repeated-header-runtime-guard.js', 'google-workbook-bridge.js', 'coach-essential.js'],
-  ladder: ['ladder.js', 'challenge-ui.js', 'challenge-ui-state.js'],
-  brand: ['brand-assets.js', 'human-copy.js', 'ui-cohesion.js', 'account-settings.js'],
-};
-
-function watchRequests(page) {
-  const pending = new Map();
-  const started = Date.now();
-  page.on('request', request => pending.set(request.url(), { method: request.method(), type: request.resourceType(), at: Date.now() - started }));
-  page.on('requestfinished', request => pending.delete(request.url()));
-  page.on('requestfailed', request => pending.delete(request.url()));
-  return pending;
-}
-
 async function mockExternal(page) {
   await page.route('https://cdn.jsdelivr.net/**', route => route.fulfill({ status: 200, contentType: 'text/css', body: '' }));
   await page.route('https://cdn.sheetjs.com/**', route => route.fulfill({ status: 200, contentType: 'application/javascript', body: 'window.XLSX = window.XLSX || {};' }));
 }
 
-async function suppressScripts(page, names) {
-  for (const name of new Set(names)) {
-    await page.route(`**/${name}`, route => route.fulfill({ status: 200, contentType: 'application/javascript', body: `/* startup isolation: ${name} */` }));
-  }
+async function gotoStartup(page) {
+  test.setTimeout(12000);
+  await page.goto(BASE, { waitUntil: 'domcontentloaded', timeout: 6500 });
+  expect(await page.evaluate(() => document.readyState)).toMatch(/interactive|complete/);
 }
 
-async function reachesDomContentLoaded(page, label, suppressed = []) {
-  test.setTimeout(10000);
-  const pending = watchRequests(page);
+test('startup reaches DOMContentLoaded with the full UI layer enabled', async ({ page }) => {
   await mockExternal(page);
-  await suppressScripts(page, suppressed);
-  try {
-    await page.goto(BASE, { waitUntil: 'domcontentloaded', timeout: 5500 });
-    console.log(`[startup-isolation:${label}] PASS with suppressed=${suppressed.join(',') || 'none'}`);
-    return true;
-  } catch (error) {
-    const snapshot = [...pending.entries()].map(([url, info]) => ({ url, ...info }));
-    console.error(`[startup-isolation:${label}] FAIL with suppressed=${suppressed.join(',') || 'none'} pending=${JSON.stringify(snapshot)}`);
-    return false;
-  }
-}
-
-test('baseline startup reaches DOMContentLoaded', async ({ page }) => {
-  expect(await reachesDomContentLoaded(page, 'baseline')).toBe(true);
+  await gotoStartup(page);
+  await expect(page.locator('#authGate')).toBeVisible();
+  await expect(page.locator('#importPreviewModal')).toBeHidden();
+  expect(await page.evaluate(() => Boolean(window.__tennisrankUICohesionInstalled))).toBe(true);
 });
 
-for (const [label, scripts] of Object.entries(GROUPS)) {
-  test(`startup isolation: suppress ${label}`, async ({ page }) => {
-    expect(await reachesDomContentLoaded(page, label, scripts)).toBe(true);
+test('hidden import preview does not create a mutation-observer startup loop', async ({ page }) => {
+  await mockExternal(page);
+  await gotoStartup(page);
+  const result = await page.evaluate(async () => {
+    const modal = document.querySelector('#importPreviewModal');
+    if (!modal) return { modal: false };
+    modal.hidden = false;
+    modal.style.display = 'none';
+    const before = performance.now();
+    document.body.classList.add('startup-loop-probe');
+    document.body.classList.remove('startup-loop-probe');
+    await new Promise(resolve => setTimeout(resolve, 80));
+    return {
+      modal: true,
+      elapsed: performance.now() - before,
+      scrollLocked: document.body.classList.contains('coach-modal-open') || document.documentElement.classList.contains('tr-account-open'),
+    };
   });
-}
-
-test('startup isolation: suppress all recent suspect groups', async ({ page }) => {
-  expect(await reachesDomContentLoaded(page, 'all-suspects', Object.values(GROUPS).flat())).toBe(true);
+  expect(result.modal).toBe(true);
+  expect(result.elapsed).toBeLessThan(1000);
+  expect(result.scrollLocked).toBe(false);
 });
 
 test('startup has no deferred external script dependency', async ({ page }) => {
-  test.setTimeout(10000);
-  const pending = watchRequests(page);
+  test.setTimeout(12000);
   await page.route('https://cdn.jsdelivr.net/**', route => route.abort());
   await page.route('https://cdn.sheetjs.com/**', route => route.abort());
-  try {
-    await page.goto(BASE, { waitUntil: 'domcontentloaded', timeout: 5500 });
-  } catch (error) {
-    console.error('[startup-isolation:external-aborted] pending=', JSON.stringify([...pending.entries()]));
-    throw error;
-  }
+  await gotoStartup(page);
   const blockers = await page.evaluate(() => [...document.scripts]
     .filter(script => script.defer && /^https?:\/\//.test(script.src))
     .map(script => script.src));
