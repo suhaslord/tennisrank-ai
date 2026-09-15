@@ -200,9 +200,29 @@
     return row;
   }
 
+  function normalizeTwoSideResult(row) {
+    if (!row || row.loser) return row;
+    const player1 = text(row.player1);
+    const player2 = text(row.player2);
+    const signal = text(row.winner || row.result || row.outcome);
+    if (!player1 || !player2 || !signal) return row;
+    const pointer = compact(signal);
+    if (sameParticipant(signal, player1) || ['player1', 'playera', 'team1', 'teama', 'side1', 'sidea', '1', 'a', 'home', 'host', 'w', 'win', 'won'].includes(pointer)) {
+      row.winner = player1;
+      row.loser = player2;
+      return row;
+    }
+    if (sameParticipant(signal, player2) || ['player2', 'playerb', 'team2', 'teamb', 'side2', 'sideb', '2', 'b', 'away', 'visitor', 'guest', 'l', 'loss', 'lost'].includes(pointer)) {
+      row.winner = player2;
+      row.loser = player1;
+    }
+    return row;
+  }
+
   function normalizeRow(row) {
     if (!row || typeof row !== 'object') return row;
     normalizeDoublesPartners(row);
+    normalizeTwoSideResult(row);
 
     const player = text(row.name || row.player || '');
     const opponent = text(row.opponent || '');
@@ -354,6 +374,7 @@
     rawPartnerRows,
     mergeRawPartnerColumns,
     normalizeDoublesPartners,
+    normalizeTwoSideResult,
     normalizeRow,
     normalizeRows,
     installImporterCompat,
