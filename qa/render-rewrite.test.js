@@ -35,6 +35,11 @@ for (const value of [
   `src="${cdn}/connected-sheet-guard.js"`,
   `src="${cdn}/account-settings.js"`,
   `src="${cdn}/ui-cohesion.js"`,
+  `src="${cdn}/import-certainty-gate.js"`,
+  `src="${cdn}/spreadsheet-universal.js"`,
+  `src="${cdn}/repeated-header-runtime-guard.js"`,
+  `src="${cdn}/google-workbook-bridge.js"`,
+  `src="${cdn}/coach-essential.js"`,
 ]) {
   assert.ok(out.includes(value), `missing quoted rewritten attribute: ${value}`);
 }
@@ -44,13 +49,24 @@ const ranking = out.indexOf(`${cdn}/ranking-policy.js`);
 const dashboard = out.indexOf(`${cdn}/player-dashboard-state.js`);
 const coachOps = out.indexOf(`${cdn}/coach-ops.js`);
 const previewGuard = out.indexOf(`${cdn}/coach-preview-guard.js`);
+const certainty = out.indexOf(`${cdn}/import-certainty-gate.js`);
+const universal = out.indexOf(`${cdn}/spreadsheet-universal.js`);
+const repeated = out.indexOf(`${cdn}/repeated-header-runtime-guard.js`);
+const workbookBridge = out.indexOf(`${cdn}/google-workbook-bridge.js`);
+const coachEssential = out.indexOf(`${cdn}/coach-essential.js`);
 const matchDedup = out.indexOf(`${cdn}/match-dedup-guard.js`);
 const sheetGuard = out.indexOf(`${cdn}/connected-sheet-guard.js`);
 const accountSettings = out.indexOf(`${cdn}/account-settings.js`);
 const uiCohesion = out.indexOf(`${cdn}/ui-cohesion.js`);
 const brandAssets = out.indexOf(`${cdn}/brand-assets.js`);
 assert.ok(importSync > 0 && ranking > importSync && dashboard > ranking && coachOps > dashboard && previewGuard > coachOps, 'runtime order must be importer sync -> ranking policy -> player dashboard -> coach ops -> final preview guard');
+assert.ok(certainty > previewGuard && universal > certainty && repeated > universal && workbookBridge > repeated && coachEssential > workbookBridge, 'core importer runtime must be parser-inserted in deterministic dependency order');
 assert.ok(matchDedup > previewGuard && sheetGuard > matchDedup && accountSettings > sheetGuard && uiCohesion > accountSettings && brandAssets > uiCohesion, 'late integrity/safety/UI patches must load before final brand assets');
+for (const [src] of render.CORE_RUNTIME_SCRIPTS) {
+  const count = out.split(`src="${src}"`).length - 1;
+  assert.equal(count, 1, `${src} should be present exactly once`);
+  assert.ok(out.indexOf(`src="${src}"`) < brandAssets, `${src} must load before brand-assets.js so branding never creates a dynamic startup queue`);
+}
 assert.ok(out.includes(`${cdn}/player-dashboard-state.css`));
 assert.ok(out.includes(`${cdn}/coach-ops.css`));
 assert.ok(out.includes(`${cdn}/account-settings.css`));
@@ -67,6 +83,10 @@ const fs = require('node:fs');
 const html = render.rewrite(fs.readFileSync(require('node:path').join(__dirname, '../index.html'), 'utf8'));
 for (const match of html.matchAll(/(?:src|href)="(\/[^"?#]+)"/g)) {
   assert.ok(fs.existsSync(require('node:path').join(__dirname, '..', match[1])), `missing deployed asset ${match[1]}`);
+}
+for (const [src] of render.CORE_RUNTIME_SCRIPTS) {
+  assert.equal(html.split(`src="${src}"`).length - 1, 1, `real rendered index should include ${src} exactly once`);
+  assert.ok(html.indexOf(`src="${src}"`) < html.indexOf('src="/brand-assets.js"'), `${src} must be ahead of branding in the real rendered index`);
 }
 assert.ok(html.includes('data-tennisrank-sheetjs="async"'), 'the real rendered index must use non-blocking SheetJS');
 assert.equal(html.includes('<script defer src="https://cdn.sheetjs.com/'), false, 'the real rendered index must not wait for SheetJS before DOMContentLoaded');
@@ -89,4 +109,5 @@ render({method:'GET'}, response).then(() => {
   assert.ok(response.body.includes('/ui-cohesion.css'));
   assert.ok(response.body.includes('/coach-console-theme.css'));
   assert.ok(response.body.includes('data-tennisrank-sheetjs="async"'));
+  for (const [src] of render.CORE_RUNTIME_SCRIPTS) assert.ok(response.body.includes(`src="${src}"`));
 }).finally(() => { global.fetch = nativeFetch; });
