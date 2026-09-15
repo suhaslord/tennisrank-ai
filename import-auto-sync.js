@@ -192,6 +192,8 @@
     const sheetInput = win.document.querySelector?.("#sheetUrl") || null;
     let rememberedUrl = connectedSheetUrl(win);
     let managedTimer = null;
+    let refreshGeneration = 0;
+    let managedRefreshPromise = null;
 
     const clearManagedTimer = () => {
       if (managedTimer === null) return;
@@ -217,6 +219,8 @@
     };
 
     const start = () => {
+      refreshGeneration += 1;
+      const generation = refreshGeneration;
       clearManagedTimer();
       const profile = win.TennisRankAuth?.getProfile?.();
       const storedUrl = connectedSheetUrl(win);
@@ -227,14 +231,23 @@
         restore(profile);
         stopNativeRefresh();
         const tick = async () => {
-          try {
-            await win.fetchSheet();
-            // The certainty-gated Sheet importer performs its own preview + publish.
-            // Calling syncToBackend again would trigger a second coach confirmation/save.
-            if (!certaintyGateOwnsSheetPublish(win)) await win.syncToBackend();
-          } catch (error) {
-            if (typeof win.setStatus === "function") win.setStatus(error.message || "Automatic Sheet refresh failed.", true);
-          }
+          if (managedRefreshPromise) return managedRefreshPromise;
+          managedRefreshPromise = (async () => {
+            try {
+              await win.fetchSheet();
+              if (generation !== refreshGeneration) return;
+              // The certainty-gated Sheet importer performs its own preview + publish.
+              // Calling syncToBackend again would trigger a second coach confirmation/save.
+              if (!certaintyGateOwnsSheetPublish(win)) await win.syncToBackend();
+            } catch (error) {
+              if (generation === refreshGeneration && typeof win.setStatus === "function") {
+                win.setStatus(error.message || "Automatic Sheet refresh failed.", true);
+              }
+            } finally {
+              managedRefreshPromise = null;
+            }
+          })();
+          return managedRefreshPromise;
         };
         managedTimer = (win.setInterval || setInterval)(tick, seconds * 1000);
         win.__tennisrankConnectedSheetRefreshTimer = managedTimer;
@@ -247,6 +260,7 @@
     };
 
     const disconnect = () => {
+      refreshGeneration += 1;
       rememberedUrl = "";
       storageRemove(win, SHEET_URL_KEY);
       clearManagedTimer();
