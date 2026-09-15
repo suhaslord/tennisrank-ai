@@ -291,22 +291,56 @@
     return rows;
   }
 
+  function isCompletePartnerLayout(rows) {
+    if (!Array.isArray(rows) || !rows.length) return false;
+    const partnerRows = rows.filter(row => row?.__doublesPartnerStyle);
+    if (!partnerRows.length) return false;
+    return partnerRows.length === rows.length && partnerRows.every(row => {
+      const winner = text(row.winner);
+      const loser = text(row.loser);
+      const division = compact(row.division || row.format || row.event || row.matchtype);
+      const gender = genderKind(row.gender || row.sex) || compact(row.gender || row.sex);
+      return Boolean(winner && loser && !sameParticipant(winner, loser) && division === 'doubles' && ['boys', 'girls', 'mixed'].includes(gender));
+    });
+  }
+
+  function installValidationCompat(importer) {
+    if (!importer || typeof importer.validateInterpretation !== 'function') return false;
+    if (importer.validateInterpretation.__matchResultCompatValidator) return true;
+    const baseValidate = importer.validateInterpretation;
+    const wrapped = function matchResultCompatibleValidation(rows) {
+      if (isCompletePartnerLayout(rows)) {
+        return { valid: true, confidence: 1, level: 'HIGH', reason: 'Complete doubles partner layout recognized deterministically.' };
+      }
+      return baseValidate.apply(this, arguments);
+    };
+    wrapped.__matchResultCompatValidator = true;
+    wrapped.__baseValidateInterpretation = baseValidate;
+    importer.validateInterpretation = wrapped;
+    return true;
+  }
+
   function installImporterCompat(win) {
     const importer = win?.TennisRankImportV2;
     if (!importer || typeof importer.parseText !== 'function') return false;
-    if (importer.parseText.__matchResultCompatParser) return true;
-
-    const baseParse = importer.parseText;
-    const wrapped = function matchResultCompatibleParseText(textInput) {
-      const rawRows = rawPartnerRows(textInput, importer);
-      const rows = baseParse.apply(this, arguments);
-      mergeRawPartnerColumns(rows, rawRows);
-      return normalizeRows(rows);
-    };
-    wrapped.__matchResultCompatParser = true;
-    wrapped.__baseParseText = baseParse;
-    importer.parseText = wrapped;
-    return true;
+    let installed = false;
+    if (!importer.parseText.__matchResultCompatParser) {
+      const baseParse = importer.parseText;
+      const wrapped = function matchResultCompatibleParseText(textInput) {
+        const rawRows = rawPartnerRows(textInput, importer);
+        const rows = baseParse.apply(this, arguments);
+        mergeRawPartnerColumns(rows, rawRows);
+        return normalizeRows(rows);
+      };
+      wrapped.__matchResultCompatParser = true;
+      wrapped.__baseParseText = baseParse;
+      importer.parseText = wrapped;
+      installed = true;
+    } else {
+      installed = true;
+    }
+    if (installValidationCompat(importer)) installed = true;
+    return installed;
   }
 
   function installBrowser(win) {
@@ -377,6 +411,8 @@
     normalizeTwoSideResult,
     normalizeRow,
     normalizeRows,
+    isCompletePartnerLayout,
+    installValidationCompat,
     installImporterCompat,
     installBrowser,
     repairLoadedBackend,
