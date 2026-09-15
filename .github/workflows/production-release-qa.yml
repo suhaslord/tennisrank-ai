@@ -34,7 +34,7 @@ jobs:
         run: |
           set -euo pipefail
           find api lib -type f -name '*.js' -print0 | xargs -0 -n1 node --check
-          for file in app.js auth.js coach-ops.js coach-sharing.js coach-preview-guard.js coach-polish.js google-workbook-bridge.js match-result-compat.js spreadsheet-universal.js repeated-header-runtime-guard.js import-certainty-gate.js import-auto-sync.js import-runtime-fixes.js import-v2.js spreadsheet-ai.js spreadsheet-ml.js ranking-policy.js player-dashboard-state.js player-insights.js human-copy.js; do
+          for file in app.js auth.js account-settings.js coach-ops.js coach-sharing.js coach-preview-guard.js coach-polish.js google-workbook-bridge.js match-result-compat.js spreadsheet-universal.js repeated-header-runtime-guard.js import-certainty-gate.js import-auto-sync.js import-runtime-fixes.js import-v2.js spreadsheet-ai.js spreadsheet-ml.js ranking-policy.js player-dashboard-state.js player-insights.js human-copy.js; do
             node --check "$file"
           done
           node --check qa/production-hardening.test.js
@@ -52,6 +52,7 @@ jobs:
           node --check qa/human-theme.test.js
           node --check qa/doubles-mixed.test.js
           node --check qa/doubles-mixed-browser.spec.js
+          node --check qa/account-settings.spec.js
           node --check qa/human-ui.spec.js
           node --check qa/certainty-ui.spec.js
           node --check qa/coach-real-sheet-browser.spec.js
@@ -112,6 +113,7 @@ jobs:
           sleep 2
           npx playwright test \
             qa/auth-flow.spec.js \
+            qa/account-settings.spec.js \
             qa/human-ui.spec.js \
             qa/browser.spec.js \
             qa/core-flow-browser.spec.js \
@@ -143,6 +145,9 @@ jobs:
           test -f import-certainty-gate.js
           test -f human-theme.css
           test -f human-copy.js
+          test -f account-settings.js
+          test -f account-settings.css
+          test -f qa/account-settings.spec.js
           test -f qa/human-copy.test.js
           test -f qa/human-theme.test.js
           test -f qa/human-ui.spec.js
@@ -155,6 +160,8 @@ jobs:
           grep -q 'PHOTO_PLACEHOLDER_SVG' api/render.js
           grep -q 'human-theme.css' api/render.js
           grep -q 'human-copy.js' api/render.js
+          grep -q 'account-settings.css' api/render.js
+          grep -q 'account-settings.js' api/render.js
           grep -q 'human-theme.css' brand-assets.js
           grep -q 'human-copy.js' brand-assets.js
           grep -q 'import-certainty-gate.js' brand-assets.js
