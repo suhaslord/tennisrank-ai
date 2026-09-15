@@ -68,6 +68,19 @@ compat.normalizeRow(mixedPartner);
 assert.equal(mixedPartner.winner, 'Olivia Brown & Ravi Shah');
 assert.equal(mixedPartner.loser, 'Ben Kim & Sophia Lee');
 assert.equal(mixedPartner.division, 'Doubles');
+assert.equal(mixedPartner.gender, 'Mixed');
+
+const explicitMixedPartner = {
+  name: 'Olivia Brown',
+  partner: 'Ravi Shah',
+  opponent: 'Sophia Lee',
+  opponentPartner: 'Ben Kim',
+  result: 'W',
+  division: 'MXD',
+};
+compat.normalizeRow(explicitMixedPartner);
+assert.equal(explicitMixedPartner.gender, 'Mixed');
+assert.equal(explicitMixedPartner.division, 'Doubles');
 
 const splitWinnerColumns = {
   winner1: 'Maya Patel',
