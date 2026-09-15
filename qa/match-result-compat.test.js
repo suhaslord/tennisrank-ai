@@ -84,6 +84,10 @@ assert.equal(sidePartnerColumns.winner, 'Ethan Kim & Noah Williams');
 assert.equal(sidePartnerColumns.loser, 'Jack Park & Liam Chen');
 assert.equal(sidePartnerColumns.division, 'Doubles');
 
+assert.equal(compat.pairGender('M', 'M'), 'boys');
+assert.equal(compat.pairGender('F', 'F'), 'girls');
+assert.equal(compat.pairGender('M', 'F'), 'mixed');
+
 let received;
 const fakeWindow = {
   loadRows(incoming) {
@@ -140,5 +144,45 @@ assert.equal(recovered[0].division, 'Doubles');
 const deterministicReview = droppingImporterWindow.TennisRankImportV2.validateInterpretation(recovered);
 assert.equal(deterministicReview.valid, true);
 assert.equal(deterministicReview.confidence, 1);
+
+const opposingGenderImporter = {
+  TennisRankImportV2: {
+    parseDelimited() {
+      return { matrix: [
+        ['Player 1', 'Partner 1', 'Player 2', 'Partner 2', 'Winner', 'Score', 'Gender', 'Player 1 Gender', 'Player 2 Gender'],
+        ['Noah Williams', 'Ethan Kim', 'Olivia Brown', 'Sophia Lee', 'Player 1', '6-2', 'Boys', 'M', 'F'],
+      ] };
+    },
+    detectHeaderRow() { return { index: 0 }; },
+    parseText() {
+      return [{ __sourceRow: 2, player1: 'Noah Williams', player2: 'Olivia Brown', winner: 'Player 1', score: '6-2', gender: 'Boys' }];
+    },
+    validateInterpretation() { return { valid: true, confidence: 1, level: 'HIGH' }; },
+  },
+};
+compat.installBrowser(opposingGenderImporter);
+const opposingGender = opposingGenderImporter.TennisRankImportV2.parseText('raw csv');
+assert.equal(opposingGender[0].gender, 'Boys', 'opponent-side genders must never be treated as partner genders');
+assert.notEqual(opposingGender[0].gender, 'Mixed');
+
+const trueMixedSidesImporter = {
+  TennisRankImportV2: {
+    parseDelimited() {
+      return { matrix: [
+        ['Player 1', 'Partner 1', 'Player 2', 'Partner 2', 'Winner', 'Score', 'Player 1 Gender', 'Partner 1 Gender', 'Player 2 Gender', 'Partner 2 Gender'],
+        ['Noah Williams', 'Olivia Brown', 'Liam Chen', 'Sophia Lee', 'Player 1', '6-2', 'M', 'F', 'M', 'F'],
+      ] };
+    },
+    detectHeaderRow() { return { index: 0 }; },
+    parseText() {
+      return [{ __sourceRow: 2, player1: 'Noah Williams', player2: 'Liam Chen', winner: 'Player 1', score: '6-2' }];
+    },
+    validateInterpretation() { return { valid: true, confidence: 1, level: 'HIGH' }; },
+  },
+};
+compat.installBrowser(trueMixedSidesImporter);
+const trueMixedSides = trueMixedSidesImporter.TennisRankImportV2.parseText('raw csv');
+assert.equal(trueMixedSides[0].gender, 'Mixed', 'mixed must be inferred only from gender differences inside a doubles pair');
+assert.equal(trueMixedSides[0].division, 'Doubles');
 
 console.log('Named-result and doubles partner compatibility regression passed.');
