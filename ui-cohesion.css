@@ -1,0 +1,245 @@
+/* Final cohesion layer: one TennisRank visual system across rankings, import preview, and login. */
+:root{
+  --tr-paper:#fafbf9;
+  --tr-ink:#20211f;
+  --tr-muted:#676b63;
+  --tr-line:#dedfdb;
+  --tr-line-strong:#b9bdb3;
+  --tr-orange:#ff7657;
+  --tr-orange-dark:#d8492b;
+  --tr-soft:#eff1eb;
+  --tr-warn:#fff4e6;
+}
+
+html,body{min-height:100%;background:var(--tr-paper)!important;color:var(--tr-ink)!important}
+body .app-shell,body main#top{overflow:visible!important}
+body.coach-modal-open[data-modal-stale="true"]{overflow-y:auto!important}
+
+/* Rankings hero: remove the old dark court treatment completely. */
+body .ladder-experience,
+body main#top>section.ladder-experience{
+  width:100%!important;
+  max-width:none!important;
+  margin:0!important;
+  padding:72px 60px 96px!important;
+  color:var(--tr-ink)!important;
+  background:var(--tr-paper)!important;
+  border:0!important;
+  border-top:1px solid var(--tr-line)!important;
+  border-bottom:1px solid var(--tr-line)!important;
+  border-radius:0!important;
+  box-shadow:none!important;
+}
+body .ladder-stage{display:none!important}
+body .ladder-intro{
+  display:grid!important;
+  grid-template-columns:minmax(0,.78fr) minmax(560px,1.22fr)!important;
+  align-items:end!important;
+  gap:64px!important;
+  min-height:0!important;
+  max-width:1500px!important;
+  margin:0 auto 46px!important;
+  padding:0 0 34px!important;
+  border-bottom:1px solid var(--tr-line)!important;
+}
+body .ladder-intro h2{
+  max-width:700px!important;
+  margin:10px 0 0!important;
+  color:var(--tr-ink)!important;
+  font-family:'Court Grotesk',Arial,sans-serif!important;
+  font-size:clamp(46px,5vw,76px)!important;
+  font-weight:400!important;
+  line-height:1.02!important;
+  letter-spacing:-.045em!important;
+}
+body .ladder-intro-copy{
+  max-width:560px!important;
+  margin:22px 0 0!important;
+  color:#484d45!important;
+  font-size:15px!important;
+  line-height:1.65!important;
+}
+body .ladder-kicker{color:var(--tr-muted)!important;font:11px/1.4 ui-monospace,Consolas,monospace!important;letter-spacing:.12em!important;text-transform:uppercase!important}
+body .ladder-tabs{
+  display:flex!important;
+  flex-wrap:wrap!important;
+  align-content:flex-end!important;
+  justify-content:flex-end!important;
+  gap:8px!important;
+  width:100%!important;
+  min-width:0!important;
+  padding:0!important;
+  background:transparent!important;
+  border-radius:0!important;
+}
+body .ladder-tab{
+  min-height:46px!important;
+  padding:0 16px!important;
+  color:var(--tr-ink)!important;
+  background:transparent!important;
+  border:1px solid var(--tr-line-strong)!important;
+  border-radius:0!important;
+  font:12px/1 ui-monospace,Consolas,monospace!important;
+  letter-spacing:.045em!important;
+  text-transform:uppercase!important;
+}
+body .ladder-tab:hover{background:#f0f2eb!important}
+body .ladder-tab[aria-selected="true"]{color:var(--tr-ink)!important;background:var(--tr-orange)!important;border-color:var(--tr-orange)!important}
+body .ladder-metrics{
+  display:grid!important;
+  grid-template-columns:repeat(3,minmax(0,1fr))!important;
+  gap:0!important;
+  max-width:1500px!important;
+  margin:0 auto!important;
+  border-top:1px solid var(--tr-line)!important;
+  border-bottom:1px solid var(--tr-line)!important;
+  background:transparent!important;
+}
+body .ladder-metric{
+  min-height:138px!important;
+  padding:26px 28px!important;
+  justify-content:flex-end!important;
+  color:var(--tr-ink)!important;
+  background:transparent!important;
+  border:0!important;
+  border-right:1px solid var(--tr-line)!important;
+  border-radius:0!important;
+}
+body .ladder-metric:last-child{border-right:0!important}
+body .ladder-metric-label{color:var(--tr-muted)!important;font:11px/1.4 ui-monospace,Consolas,monospace!important;letter-spacing:.08em!important;text-transform:uppercase!important}
+body .ladder-metric strong{margin-top:12px!important;color:var(--tr-ink)!important;font-family:'Court Grotesk',Arial,sans-serif!important;font-size:44px!important;font-weight:400!important;line-height:1!important}
+body .ladder-metric small{margin-top:7px!important;color:var(--tr-muted)!important;font-size:13px!important}
+body .ladder-board{
+  max-width:1500px!important;
+  margin:0 auto!important;
+  padding:50px 0 0!important;
+  color:var(--tr-ink)!important;
+  background:transparent!important;
+  border:0!important;
+}
+body .ladder-board-head{align-items:end!important;margin:0 0 26px!important;padding-bottom:22px!important;border-bottom:1px solid var(--tr-line)!important}
+body .ladder-board-head h3{color:var(--tr-ink)!important;font-family:'Court Grotesk',Arial,sans-serif!important;font-size:clamp(34px,4vw,58px)!important;font-weight:400!important;letter-spacing:-.035em!important}
+body .ladder-board-head p{max-width:510px!important;color:var(--tr-muted)!important;font-size:13px!important;line-height:1.55!important}
+body .ladder-list{border-top:0!important}
+body .ladder-row{
+  display:grid!important;
+  grid-template-columns:72px 56px minmax(0,1fr) 140px 130px!important;
+  min-height:82px!important;
+  gap:16px!important;
+  align-items:center!important;
+  color:var(--tr-ink)!important;
+  background:transparent!important;
+  border:0!important;
+  border-bottom:1px solid var(--tr-line)!important;
+  border-radius:0!important;
+  padding:0!important;
+}
+body .ladder-row:hover{background:#f0f2eb!important}
+body .ladder-rank{color:var(--tr-orange-dark)!important;background:transparent!important;font:18px/1 ui-monospace,Consolas,monospace!important}
+body .ladder-movement{color:#7a7f75!important;font-size:12px!important}
+body .ladder-movement.up{color:#2d7658!important}
+body .ladder-player-name{color:var(--tr-ink)!important;font-size:16px!important;font-weight:500!important}
+body .ladder-record,body .ladder-status,body .ladder-empty{color:var(--tr-muted)!important}
+body .ladder-status{font:11px/1.2 ui-monospace,Consolas,monospace!important;text-transform:uppercase!important;letter-spacing:.06em!important}
+
+/* Import preview: same paper/orange system, no gray floating-app look. */
+body .coach-modal-shell{padding:22px!important}
+body .coach-modal-backdrop{background:rgba(32,33,31,.48)!important;backdrop-filter:blur(6px)!important}
+body .coach-modal{
+  width:min(980px,100%)!important;
+  max-height:calc(100dvh - 44px)!important;
+  padding:26px!important;
+  color:var(--tr-ink)!important;
+  background:var(--tr-paper)!important;
+  border:1px solid var(--tr-line)!important;
+  border-radius:0!important;
+  box-shadow:0 28px 90px rgba(32,33,31,.18)!important;
+  overscroll-behavior:contain!important;
+}
+body .coach-modal-head{padding-bottom:22px!important;border-bottom:1px solid var(--tr-line)!important}
+body .coach-modal-head .eyebrow{margin:0 0 8px!important;color:var(--tr-muted)!important;font:10px/1.4 ui-monospace,Consolas,monospace!important;letter-spacing:.12em!important;text-transform:uppercase!important}
+body .coach-modal-head h2{color:var(--tr-ink)!important;font-family:'Court Grotesk',Arial,sans-serif!important;font-size:clamp(34px,4vw,52px)!important;font-weight:400!important;letter-spacing:-.04em!important}
+body .coach-modal .close-button{width:42px!important;height:42px!important;color:var(--tr-ink)!important;background:transparent!important;border:1px solid var(--tr-line-strong)!important;border-radius:0!important}
+body .coach-preview-summary{grid-template-columns:repeat(5,minmax(0,1fr))!important;gap:8px!important;margin:22px 0!important}
+body .coach-preview-summary>div{padding:16px!important;background:#f0f2ed!important;border:0!important;border-radius:0!important}
+body .coach-preview-summary strong{color:var(--tr-ink)!important;font-size:26px!important;font-weight:400!important}
+body .coach-preview-summary span{color:var(--tr-muted)!important;font:10px/1.2 ui-monospace,Consolas,monospace!important;letter-spacing:.08em!important}
+body .coach-preview-source{padding:14px 0!important;border-color:var(--tr-line)!important}
+body .coach-preview-source span{color:var(--tr-muted)!important}
+body .coach-preview-source strong{color:var(--tr-ink)!important;font-weight:400!important}
+body .coach-warning-box,body .coach-safe-box{margin:18px 0!important;padding:16px 18px!important;border-radius:0!important}
+body .coach-warning-box{background:var(--tr-warn)!important;border:1px solid #ead7bd!important}
+body .coach-safe-box{background:#eef4ef!important;border:1px solid #ceddce!important}
+body .coach-preview-grid{gap:10px!important}
+body .coach-preview-grid article{padding:20px!important;background:#fff!important;border:1px solid var(--tr-line)!important;border-radius:0!important}
+body .coach-preview-grid h3{color:var(--tr-ink)!important;font-size:14px!important;font-weight:500!important}
+body .coach-preview-grid .coach-change-list li,body .coach-change-list li{border-color:var(--tr-line)!important}
+body .coach-preview-grid .coach-change-list li span,body .coach-empty{color:var(--tr-muted)!important}
+body .coach-modal-actions{margin-top:22px!important;padding-top:18px!important;border-color:var(--tr-line)!important;background:var(--tr-paper)!important}
+body .coach-modal-actions .ghost-button{color:var(--tr-ink)!important;background:transparent!important;border:1px solid var(--tr-line-strong)!important}
+body .coach-modal-actions .primary-button{color:var(--tr-ink)!important;background:var(--tr-orange)!important;border-color:var(--tr-orange)!important}
+body .coach-modal-actions .primary-button:hover{color:#fff!important;background:var(--tr-ink)!important;border-color:var(--tr-ink)!important}
+
+/* Login: keep it clean, but make it unmistakably the same app. */
+body .auth-gate{
+  grid-template-columns:1fr!important;
+  place-items:center!important;
+  min-height:100dvh!important;
+  padding:52px 22px!important;
+  background:repeating-linear-gradient(90deg,transparent 0,transparent calc(20% - 1px),#ebece7 calc(20% - 1px),#ebece7 20%),var(--tr-paper)!important;
+}
+body .auth-visual{display:none!important}
+body .auth-card{
+  width:min(calc(100% - 36px),500px)!important;
+  max-width:500px!important;
+  margin:0!important;
+  padding:38px 0 0!important;
+  color:var(--tr-ink)!important;
+  background:var(--tr-paper)!important;
+  border:0!important;
+  border-top:1px solid var(--tr-ink)!important;
+  border-bottom:1px solid var(--tr-line)!important;
+  border-radius:0!important;
+  box-shadow:none!important;
+}
+body .auth-card::before{content:""!important;display:block!important;width:54px!important;height:4px!important;margin:0 0 30px!important;background:var(--tr-orange)!important;border-radius:0!important}
+body .auth-card-topline{padding:0 0 18px!important;margin:0 0 28px!important;border-bottom:1px solid var(--tr-line)!important;color:var(--tr-muted)!important;font:10px/1.4 ui-monospace,Consolas,monospace!important;letter-spacing:.1em!important;text-transform:uppercase!important}
+body .auth-card .eyebrow{margin:0 0 9px!important;color:var(--tr-muted)!important;font:10px/1.4 ui-monospace,Consolas,monospace!important;letter-spacing:.1em!important;text-transform:uppercase!important}
+body .auth-card h1{color:var(--tr-ink)!important;font-family:'Court Grotesk',Arial,sans-serif!important;font-size:clamp(42px,6vw,58px)!important;font-weight:400!important;line-height:1!important;letter-spacing:-.05em!important}
+body .auth-copy{margin:15px 0 28px!important;color:var(--tr-muted)!important;font-size:14px!important}
+body .auth-form label{color:var(--tr-ink)!important;font:11px/1.3 ui-monospace,Consolas,monospace!important;letter-spacing:.05em!important;text-transform:uppercase!important}
+body .auth-form input,body .bootstrap-form input{min-height:50px!important;padding:0 14px!important;color:var(--tr-ink)!important;background:#fff!important;border:1px solid var(--tr-line-strong)!important;border-radius:0!important;box-shadow:none!important}
+body .auth-form input:focus,body .bootstrap-form input:focus{border-color:var(--tr-orange)!important;box-shadow:0 0 0 2px rgba(255,118,87,.14)!important}
+body .auth-card .primary-button,body .auth-card .secondary-button{min-height:50px!important;justify-content:center!important;color:var(--tr-ink)!important;background:var(--tr-orange)!important;border:1px solid var(--tr-orange)!important;border-radius:0!important;box-shadow:none!important}
+body .auth-card .primary-button:hover,body .auth-card .secondary-button:hover{color:#fff!important;background:var(--tr-ink)!important;border-color:var(--tr-ink)!important}
+body .auth-card .text-button{color:var(--tr-muted)!important}
+body .auth-footnote{padding:18px 0 24px!important;margin-top:24px!important;border-top:1px solid var(--tr-line)!important;color:var(--tr-muted)!important}
+
+@media(max-width:980px){
+  body .ladder-experience,body main#top>section.ladder-experience{padding:54px 26px 76px!important}
+  body .ladder-intro{grid-template-columns:1fr!important;gap:30px!important}
+  body .ladder-tabs{justify-content:flex-start!important}
+  body .ladder-metrics{grid-template-columns:1fr!important}
+  body .ladder-metric{min-height:104px!important;border-right:0!important;border-bottom:1px solid var(--tr-line)!important}
+  body .ladder-row{grid-template-columns:58px 48px minmax(0,1fr) 100px!important}
+  body .ladder-challenge-state{display:none!important}
+}
+@media(max-width:620px){
+  body .ladder-experience,body main#top>section.ladder-experience{padding:42px 18px 64px!important}
+  body .ladder-intro h2{font-size:44px!important}
+  body .ladder-tabs{display:grid!important;grid-template-columns:1fr 1fr!important;gap:6px!important}
+  body .ladder-tab{width:100%!important;padding:0 8px!important;font-size:10px!important}
+  body .ladder-board-head{display:block!important}
+  body .ladder-board-head p{margin-top:12px!important}
+  body .ladder-row{grid-template-columns:44px 36px minmax(0,1fr)!important;gap:8px!important;min-height:76px!important}
+  body .ladder-status{display:none!important}
+  body .coach-modal-shell{padding:8px!important}
+  body .coach-modal{max-height:calc(100dvh - 16px)!important;padding:18px!important}
+  body .coach-preview-summary{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+  body .coach-preview-grid{grid-template-columns:1fr!important}
+  body .coach-modal-actions{position:sticky!important;bottom:-18px!important;padding:14px 0 4px!important}
+  body .auth-gate{padding:24px 14px!important;background:var(--tr-paper)!important}
+  body .auth-card{width:100%!important;padding-top:30px!important}
+}
+
+@media(prefers-reduced-motion:reduce){body .ladder-tab,body .ladder-row,body .coach-modal,body .auth-card{transition:none!important;animation:none!important}}
