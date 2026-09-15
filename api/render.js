@@ -66,6 +66,11 @@ function ensureRuntimePatch(html) {
     if (out.includes(before)) out = out.replace(before, '<script src="/match-result-compat.js"></script>' + before);
     else out = out.replace('</body>', '<script src="/match-result-compat.js"></script></body>');
   }
+  if (!out.includes('connected-sheet-guard.js')) {
+    const before = '<script src="/brand-assets.js"></script>';
+    if (out.includes(before)) out = out.replace(before, '<script src="/connected-sheet-guard.js" data-tennisrank-connected-sheet-guard="true"></script>' + before);
+    else out = out.replace('</body>', '<script src="/connected-sheet-guard.js" data-tennisrank-connected-sheet-guard="true"></script></body>');
+  }
   if (!out.includes('account-settings.js')) {
     const before = '<script src="/brand-assets.js"></script>';
     if (out.includes(before)) out = out.replace(before, '<script src="/account-settings.js" data-tennisrank-account-settings="true"></script>' + before);
@@ -91,7 +96,7 @@ function rewrite(html) {
     .replaceAll('src="./app.js"', `src="${CDN}/app.js"`)
     .replaceAll('src="./ladder.js"', `src="${CDN}/ladder.js"`)
     .replaceAll('src="./challenge-ui.js"', `src="${CDN}/challenge-ui.js"`)
-    .replaceAll('src="./challenge-ui-state.js"', `src="${CDN}/challenge-ui-state.js"`);
+    .replaceAll('src="./challenge-ui-state.js"', `src="${CDN}/challenge-ui-state.js`);
 
   out = out.replace(
     '</head>',
@@ -100,7 +105,7 @@ function rewrite(html) {
 
   out = out.replace(
     `<script src="${CDN}/app.js"></script>`,
-    `<script src="${CDN}/app.js"></script><script src="${CDN}/import-runtime-fixes.js"></script><script src="${CDN}/import-v2.js"></script><script src="${CDN}/import-delimiter-fix.js"></script><script src="${CDN}/spreadsheet-ml.js"></script><script src="${CDN}/import-v2-fixes.js"></script><script src="${CDN}/import-row-safety-fix.js"></script><script src="${CDN}/import-multiblock-fix.js"></script><script src="${CDN}/spreadsheet-semantic-calibration.js"></script><script src="${CDN}/spreadsheet-ai.js"></script><script src="${CDN}/ai-quota-guard.js"></script><script src="${CDN}/import-auto-sync.js"></script><script src="${CDN}/ranking-policy.js"></script><script src="${CDN}/player-dashboard-state.js"></script><script src="${CDN}/player-insights.js"></script><script src="${CDN}/coach-ops.js"></script><script src="${CDN}/coach-sharing.js"></script><script src="${CDN}/coach-preview-guard.js"></script><script src="${CDN}/coach-polish.js"></script><script src="${CDN}/match-result-compat.js"></script><script src="${CDN}/tesla-motion.js"></script><script src="${CDN}/account-settings.js"></script><script src="${CDN}/brand-assets.js"></script>`,
+    `<script src="${CDN}/app.js"></script><script src="${CDN}/import-runtime-fixes.js"></script><script src="${CDN}/import-v2.js"></script><script src="${CDN}/import-delimiter-fix.js"></script><script src="${CDN}/spreadsheet-ml.js"></script><script src="${CDN}/import-v2-fixes.js"></script><script src="${CDN}/import-row-safety-fix.js"></script><script src="${CDN}/import-multiblock-fix.js"></script><script src="${CDN}/spreadsheet-semantic-calibration.js"></script><script src="${CDN}/spreadsheet-ai.js"></script><script src="${CDN}/ai-quota-guard.js"></script><script src="${CDN}/import-auto-sync.js"></script><script src="${CDN}/ranking-policy.js"></script><script src="${CDN}/player-dashboard-state.js"></script><script src="${CDN}/player-insights.js"></script><script src="${CDN}/coach-ops.js"></script><script src="${CDN}/coach-sharing.js"></script><script src="${CDN}/coach-preview-guard.js"></script><script src="${CDN}/coach-polish.js"></script><script src="${CDN}/match-result-compat.js"></script><script src="${CDN}/tesla-motion.js"></script><script src="${CDN}/connected-sheet-guard.js"></script><script src="${CDN}/account-settings.js"></script><script src="${CDN}/brand-assets.js"></script>`,
   );
 
   out = ensureRuntimePatch(out);
