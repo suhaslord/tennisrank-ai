@@ -168,8 +168,6 @@ test('coach partner-column sheet becomes doubles before publish and reciprocal p
   expect(state.savedRows.find(row => /Olivia Brown/.test(String(row.winner || '')))?.gender).toBe('Mixed');
   expect(state.seedBodies).toHaveLength(0);
 
-  // Simulate the next coach visit. The persisted normalized rows must rebuild the
-  // same doubles board without relying on the original CSV parser state.
   await page.reload({ waitUntil: 'domcontentloaded' });
   await expect(page.locator('#appShell')).toBeVisible();
   await expect(page.locator('[data-gender="mixed"]')).toBeVisible();
@@ -182,10 +180,11 @@ test('coach partner-column sheet becomes doubles before publish and reciprocal p
   expect(pageErrors).toEqual([]);
 });
 
-test('player dashboard recognizes a player inside a mixed-doubles pair', async ({ page }) => {
+test('player dashboard recognizes mixed doubles across multiple partners without inflating formats', async ({ page }) => {
   const rows = [
     { winner: 'Ravi Shah / Olivia Brown', loser: 'Ben Kim / Sophia Lee', score: '7-5', gender: 'Mixed', division: 'Mixed Doubles', date: '2026-09-14' },
     { winner: 'Ben Kim / Sophia Lee', loser: 'Ravi Shah / Olivia Brown', score: '6-4', gender: 'Mixed', division: 'Mixed Doubles', date: '2026-09-13' },
+    { winner: 'Noah Williams / Olivia Brown', loser: 'Ethan Kim / Ava Patel', score: '6-2', gender: 'Mixed', division: 'Mixed Doubles', date: '2026-09-12' },
   ];
   await installMocks(page, { role: 'player', playerName: 'Olivia Brown', rows });
   await page.goto(BASE, { waitUntil: 'domcontentloaded' });
@@ -193,9 +192,14 @@ test('player dashboard recognizes a player inside a mixed-doubles pair', async (
   await expect(page.locator('#appShell')).toBeVisible();
   await expect(page.locator('#playerDashboard')).toBeVisible();
   await expect(page.locator('#playerDashboardTitle')).toContainText('Olivia Brown');
-  await expect(page.locator('#playerStatGrid')).toContainText('1-1');
+  await expect(page.locator('#playerStatGrid')).toContainText('2-1');
   await expect(page.locator('#playerStatGrid')).toContainText('doubles');
+  const formatCard = page.locator('#playerStatGrid .player-stat').nth(3);
+  await expect(formatCard.locator('span')).toHaveText('Formats');
+  await expect(formatCard.locator('strong')).toHaveText('1');
   await expect(page.locator('#playerMatchList')).toContainText('Ben Kim & Sophia Lee');
+  await expect(page.locator('#playerMatchList')).toContainText('Ethan Kim & Ava Patel');
   await expect(page.locator('#playerMatchList')).toContainText('7-5');
   await expect(page.locator('#playerMatchList')).toContainText('6-4');
+  await expect(page.locator('#playerMatchList')).toContainText('6-2');
 });
