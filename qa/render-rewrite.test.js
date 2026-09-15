@@ -29,6 +29,7 @@ for (const value of [
   `src="${cdn}/app.js"`,
   `src="${cdn}/assets/team-court.jpg"`,
   `href="${cdn}/account-settings.css"`,
+  `src="${cdn}/connected-sheet-guard.js"`,
   `src="${cdn}/account-settings.js"`,
 ]) {
   assert.ok(out.includes(value), `missing quoted rewritten attribute: ${value}`);
@@ -39,10 +40,11 @@ const ranking = out.indexOf(`${cdn}/ranking-policy.js`);
 const dashboard = out.indexOf(`${cdn}/player-dashboard-state.js`);
 const coachOps = out.indexOf(`${cdn}/coach-ops.js`);
 const previewGuard = out.indexOf(`${cdn}/coach-preview-guard.js`);
+const sheetGuard = out.indexOf(`${cdn}/connected-sheet-guard.js`);
 const accountSettings = out.indexOf(`${cdn}/account-settings.js`);
 const brandAssets = out.indexOf(`${cdn}/brand-assets.js`);
 assert.ok(importSync > 0 && ranking > importSync && dashboard > ranking && coachOps > dashboard && previewGuard > coachOps, 'runtime order must be importer sync -> ranking policy -> player dashboard -> coach ops -> final preview guard');
-assert.ok(accountSettings > previewGuard && brandAssets > accountSettings, 'account settings must load after legacy controls and before final brand assets');
+assert.ok(sheetGuard > previewGuard && accountSettings > sheetGuard && brandAssets > accountSettings, 'late safety/UI patches must load before final brand assets');
 assert.ok(out.includes(`${cdn}/player-dashboard-state.css`));
 assert.ok(out.includes(`${cdn}/coach-ops.css`));
 assert.ok(out.includes(`${cdn}/account-settings.css`));
@@ -67,6 +69,7 @@ const response = {
 render({method:'GET'}, response).then(() => {
   assert.equal(response.code, 200);
   assert.ok(response.body.includes('/coach-ops.js'));
+  assert.ok(response.body.includes('/connected-sheet-guard.js'));
   assert.ok(response.body.includes('/account-settings.js'));
   assert.ok(response.body.includes('/account-settings.css'));
 }).finally(() => { global.fetch = nativeFetch; });
