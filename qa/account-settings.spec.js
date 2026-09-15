@@ -14,6 +14,10 @@ async function installRoutes(page, role = 'admin') {
   };
 
   await page.addInitScript(({ profile }) => {
+    // Seed only the first navigation. A real sign-out/reload must be allowed to
+    // remove the session permanently instead of this test helper restoring it.
+    if (sessionStorage.getItem('qa-session-seeded') === 'true') return;
+    sessionStorage.setItem('qa-session-seeded', 'true');
     localStorage.setItem('tennisRankAuthSessionV1', JSON.stringify({
       access_token: 'qa-access',
       refresh_token: 'qa-refresh',
@@ -113,4 +117,22 @@ test('account settings stay inside a 320px phone viewport with usable controls',
     expect(controlBox.width).toBeGreaterThanOrEqual(42);
     expect(controlBox.height).toBeGreaterThanOrEqual(42);
   }
+});
+
+test('Sign out inside the themed account sheet clears the real session and returns to login', async ({ page }) => {
+  await installRoutes(page, 'admin');
+  await page.goto(BASE, { waitUntil: 'domcontentloaded' });
+  await expect(page.locator('#appShell')).toBeVisible();
+  await page.locator('#accountMenu').click();
+  await expect(page.locator('#trAccountSettingsShell')).toBeVisible();
+
+  const logoutRequest = page.waitForRequest(request => request.url().includes('/auth/v1/logout') && request.method() === 'POST');
+  await page.locator('[data-account-signout]').click();
+  await logoutRequest;
+
+  await expect(page.locator('#authGate')).toBeVisible();
+  await expect(page.locator('#appShell')).toBeHidden();
+  await expect(page.locator('#loginForm')).toBeVisible();
+  await expect.poll(() => page.evaluate(() => localStorage.getItem('tennisRankAuthSessionV1'))).toBeNull();
+  await expect(page).toHaveURL(/\/$/);
 });
