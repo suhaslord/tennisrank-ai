@@ -150,7 +150,53 @@ async function main() {
     assert.equal(fixture.syncCalls(), 1, 'legacy fetch-only flow still needs the explicit backend save');
   }
 
-  console.log('Connected Sheet refresh regression tests passed, including single-publish certainty refresh.');
+  {
+    const fixture = fakeWindow({ sheetUrl: 'https://docs.google.com/spreadsheets/d/slow/edit', refreshRate: '15' });
+    let calls = 0;
+    let releaseFirst;
+    fixture.win.fetchSheet = () => {
+      calls += 1;
+      if (calls === 1) return new Promise(resolve => { releaseFirst = resolve; });
+      return Promise.resolve();
+    };
+    const controller = autoSync.installConnectedSheetRefresh(fixture.win);
+    const timer = [...fixture.intervals.values()][0];
+    const first = timer.callback();
+    const second = timer.callback();
+    await Promise.resolve();
+    assert.equal(calls, 1, 'a second timer tick must not start another Sheet fetch while one is in flight');
+    releaseFirst();
+    await Promise.all([first, second]);
+    assert.equal(fixture.syncCalls(), 1, 'overlapping timer ticks must collapse to one publish');
+    await timer.callback();
+    assert.equal(calls, 2, 'a later tick should run after the previous refresh is finished');
+    assert.equal(fixture.syncCalls(), 2);
+    assert.ok(controller);
+  }
+
+  {
+    const fixture = fakeWindow({ sheetUrl: 'https://docs.google.com/spreadsheets/d/stale/edit', refreshRate: '15' });
+    let releaseFetch;
+    let calls = 0;
+    fixture.win.fetchSheet = () => {
+      calls += 1;
+      return new Promise(resolve => { releaseFetch = resolve; });
+    };
+    const controller = autoSync.installConnectedSheetRefresh(fixture.win);
+    const timer = [...fixture.intervals.values()][0];
+    const oldTick = timer.callback();
+    await Promise.resolve();
+    assert.equal(calls, 1);
+
+    controller.disconnect();
+    releaseFetch();
+    await oldTick;
+    assert.equal(fixture.syncCalls(), 0, 'a refresh that finishes after disconnect must never publish stale Sheet data');
+    assert.equal(fixture.win.localStorage.getItem('tennisRankSheetUrl'), null);
+    assert.equal(fixture.intervals.size, 0);
+  }
+
+  console.log('Connected Sheet refresh regression tests passed, including overlap and stale-generation protection.');
 }
 
 main().catch(error => {
