@@ -29,6 +29,7 @@ for (const value of [
   `src="${cdn}/app.js"`,
   `src="${cdn}/assets/team-court.jpg"`,
   `href="${cdn}/account-settings.css"`,
+  `src="${cdn}/match-dedup-guard.js"`,
   `src="${cdn}/connected-sheet-guard.js"`,
   `src="${cdn}/account-settings.js"`,
 ]) {
@@ -40,11 +41,12 @@ const ranking = out.indexOf(`${cdn}/ranking-policy.js`);
 const dashboard = out.indexOf(`${cdn}/player-dashboard-state.js`);
 const coachOps = out.indexOf(`${cdn}/coach-ops.js`);
 const previewGuard = out.indexOf(`${cdn}/coach-preview-guard.js`);
+const matchDedup = out.indexOf(`${cdn}/match-dedup-guard.js`);
 const sheetGuard = out.indexOf(`${cdn}/connected-sheet-guard.js`);
 const accountSettings = out.indexOf(`${cdn}/account-settings.js`);
 const brandAssets = out.indexOf(`${cdn}/brand-assets.js`);
 assert.ok(importSync > 0 && ranking > importSync && dashboard > ranking && coachOps > dashboard && previewGuard > coachOps, 'runtime order must be importer sync -> ranking policy -> player dashboard -> coach ops -> final preview guard');
-assert.ok(sheetGuard > previewGuard && accountSettings > sheetGuard && brandAssets > accountSettings, 'late safety/UI patches must load before final brand assets');
+assert.ok(matchDedup > previewGuard && sheetGuard > matchDedup && accountSettings > sheetGuard && brandAssets > accountSettings, 'late integrity/safety/UI patches must load before final brand assets');
 assert.ok(out.includes(`${cdn}/player-dashboard-state.css`));
 assert.ok(out.includes(`${cdn}/coach-ops.css`));
 assert.ok(out.includes(`${cdn}/account-settings.css`));
@@ -69,6 +71,7 @@ const response = {
 render({method:'GET'}, response).then(() => {
   assert.equal(response.code, 200);
   assert.ok(response.body.includes('/coach-ops.js'));
+  assert.ok(response.body.includes('/match-dedup-guard.js'));
   assert.ok(response.body.includes('/connected-sheet-guard.js'));
   assert.ok(response.body.includes('/account-settings.js'));
   assert.ok(response.body.includes('/account-settings.css'));
