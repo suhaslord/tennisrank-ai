@@ -112,13 +112,23 @@
     return (Array.isArray(rows) ? rows : []).filter(row => text(row?.__importConflict));
   }
 
+  function conflictError(rows) {
+    const conflicts = conflictRows(rows);
+    const error = new Error(`${conflicts.length} conflicting duplicate match row${conflicts.length === 1 ? '' : 's'} were found. Fix the winner/result for that match or add a Match ID/round/time so separate matches can be distinguished.`);
+    error.code = 'CONFLICTING_MATCH_ROWS';
+    error.rows = rows;
+    return error;
+  }
+
   function installImporter(importer, compat) {
     if (!importer?.parseText) return false;
 
     if (!importer.parseText.__matchDedupGuard) {
       const baseParse = importer.parseText;
       const wrappedParse = function matchDedupParse() {
-        return normalizeRows(baseParse.apply(this, arguments), compat);
+        const rows = normalizeRows(baseParse.apply(this, arguments), compat);
+        if (conflictRows(rows).length) throw conflictError(rows);
+        return rows;
       };
       wrappedParse.__matchDedupGuard = true;
       wrappedParse.__baseParseText = baseParse;
@@ -131,12 +141,7 @@
         normalizeRows(rows, compat);
         const conflicts = conflictRows(rows);
         if (conflicts.length) {
-          return {
-            valid: false,
-            confidence: 0,
-            level: 'LOW',
-            reason: `${conflicts.length} conflicting duplicate match row${conflicts.length === 1 ? '' : 's'} were found. Fix the winner/result for that match or add a Match ID/round/time so separate matches can be distinguished.`,
-          };
+          return { valid: false, confidence: 0, level: 'LOW', reason: conflictError(rows).message };
         }
         return baseValidate.apply(this, arguments);
       };
@@ -187,6 +192,7 @@
     contestSignature,
     normalizeRows,
     conflictRows,
+    conflictError,
     installImporter,
     install,
     schedule,
