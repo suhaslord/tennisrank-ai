@@ -68,6 +68,61 @@
     return '';
   }
 
+  const PARTNER_HEADERS = new Map([
+    ['partner', 'partner'], ['partnername', 'partner'], ['teammate', 'partner'], ['teammatename', 'partner'], ['doublespartner', 'partner'], ['playerpartner', 'partner'],
+    ['opponentpartner', 'opponentPartner'], ['opponentpartnername', 'opponentPartner'], ['opposingpartner', 'opponentPartner'], ['opponentteammate', 'opponentPartner'], ['opponentteammatename', 'opponentPartner'], ['opppartner', 'opponentPartner'],
+    ['partner1', 'partner1'], ['partnera', 'partner1'], ['player1partner', 'partner1'], ['team1partner', 'partner1'], ['teamapartner', 'partner1'], ['side1partner', 'partner1'], ['sideapartner', 'partner1'],
+    ['partner2', 'partner2'], ['partnerb', 'partner2'], ['player2partner', 'partner2'], ['team2partner', 'partner2'], ['teambpartner', 'partner2'], ['side2partner', 'partner2'], ['sidebpartner', 'partner2'],
+    ['winner1', 'winner1'], ['winnera', 'winner1'], ['winningplayer1', 'winner1'], ['winningteamplayer1', 'winner1'],
+    ['winner2', 'winner2'], ['winnerb', 'winner2'], ['winnerpartner', 'winner2'], ['winningpartner', 'winner2'], ['winningplayer2', 'winner2'], ['winningteamplayer2', 'winner2'],
+    ['loser1', 'loser1'], ['losera', 'loser1'], ['losingplayer1', 'loser1'], ['losingteamplayer1', 'loser1'],
+    ['loser2', 'loser2'], ['loserb', 'loser2'], ['loserpartner', 'loser2'], ['losingpartner', 'loser2'], ['losingplayer2', 'loser2'], ['losingteamplayer2', 'loser2'],
+    ['partnergender', 'partnerGender'], ['teammategender', 'partnerGender'], ['player2gender', 'partnerGender'], ['gender2', 'partnerGender'],
+    ['playergender', 'playerGender'], ['player1gender', 'playerGender'], ['gender1', 'playerGender'],
+  ]);
+
+  function partnerFieldForHeader(value) {
+    return PARTNER_HEADERS.get(compact(value)) || '';
+  }
+
+  function rawPartnerRows(textInput, importer) {
+    if (!importer?.parseDelimited) return [];
+    let parsed;
+    try { parsed = importer.parseDelimited(String(textInput || '').replace(/^\uFEFF/, '')); }
+    catch { return []; }
+    const matrix = parsed?.matrix || [];
+    if (matrix.length < 2) return [];
+    let headerIndex = 0;
+    try {
+      const detected = importer.detectHeaderRow?.(matrix);
+      if (Number.isInteger(detected?.index)) headerIndex = detected.index;
+    } catch {}
+    const headers = matrix[headerIndex] || [];
+    const mapped = headers.map(partnerFieldForHeader);
+    if (!mapped.some(Boolean)) return [];
+    return matrix.slice(headerIndex + 1).map((values, offset) => {
+      const row = { __sourceRow: headerIndex + offset + 2 };
+      mapped.forEach((field, index) => {
+        if (field && text(values?.[index])) row[field] = text(values[index]);
+      });
+      return row;
+    });
+  }
+
+  function mergeRawPartnerColumns(rows, rawRows) {
+    if (!Array.isArray(rows) || !Array.isArray(rawRows) || !rawRows.length) return rows;
+    const bySource = new Map(rawRows.map(row => [Number(row.__sourceRow), row]));
+    rows.forEach((row, index) => {
+      const raw = bySource.get(Number(row?.__sourceRow)) || rawRows[index];
+      if (!raw) return;
+      Object.entries(raw).forEach(([key, value]) => {
+        if (key === '__sourceRow' || !text(value) || text(row[key])) return;
+        row[key] = value;
+      });
+    });
+    return rows;
+  }
+
   function setHidden(row, key, value) {
     try {
       Object.defineProperty(row, key, { value, writable: true, configurable: true, enumerable: false });
@@ -222,8 +277,10 @@
     if (importer.parseText.__matchResultCompatParser) return true;
 
     const baseParse = importer.parseText;
-    const wrapped = function matchResultCompatibleParseText() {
+    const wrapped = function matchResultCompatibleParseText(textInput) {
+      const rawRows = rawPartnerRows(textInput, importer);
       const rows = baseParse.apply(this, arguments);
+      mergeRawPartnerColumns(rows, rawRows);
       return normalizeRows(rows);
     };
     wrapped.__matchResultCompatParser = true;
@@ -293,6 +350,9 @@
     splitPairNames,
     pairLabel,
     genderKind,
+    partnerFieldForHeader,
+    rawPartnerRows,
+    mergeRawPartnerColumns,
     normalizeDoublesPartners,
     normalizeRow,
     normalizeRows,
