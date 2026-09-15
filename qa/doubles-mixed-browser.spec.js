@@ -137,6 +137,40 @@ test('coach can import boys, girls and mixed doubles together without polluting 
   expect(pageErrors).toEqual([]);
 });
 
+test('coach partner-column sheet becomes doubles before publish and reciprocal partner rows count once', async ({ page }) => {
+  const pageErrors = [];
+  page.on('pageerror', error => pageErrors.push(error.message));
+  const state = await installMocks(page);
+  await openAdminCsv(page);
+
+  const csv = [
+    'Player,Partner,Opponent,Opponent Partner,Result,Score,Gender,Division,Date',
+    'Noah Williams,Ethan Kim,Liam Chen,Jack Park,W,6-3,Boys,,2026-09-15',
+    'Ethan Kim,Noah Williams,Jack Park,Liam Chen,W,6-3,Boys,,2026-09-15',
+    'Olivia Brown,Ravi Shah,Sophia Lee,Ben Kim,W,7-5,,MXD,2026-09-15',
+  ].join('\n');
+
+  await page.locator('#csvText').fill(csv);
+  await page.locator('#useCsv').click();
+  await expect(page.locator('#importPreviewModal')).toBeVisible();
+  await page.locator('[data-preview-confirm]').click();
+
+  await expect.poll(() => state.savedRows.length).toBe(2);
+  await expect(page.locator('#rankingTable')).toContainText('Ethan Kim & Noah Williams');
+  await expect(page.locator('#rankingTable')).toContainText('Jack Park & Liam Chen');
+  await expect(page.locator('#rankingTable')).toContainText('Olivia Brown & Ravi Shah');
+  await expect(page.locator('#rankingTable')).toContainText('Ben Kim & Sophia Lee');
+  await expect(page.locator('#matchesList')).toContainText('6-3');
+  await expect(page.locator('#matchesList')).toContainText('7-5');
+
+  await page.locator('[data-gender="mixed"]').click();
+  await expect(page.locator('#rankingTable')).toContainText('Olivia Brown & Ravi Shah');
+  await expect(page.locator('#rankingTable')).not.toContainText('Ethan Kim & Noah Williams');
+
+  expect(state.seedBodies).toHaveLength(0);
+  expect(pageErrors).toEqual([]);
+});
+
 test('player dashboard recognizes a player inside a mixed-doubles pair', async ({ page }) => {
   const rows = [
     { winner: 'Ravi Shah / Olivia Brown', loser: 'Ben Kim / Sophia Lee', score: '7-5', gender: 'Mixed', division: 'Mixed Doubles', date: '2026-09-14' },
