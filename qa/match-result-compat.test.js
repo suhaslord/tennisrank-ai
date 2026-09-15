@@ -25,6 +25,11 @@ const invalid = [
 compat.normalizeRows(invalid);
 assert.equal(invalid.some(row => row.winner || row.loser), false, 'mismatched result names must stay unresolved instead of being guessed');
 
+const ambiguousNames = { player1: 'Joanne Lee', player2: 'Ann', winner: 'Ann', gender: 'Girls', division: 'Singles' };
+compat.normalizeRow(ambiguousNames);
+assert.equal(ambiguousNames.winner, 'Ann', 'exact side matching must beat substring overlap');
+assert.equal(ambiguousNames.loser, 'Joanne Lee');
+
 const partnerRows = [
   {
     name: 'Noah Williams', partner: 'Ethan Kim', opponent: 'Liam Chen', opponentPartner: 'Jack Park',
@@ -74,6 +79,8 @@ const sidePartnerColumns = {
 compat.normalizeRow(sidePartnerColumns);
 assert.equal(sidePartnerColumns.player1, 'Ethan Kim & Noah Williams');
 assert.equal(sidePartnerColumns.player2, 'Jack Park & Liam Chen');
+assert.equal(sidePartnerColumns.winner, 'Ethan Kim & Noah Williams');
+assert.equal(sidePartnerColumns.loser, 'Jack Park & Liam Chen');
 assert.equal(sidePartnerColumns.division, 'Doubles');
 
 let received;
@@ -126,6 +133,8 @@ assert.equal(compat.installBrowser(droppingImporterWindow), true);
 const recovered = droppingImporterWindow.TennisRankImportV2.parseText('raw csv');
 assert.equal(recovered[0].player1, 'Ethan Kim & Noah Williams');
 assert.equal(recovered[0].player2, 'Jack Park & Liam Chen');
+assert.equal(recovered[0].winner, 'Ethan Kim & Noah Williams');
+assert.equal(recovered[0].loser, 'Jack Park & Liam Chen');
 assert.equal(recovered[0].division, 'Doubles');
 
 console.log('Named-result and doubles partner compatibility regression passed.');
