@@ -34,7 +34,7 @@ jobs:
         run: |
           set -euo pipefail
           find api lib -type f -name '*.js' -print0 | xargs -0 -n1 node --check
-          for file in app.js auth.js account-settings.js coach-ops.js coach-sharing.js coach-preview-guard.js coach-polish.js google-workbook-bridge.js match-result-compat.js spreadsheet-universal.js repeated-header-runtime-guard.js import-certainty-gate.js import-auto-sync.js import-runtime-fixes.js import-v2.js spreadsheet-ai.js spreadsheet-ml.js ranking-policy.js player-dashboard-state.js player-insights.js human-copy.js; do
+          for file in app.js auth.js account-settings.js connected-sheet-guard.js coach-ops.js coach-sharing.js coach-preview-guard.js coach-polish.js google-workbook-bridge.js match-result-compat.js spreadsheet-universal.js repeated-header-runtime-guard.js import-certainty-gate.js import-auto-sync.js import-runtime-fixes.js import-v2.js spreadsheet-ai.js spreadsheet-ml.js ranking-policy.js player-dashboard-state.js player-insights.js human-copy.js; do
             node --check "$file"
           done
           node --check qa/production-hardening.test.js
@@ -45,6 +45,7 @@ jobs:
           node --check qa/universal-import.test.js
           node --check qa/certainty-workbook.test.js
           node --check qa/connected-sheet-refresh.test.js
+          node --check qa/connected-sheet-guard.test.js
           node --check qa/repeated-header-runtime.test.js
           node --check qa/import-concurrency.test.js
           node --check qa/photo-placeholder.test.js
@@ -53,6 +54,7 @@ jobs:
           node --check qa/doubles-mixed.test.js
           node --check qa/doubles-mixed-browser.spec.js
           node --check qa/account-settings.spec.js
+          node --check qa/connected-sheet-guard.spec.js
           node --check qa/human-ui.spec.js
           node --check qa/certainty-ui.spec.js
           node --check qa/coach-real-sheet-browser.spec.js
@@ -90,6 +92,7 @@ jobs:
           node qa/ai-thresholds.test.js
           node qa/import-auto-sync.test.js
           node qa/connected-sheet-refresh.test.js
+          node qa/connected-sheet-guard.test.js
           node qa/repeated-header-runtime.test.js
           node qa/import-concurrency.test.js
           node qa/photo-placeholder.test.js
@@ -114,6 +117,7 @@ jobs:
           npx playwright test \
             qa/auth-flow.spec.js \
             qa/account-settings.spec.js \
+            qa/connected-sheet-guard.spec.js \
             qa/human-ui.spec.js \
             qa/browser.spec.js \
             qa/core-flow-browser.spec.js \
@@ -140,6 +144,7 @@ jobs:
           test -f coach-polish.css
           test -f google-workbook-bridge.js
           test -f match-result-compat.js
+          test -f connected-sheet-guard.js
           test -f spreadsheet-universal.js
           test -f repeated-header-runtime-guard.js
           test -f import-certainty-gate.js
@@ -148,6 +153,8 @@ jobs:
           test -f account-settings.js
           test -f account-settings.css
           test -f qa/account-settings.spec.js
+          test -f qa/connected-sheet-guard.test.js
+          test -f qa/connected-sheet-guard.spec.js
           test -f qa/human-copy.test.js
           test -f qa/human-theme.test.js
           test -f qa/human-ui.spec.js
@@ -157,6 +164,7 @@ jobs:
           grep -q 'coach-polish.css' api/render.js
           grep -q 'coach-polish.js' api/render.js
           grep -q 'match-result-compat.js' api/render.js
+          grep -q 'connected-sheet-guard.js' api/render.js
           grep -q 'PHOTO_PLACEHOLDER_SVG' api/render.js
           grep -q 'human-theme.css' api/render.js
           grep -q 'human-copy.js' api/render.js
