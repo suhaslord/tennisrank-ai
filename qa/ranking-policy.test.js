@@ -27,4 +27,18 @@ assert.equal(policy.recordTier({ wins: 3, losses: 2 }), 0);
 assert.equal(policy.recordTier({ wins: 0, losses: 0 }), 1);
 assert.equal(policy.recordTier({ wins: 2, losses: 3 }), 2);
 
+assert.equal(policy.detectGender("Mixed Doubles"), "mixed");
+assert.equal(policy.detectGender("Co-ed"), "mixed");
+assert.equal(policy.detectGender("", "Doubles", { partner1Gender: "M", partner2Gender: "F" }), "mixed");
+assert.equal(policy.detectGender("Boys", "Doubles"), "boys");
+assert.equal(policy.detectGender("Girls", "Doubles"), "girls");
+assert.equal(policy.detectDivision("Mixed Doubles"), "doubles");
+assert.equal(policy.detectDivision("XD"), "doubles");
+assert.equal(policy.detectDivision("2D"), "doubles");
+assert.equal(policy.detectDivision("Singles"), "singles");
+assert.deepEqual(policy.splitPairNames("Alex&Ben"), ["Alex", "Ben"]);
+assert.deepEqual(policy.splitPairNames("Maya / Zoe"), ["Maya", "Zoe"]);
+assert.deepEqual(policy.splitPairNames("Ravi + Noah"), ["Ravi", "Noah"]);
+assert.deepEqual(policy.splitPairNames("Emma and Olivia"), ["Emma", "Olivia"]);
+
 console.log("ranking policy tests passed");
