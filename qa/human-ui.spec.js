@@ -48,7 +48,7 @@ async function seedAdmin(page) {
   });
 }
 
-test('login is a single warm card with no side image or marketing panel', async ({ page }) => {
+test('login uses the same square paper and orange TennisRank theme', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await baseRoutes(page);
   await page.goto(BASE, { waitUntil: 'domcontentloaded' });
@@ -64,12 +64,16 @@ test('login is a single warm card with no side image or marketing panel', async 
     background: getComputedStyle(el).backgroundColor,
     radius: parseFloat(getComputedStyle(el).borderRadius),
     width: el.getBoundingClientRect().width,
+    borderTop: getComputedStyle(el).borderTopColor,
   }));
+  const button = await page.locator('#loginButton').evaluate(el => getComputedStyle(el).backgroundColor);
   expect(visual).toBe('none');
   expect(columns.split(' ').length).toBe(1);
-  expect(card.background).toMatch(/rgba?\(255, 255, 255/);
-  expect(card.radius).toBeGreaterThanOrEqual(18);
+  expect(card.background).toBe('rgb(250, 251, 249)');
+  expect(card.radius).toBe(0);
   expect(card.width).toBeLessThanOrEqual(500);
+  expect(card.borderTop).toBe('rgb(32, 33, 31)');
+  expect(button).toBe('rgb(255, 118, 87)');
 });
 
 test('admin account settings use the same light orange theme and human copy', async ({ page }) => {
@@ -95,7 +99,7 @@ test('admin account settings use the same light orange theme and human copy', as
   expect(button).not.toBe('rgb(0, 0, 0)');
 });
 
-test('humanized login stays clean at 320px', async ({ page }) => {
+test('themed login stays clean at 320px', async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 760 });
   await baseRoutes(page);
   await page.goto(BASE, { waitUntil: 'domcontentloaded' });
