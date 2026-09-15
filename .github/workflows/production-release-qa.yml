@@ -34,7 +34,7 @@ jobs:
         run: |
           set -euo pipefail
           find api lib -type f -name '*.js' -print0 | xargs -0 -n1 node --check
-          for file in app.js auth.js account-settings.js connected-sheet-guard.js match-dedup-guard.js coach-ops.js coach-sharing.js coach-preview-guard.js coach-polish.js google-workbook-bridge.js match-result-compat.js spreadsheet-universal.js repeated-header-runtime-guard.js import-certainty-gate.js import-auto-sync.js import-runtime-fixes.js import-v2.js spreadsheet-ai.js spreadsheet-ml.js ranking-policy.js player-dashboard-state.js player-insights.js human-copy.js; do
+          for file in app.js auth.js account-settings.js connected-sheet-guard.js match-dedup-guard.js coach-ops.js coach-sharing.js coach-preview-guard.js coach-polish.js google-workbook-bridge.js match-result-compat.js spreadsheet-universal.js repeated-header-runtime-guard.js import-certainty-gate.js import-auto-sync.js import-runtime-fixes.js import-v2.js spreadsheet-ai.js spreadsheet-ml.js ranking-policy.js player-dashboard-state.js player-insights.js human-copy.js ui-cohesion.js ladder.js challenge-ui.js challenge-ui-state.js; do
             node --check "$file"
           done
           node --check qa/production-hardening.test.js
@@ -43,6 +43,7 @@ jobs:
           node --check qa/account-access.test.js
           node --check qa/match-result-compat.test.js
           node --check qa/match-dedup-guard.test.js
+          node --check qa/coach-ladder-controls.test.js
           node --check qa/universal-import.test.js
           node --check qa/certainty-workbook.test.js
           node --check qa/connected-sheet-refresh.test.js
@@ -57,6 +58,8 @@ jobs:
           node --check qa/account-settings.spec.js
           node --check qa/connected-sheet-guard.spec.js
           node --check qa/match-dedup-guard.spec.js
+          node --check qa/ui-cohesion.spec.js
+          node --check qa/coach-ladder-controls.spec.js
           node --check qa/human-ui.spec.js
           node --check qa/certainty-ui.spec.js
           node --check qa/coach-real-sheet-browser.spec.js
@@ -78,6 +81,7 @@ jobs:
           node qa/render-rewrite.test.js
           node qa/ladder-engine.test.js
           node qa/challenge-api.test.js
+          node qa/coach-ladder-controls.test.js
           node qa/coach-ops.test.js
           node qa/account-access.test.js
           node qa/coach-failure-recovery.test.js
@@ -122,6 +126,8 @@ jobs:
             qa/account-settings.spec.js \
             qa/connected-sheet-guard.spec.js \
             qa/match-dedup-guard.spec.js \
+            qa/ui-cohesion.spec.js \
+            qa/coach-ladder-controls.spec.js \
             qa/human-ui.spec.js \
             qa/browser.spec.js \
             qa/core-flow-browser.spec.js \
@@ -155,6 +161,9 @@ jobs:
           test -f import-certainty-gate.js
           test -f human-theme.css
           test -f human-copy.js
+          test -f ui-cohesion.js
+          test -f ui-cohesion.css
+          test -f coach-console-theme.css
           test -f account-settings.js
           test -f account-settings.css
           test -f qa/account-settings.spec.js
@@ -162,6 +171,9 @@ jobs:
           test -f qa/connected-sheet-guard.spec.js
           test -f qa/match-dedup-guard.test.js
           test -f qa/match-dedup-guard.spec.js
+          test -f qa/coach-ladder-controls.test.js
+          test -f qa/coach-ladder-controls.spec.js
+          test -f qa/ui-cohesion.spec.js
           test -f qa/human-copy.test.js
           test -f qa/human-theme.test.js
           test -f qa/human-ui.spec.js
@@ -178,8 +190,14 @@ jobs:
           grep -q 'human-copy.js' api/render.js
           grep -q 'account-settings.css' api/render.js
           grep -q 'account-settings.js' api/render.js
+          grep -q 'ui-cohesion.css' api/render.js
+          grep -q 'ui-cohesion.js' api/render.js
+          grep -q 'coach-console-theme.css' api/render.js
           grep -q 'human-theme.css' brand-assets.js
           grep -q 'human-copy.js' brand-assets.js
+          grep -q 'ui-cohesion.css' brand-assets.js
+          grep -q 'ui-cohesion.js' brand-assets.js
+          grep -q 'coach-console-theme.css' brand-assets.js
           grep -q 'import-certainty-gate.js' brand-assets.js
           grep -q 'google-workbook-bridge.js' brand-assets.js
           grep -q 'match-result-compat.js' brand-assets.js
