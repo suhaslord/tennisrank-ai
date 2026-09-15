@@ -47,7 +47,10 @@
   loadRuntimeScript('/google-workbook-bridge.js', 'data-tennisrank-google-workbook-bridge');
   loadRuntimeScript('/coach-essential.js', 'data-tennisrank-coach-essential');
   loadRuntimeStyle('/human-theme.css', 'data-tennisrank-human-theme');
+  loadRuntimeStyle('/ui-cohesion.css', 'data-tennisrank-ui-cohesion-style');
+  loadRuntimeStyle('/coach-console-theme.css', 'data-tennisrank-coach-console-theme');
   loadRuntimeScript('/human-copy.js', 'data-tennisrank-human-copy');
+  loadRuntimeScript('/ui-cohesion.js', 'data-tennisrank-ui-cohesion');
 
   const MARK_SVG = `
     <svg viewBox="0 0 96 72" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
