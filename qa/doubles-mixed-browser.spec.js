@@ -144,10 +144,10 @@ test('coach partner-column sheet becomes doubles before publish and reciprocal p
   await openAdminCsv(page);
 
   const csv = [
-    'Player,Partner,Opponent,Opponent Partner,Result,Score,Gender,Division,Date',
-    'Noah Williams,Ethan Kim,Liam Chen,Jack Park,W,6-3,Boys,,2026-09-15',
-    'Ethan Kim,Noah Williams,Jack Park,Liam Chen,W,6-3,Boys,,2026-09-15',
-    'Olivia Brown,Ravi Shah,Sophia Lee,Ben Kim,W,7-5,,MXD,2026-09-15',
+    'Player,Partner,Opponent,Opponent Partner,Result,Score,Gender,Partner Gender,Date',
+    'Noah Williams,Ethan Kim,Liam Chen,Jack Park,W,6-3,Boys,M,2026-09-15',
+    'Ethan Kim,Noah Williams,Jack Park,Liam Chen,W,6-3,Boys,M,2026-09-15',
+    'Olivia Brown,Ravi Shah,Sophia Lee,Ben Kim,W,7-5,F,M,2026-09-15',
   ].join('\n');
 
   await page.locator('#csvText').fill(csv);
@@ -167,6 +167,7 @@ test('coach partner-column sheet becomes doubles before publish and reciprocal p
   await expect(page.locator('#rankingTable')).toContainText('Olivia Brown & Ravi Shah');
   await expect(page.locator('#rankingTable')).not.toContainText('Ethan Kim & Noah Williams');
 
+  expect(state.savedRows.find(row => /Olivia Brown/.test(String(row.winner || '')))?.gender).toBe('Mixed');
   expect(state.seedBodies).toHaveLength(0);
   expect(pageErrors).toEqual([]);
 });
