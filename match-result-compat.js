@@ -68,6 +68,15 @@
     return '';
   }
 
+  function pairGender(first, second) {
+    const a = genderKind(first);
+    const b = genderKind(second);
+    if (!a || !b) return '';
+    if (a === 'mixed' || b === 'mixed') return 'mixed';
+    if (a !== b) return 'mixed';
+    return a;
+  }
+
   const PARTNER_HEADERS = new Map([
     ['partner', 'partner'], ['partnername', 'partner'], ['teammate', 'partner'], ['teammatename', 'partner'], ['doublespartner', 'partner'], ['playerpartner', 'partner'],
     ['opponentpartner', 'opponentPartner'], ['opponentpartnername', 'opponentPartner'], ['opposingpartner', 'opponentPartner'], ['opponentteammate', 'opponentPartner'], ['opponentteammatename', 'opponentPartner'], ['opppartner', 'opponentPartner'],
@@ -77,8 +86,12 @@
     ['winner2', 'winner2'], ['winnerb', 'winner2'], ['winnerpartner', 'winner2'], ['winningpartner', 'winner2'], ['winningplayer2', 'winner2'], ['winningteamplayer2', 'winner2'],
     ['loser1', 'loser1'], ['losera', 'loser1'], ['losingplayer1', 'loser1'], ['losingteamplayer1', 'loser1'],
     ['loser2', 'loser2'], ['loserb', 'loser2'], ['loserpartner', 'loser2'], ['losingpartner', 'loser2'], ['losingplayer2', 'loser2'], ['losingteamplayer2', 'loser2'],
-    ['partnergender', 'partnerGender'], ['teammategender', 'partnerGender'], ['player2gender', 'partnerGender'], ['gender2', 'partnerGender'],
-    ['playergender', 'playerGender'], ['player1gender', 'playerGender'], ['gender1', 'playerGender'],
+    ['partnergender', 'partnerGender'], ['teammategender', 'partnerGender'], ['gender2', 'partnerGender'],
+    ['playergender', 'playerGender'], ['gender1', 'playerGender'],
+    ['player1gender', 'side1Gender'], ['team1gender', 'side1Gender'], ['side1gender', 'side1Gender'], ['teamagender', 'side1Gender'], ['sideagender', 'side1Gender'],
+    ['partner1gender', 'side1PartnerGender'], ['team1partnergender', 'side1PartnerGender'], ['side1partnergender', 'side1PartnerGender'], ['partneragender', 'side1PartnerGender'],
+    ['player2gender', 'side2Gender'], ['team2gender', 'side2Gender'], ['side2gender', 'side2Gender'], ['teambgender', 'side2Gender'], ['sidebgender', 'side2Gender'],
+    ['partner2gender', 'side2PartnerGender'], ['team2partnergender', 'side2PartnerGender'], ['side2partnergender', 'side2PartnerGender'], ['partnerbgender', 'side2PartnerGender'],
   ]);
 
   function partnerFieldForHeader(value) {
@@ -137,6 +150,7 @@
     let partnerStyle = false;
     let primary = '';
     let selfPair = '';
+    let sidePairLayout = false;
 
     const winner1 = valueFor(row, ['winner', 'winner1', 'winner a', 'winning player 1', 'winning team player 1']);
     const winner2 = valueFor(row, ['winner2', 'winner b', 'winner partner', 'winning partner', 'winning player 2', 'winning team player 2']);
@@ -174,6 +188,7 @@
           row.player1 = pairLabel([player1, partner1]);
           row.player2 = pairLabel([player2, partner2]);
           partnerStyle = true;
+          sidePairLayout = true;
         }
       }
     }
@@ -184,9 +199,20 @@
       if (/\b(?:mixed|co[- ]?ed|coed|xd|mxd)\b/i.test(divisionText)) {
         row.gender = 'Mixed';
         row.division = 'Doubles';
+      } else if (sidePairLayout) {
+        const side1 = pairGender(
+          valueFor(row, ['side1Gender', 'player1 gender', 'team1 gender', 'side1 gender', 'team a gender']),
+          valueFor(row, ['side1PartnerGender', 'partner1 gender', 'team1 partner gender', 'side1 partner gender', 'partner a gender']),
+        );
+        const side2 = pairGender(
+          valueFor(row, ['side2Gender', 'player2 gender', 'team2 gender', 'side2 gender', 'team b gender']),
+          valueFor(row, ['side2PartnerGender', 'partner2 gender', 'team2 partner gender', 'side2 partner gender', 'partner b gender']),
+        );
+        if (side1 === 'mixed' || side2 === 'mixed') row.gender = 'Mixed';
+        else if (side1 && side2 && side1 === side2) row.gender = side1 === 'boys' ? 'Boys' : 'Girls';
       } else {
-        const playerGender = genderKind(valueFor(row, ['gender', 'player gender', 'playergender', 'gender1', 'player1 gender']));
-        const partnerGender = genderKind(valueFor(row, ['partner gender', 'partnergender', 'gender2', 'player2 gender', 'teammate gender']));
+        const playerGender = genderKind(valueFor(row, ['gender', 'player gender', 'playergender', 'gender1']));
+        const partnerGender = genderKind(valueFor(row, ['partner gender', 'partnergender', 'gender2', 'teammate gender']));
         if ((playerGender === 'boys' && partnerGender === 'girls') || (playerGender === 'girls' && partnerGender === 'boys')) {
           row.gender = 'Mixed';
         }
@@ -404,6 +430,7 @@
     splitPairNames,
     pairLabel,
     genderKind,
+    pairGender,
     partnerFieldForHeader,
     rawPartnerRows,
     mergeRawPartnerColumns,
