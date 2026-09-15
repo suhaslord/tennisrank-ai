@@ -30,6 +30,7 @@ for (const value of [
   `src="${cdn}/assets/team-court.jpg"`,
   `href="${cdn}/account-settings.css"`,
   `href="${cdn}/ui-cohesion.css"`,
+  `href="${cdn}/coach-console-theme.css"`,
   `src="${cdn}/match-dedup-guard.js"`,
   `src="${cdn}/connected-sheet-guard.js"`,
   `src="${cdn}/account-settings.js"`,
@@ -54,6 +55,7 @@ assert.ok(out.includes(`${cdn}/player-dashboard-state.css`));
 assert.ok(out.includes(`${cdn}/coach-ops.css`));
 assert.ok(out.includes(`${cdn}/account-settings.css`));
 assert.ok(out.includes(`${cdn}/ui-cohesion.css`));
+assert.ok(out.includes(`${cdn}/coach-console-theme.css`));
 assert.equal(out.includes('class="cursor-ball"'), false);
 
 console.log('render rewrite tests passed');
@@ -81,4 +83,5 @@ render({method:'GET'}, response).then(() => {
   assert.ok(response.body.includes('/account-settings.css'));
   assert.ok(response.body.includes('/ui-cohesion.js'));
   assert.ok(response.body.includes('/ui-cohesion.css'));
+  assert.ok(response.body.includes('/coach-console-theme.css'));
 }).finally(() => { global.fetch = nativeFetch; });
