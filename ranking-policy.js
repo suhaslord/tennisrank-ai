@@ -76,7 +76,7 @@
   function detectGender(value, division = "", row = {}) {
     const sources = sourceText(value, division, row);
     const joined = sources.join(" ");
-    const explicitMixed = /\b(?:mixed|co[- ]?ed|coed)\b/i.test(joined)
+    const explicitMixed = /\b(?:mixed|co[- ]?ed|coed|xd|mxd)\b/i.test(joined)
       || /\b(?:boys?|men|male)\s*(?:&|\+|\/|and)\s*(?:girls?|women|female)\b/i.test(joined)
       || /\b(?:girls?|women|female)\s*(?:&|\+|\/|and)\s*(?:boys?|men|male)\b/i.test(joined)
       || /\bm\s*[&+/]\s*f\b|\bf\s*[&+/]\s*m\b/i.test(joined);
@@ -92,7 +92,7 @@
 
   function detectDivision(value, row = {}) {
     const text = `${value || ""} ${Object.values(row || {}).join(" ")}`.toLowerCase();
-    if (/\b(?:mixed|co[- ]?ed|coed)\b|\bxd\b/.test(text)) return "doubles";
+    if (/\b(?:mixed|co[- ]?ed|coed|xd|mxd)\b/.test(text)) return "doubles";
     if (/double|pair|duo|team event|2v2|\b[123]d\b/.test(text)) return "doubles";
     return "singles";
   }
@@ -110,13 +110,13 @@
   function isSectionLabel(value) {
     const text = String(value || "").trim();
     if (!text) return false;
-    return /\b(?:boys?|girls?|men|women|male|female|mixed|co[- ]?ed|coed|singles?|doubles?|pairs?|2v2|xd)\b/i.test(text);
+    return /\b(?:boys?|girls?|men|women|male|female|mixed|co[- ]?ed|coed|singles?|doubles?|pairs?|2v2|xd|mxd)\b/i.test(text);
   }
 
   function sectionDivisionHint(value) {
     const text = String(value || "").trim();
     if (!text) return "";
-    return /\b(?:singles?|doubles?|pairs?|2v2|xd)\b/i.test(text) ? text : "";
+    return /\b(?:singles?|doubles?|pairs?|2v2|mixed|co[- ]?ed|coed|xd|mxd)\b/i.test(text) ? text : "";
   }
 
   function mixedAwarePrepareRows(win, rows) {
