@@ -131,8 +131,6 @@ test('coach can import boys, girls and mixed doubles together without polluting 
   await expect(page.locator('#rankingTable')).toContainText('Ava Patel & Mia Rodriguez');
   await expect(page.locator('#rankingTable')).toContainText('Olivia Brown & Ravi Shah');
 
-  // The challenge ladder is singles-only. Importing doubles must not seed pair
-  // names into the official boys/girls singles ladder.
   expect(state.seedBodies).toHaveLength(0);
   expect(pageErrors).toEqual([]);
 });
@@ -169,6 +167,18 @@ test('coach partner-column sheet becomes doubles before publish and reciprocal p
 
   expect(state.savedRows.find(row => /Olivia Brown/.test(String(row.winner || '')))?.gender).toBe('Mixed');
   expect(state.seedBodies).toHaveLength(0);
+
+  // Simulate the next coach visit. The persisted normalized rows must rebuild the
+  // same doubles board without relying on the original CSV parser state.
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  await expect(page.locator('#appShell')).toBeVisible();
+  await expect(page.locator('[data-gender="mixed"]')).toBeVisible();
+  await expect(page.locator('#rankingTable')).toContainText('Ethan Kim & Noah Williams');
+  await expect(page.locator('#rankingTable')).toContainText('Olivia Brown & Ravi Shah');
+  await page.locator('[data-gender="mixed"]').click();
+  await expect(page.locator('#rankingTable')).toContainText('Olivia Brown & Ravi Shah');
+  await expect(page.locator('#rankingTable')).not.toContainText('Ethan Kim & Noah Williams');
+  expect(state.savedRows).toHaveLength(2);
   expect(pageErrors).toEqual([]);
 });
 
