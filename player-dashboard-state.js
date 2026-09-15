@@ -22,6 +22,12 @@
     return { label: "—", direction: "same" };
   }
 
+  function formatCountFromDetail(value) {
+    const detail = String(value || "").trim().toLowerCase();
+    if (!detail || /no linked ranking/.test(detail)) return 0;
+    return new Set(detail.split(/\s*\+\s*/).map(item => item.trim()).filter(item => /^(?:singles|doubles)$/.test(item))).size;
+  }
+
   function summaryFromWorkflow(detail) {
     const viewer = detail?.viewer || {};
     const ladder = Array.isArray(detail?.ladder) ? detail.ladder : [];
@@ -82,24 +88,32 @@
         strip.className = "player-identity-strip is-unlinked";
         const markup = `<div><span class="player-identity-kicker">Roster connection</span><strong>Waiting for your roster link</strong><small>Your match stats remain read only. Ask the coach to make sure your account name exactly matches the imported roster.</small></div>`;
         if (strip.innerHTML !== markup) strip.innerHTML = markup;
-        return;
+      } else {
+        strip.className = "player-identity-strip";
+        const markup = `
+          <div class="player-identity-rank"><span>Official singles rank</span><strong>#${escapeHtml(summary.rank)}</strong><small class="movement ${escapeHtml(summary.movement.direction)}">${escapeHtml(summary.movement.label)} since last official position</small></div>
+          <div class="player-identity-meta"><span>${escapeHtml(summary.teamGender === "girls" ? "Girls" : "Boys")}</span><span>${escapeHtml(summary.rosterDivision === "jv" ? "JV" : "Varsity")}</span>${summary.gradeLevel ? `<span>Grade ${summary.gradeLevel}</span>` : ""}<span>${escapeHtml(titleCase(summary.status || "available"))}</span></div>`;
+        if (strip.innerHTML !== markup) strip.innerHTML = markup;
       }
-
-      strip.className = "player-identity-strip";
-      const markup = `
-        <div class="player-identity-rank"><span>Official singles rank</span><strong>#${escapeHtml(summary.rank)}</strong><small class="movement ${escapeHtml(summary.movement.direction)}">${escapeHtml(summary.movement.label)} since last official position</small></div>
-        <div class="player-identity-meta"><span>${escapeHtml(summary.teamGender === "girls" ? "Girls" : "Boys")}</span><span>${escapeHtml(summary.rosterDivision === "jv" ? "JV" : "Varsity")}</span>${summary.gradeLevel ? `<span>Grade ${summary.gradeLevel}</span>` : ""}<span>${escapeHtml(titleCase(summary.status || "available"))}</span></div>`;
-      if (strip.innerHTML !== markup) strip.innerHTML = markup;
 
       // app.js owns record/match calculations. Replace only the rank card with
       // the authoritative challenge-ladder position. setText avoids turning the
       // grid observer into a self-triggering feedback loop.
       const cards = [...dashboard.querySelectorAll("#playerStatGrid .player-stat")];
       const rankCard = cards[2];
-      if (rankCard) {
+      if (rankCard && summary.linked) {
         setText(rankCard.querySelector("span"), "Official rank");
         setText(rankCard.querySelector("strong"), `#${summary.rank}`);
         setText(rankCard.querySelector("small"), `${summary.teamGender === "girls" ? "Girls" : "Boys"} singles · ${summary.rosterDivision === "jv" ? "JV" : "Varsity"}`);
+      }
+
+      // app.js used the number of ranking entries for the Formats value. A player
+      // can have multiple doubles partners, so entries are not the same as unique
+      // formats. The existing detail text already contains the deduplicated list.
+      const formatsCard = cards[3];
+      if (formatsCard) {
+        const detail = formatsCard.querySelector("small")?.textContent || "";
+        setText(formatsCard.querySelector("strong"), formatCountFromDetail(detail));
       }
     }
 
@@ -122,5 +136,5 @@
     else start();
   }
 
-  return { titleCase, movement, summaryFromWorkflow, setText, installBrowser };
+  return { titleCase, movement, formatCountFromDetail, summaryFromWorkflow, setText, installBrowser };
 });
