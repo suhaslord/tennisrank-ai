@@ -113,6 +113,12 @@
     return /\b(?:boys?|girls?|men|women|male|female|mixed|co[- ]?ed|coed|singles?|doubles?|pairs?|2v2|xd)\b/i.test(text);
   }
 
+  function sectionDivisionHint(value) {
+    const text = String(value || "").trim();
+    if (!text) return "";
+    return /\b(?:singles?|doubles?|pairs?|2v2|xd)\b/i.test(text) ? text : "";
+  }
+
   function mixedAwarePrepareRows(win, rows) {
     let currentGender = "";
     let currentDivision = "";
@@ -123,7 +129,7 @@
       const loneSection = publicValues.length === 1 && isSectionLabel(publicValues[0]) ? publicValues[0] : "";
       const explicitDivision = win.valueFrom(row, ["division", "category", "format", "event", "type", "discipline", "matchtype", "section", "group"]);
       const genderHint = win.valueFrom(row, ["gender", "sex"]) || loneSection;
-      const divisionHint = explicitDivision || loneSection;
+      const divisionHint = explicitDivision || sectionDivisionHint(loneSection);
       const directGender = win.normalizeGender(genderHint, divisionHint, row);
       const directDivision = divisionHint ? win.normalizeDivision(divisionHint, row) : "";
 
