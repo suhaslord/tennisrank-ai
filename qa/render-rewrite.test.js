@@ -56,6 +56,8 @@ assert.ok(out.includes(`${cdn}/coach-ops.css`));
 assert.ok(out.includes(`${cdn}/account-settings.css`));
 assert.ok(out.includes(`${cdn}/ui-cohesion.css`));
 assert.ok(out.includes(`${cdn}/coach-console-theme.css`));
+assert.ok(out.includes('<script async src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js" data-tennisrank-sheetjs="async"></script>'), 'SheetJS must load without blocking DOMContentLoaded');
+assert.equal(out.includes('<script defer src="https://cdn.sheetjs.com/'), false, 'external SheetJS must never be a deferred startup dependency');
 assert.equal(out.includes('class="cursor-ball"'), false);
 
 console.log('render rewrite tests passed');
@@ -66,6 +68,8 @@ const html = render.rewrite(fs.readFileSync(require('node:path').join(__dirname,
 for (const match of html.matchAll(/(?:src|href)="(\/[^"?#]+)"/g)) {
   assert.ok(fs.existsSync(require('node:path').join(__dirname, '..', match[1])), `missing deployed asset ${match[1]}`);
 }
+assert.ok(html.includes('data-tennisrank-sheetjs="async"'), 'the real rendered index must use non-blocking SheetJS');
+assert.equal(html.includes('<script defer src="https://cdn.sheetjs.com/'), false, 'the real rendered index must not wait for SheetJS before DOMContentLoaded');
 const nativeFetch = global.fetch;
 global.fetch = () => { throw new Error('Renderer must not need the network'); };
 const response = {
@@ -84,4 +88,5 @@ render({method:'GET'}, response).then(() => {
   assert.ok(response.body.includes('/ui-cohesion.js'));
   assert.ok(response.body.includes('/ui-cohesion.css'));
   assert.ok(response.body.includes('/coach-console-theme.css'));
+  assert.ok(response.body.includes('data-tennisrank-sheetjs="async"'));
 }).finally(() => { global.fetch = nativeFetch; });
