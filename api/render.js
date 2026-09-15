@@ -3,6 +3,13 @@ const path = require('node:path');
 // Serve the same source and assets that were verified for this deployment.
 const CDN = '';
 const SHEETJS = 'https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js';
+const CORE_RUNTIME_SCRIPTS = [
+  ['/import-certainty-gate.js', 'data-tennisrank-import-certainty'],
+  ['/spreadsheet-universal.js', 'data-tennisrank-universal-import'],
+  ['/repeated-header-runtime-guard.js', 'data-tennisrank-repeated-header-guard'],
+  ['/google-workbook-bridge.js', 'data-tennisrank-google-workbook-bridge'],
+  ['/coach-essential.js', 'data-tennisrank-coach-essential'],
+];
 const BLOCKED_TEAM_PHOTOS = [
   '/assets/team-court.jpg',
   '/assets/matchday-awards.jpg',
@@ -47,6 +54,18 @@ function makeSheetJsNonBlocking(html) {
   return String(html || '')
     .replaceAll(`<script defer src="${SHEETJS}"></script>`, `<script async src="${SHEETJS}" data-tennisrank-sheetjs="async"></script>`)
     .replaceAll(`<script src="${SHEETJS}" defer></script>`, `<script async src="${SHEETJS}" data-tennisrank-sheetjs="async"></script>`);
+}
+
+function ensureCoreRuntimeScripts(html) {
+  let out = String(html || '');
+  const anchor = '<script src="/brand-assets.js"></script>';
+  const missing = CORE_RUNTIME_SCRIPTS
+    .filter(([src]) => !out.includes(`src="${src}"`))
+    .map(([src, dataKey]) => `<script src="${src}" ${dataKey}="true"></script>`)
+    .join('');
+  if (!missing) return out;
+  if (out.includes(anchor)) return out.replace(anchor, `${missing}${anchor}`);
+  return out.replace('</body>', `${missing}</body>`);
 }
 
 function ensureHumanPresentation(html) {
@@ -98,6 +117,7 @@ function ensureRuntimePatch(html) {
     if (out.includes(before)) out = out.replace(before, '<script src="/account-settings.js" data-tennisrank-account-settings="true"></script>' + before);
     else out = out.replace('</body>', '<script src="/account-settings.js" data-tennisrank-account-settings="true"></script></body>');
   }
+  out = ensureCoreRuntimeScripts(out);
   return ensureHumanPresentation(out);
 }
 
@@ -177,9 +197,11 @@ async function handler(req, res) {
 module.exports = handler;
 module.exports.rewrite = rewrite;
 module.exports.ensureRuntimePatch = ensureRuntimePatch;
+module.exports.ensureCoreRuntimeScripts = ensureCoreRuntimeScripts;
 module.exports.ensureHumanPresentation = ensureHumanPresentation;
 module.exports.makeSheetJsNonBlocking = makeSheetJsNonBlocking;
 module.exports.CDN = CDN;
+module.exports.CORE_RUNTIME_SCRIPTS = CORE_RUNTIME_SCRIPTS;
 module.exports.BLOCKED_TEAM_PHOTOS = BLOCKED_TEAM_PHOTOS;
 module.exports.PHOTO_PLACEHOLDER_SVG = PHOTO_PLACEHOLDER_SVG;
 module.exports.stripBlockedTeamPhotos = stripBlockedTeamPhotos;
