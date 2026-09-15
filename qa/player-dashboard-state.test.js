@@ -51,4 +51,9 @@ const missing = dashboard.summaryFromWorkflow({ viewer: { profileId: "missing", 
 assert.equal(missing.linked, false);
 assert.equal(missing.rank, null);
 
+assert.equal(dashboard.formatCountFromDetail("doubles"), 1);
+assert.equal(dashboard.formatCountFromDetail("singles + doubles"), 2);
+assert.equal(dashboard.formatCountFromDetail("doubles + doubles"), 1);
+assert.equal(dashboard.formatCountFromDetail("No linked ranking yet"), 0);
+
 console.log("player dashboard state tests passed");
