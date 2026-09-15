@@ -3,12 +3,16 @@ const policy = require("../ranking-policy.js");
 
 assert.equal(policy.detectGender("Mixed Doubles"), "mixed");
 assert.equal(policy.detectGender("Co-ed"), "mixed");
+assert.equal(policy.detectGender("XD"), "mixed");
+assert.equal(policy.detectGender("MXD"), "mixed");
 assert.equal(policy.detectGender("", "Doubles", { partner1Gender: "M", partner2Gender: "F" }), "mixed");
 assert.equal(policy.detectGender("Boys", "Doubles"), "boys");
 assert.equal(policy.detectGender("Girls", "Doubles"), "girls");
 
 assert.equal(policy.detectDivision("Mixed Doubles"), "doubles");
+assert.equal(policy.detectDivision("Mixed"), "doubles");
 assert.equal(policy.detectDivision("XD"), "doubles");
+assert.equal(policy.detectDivision("MXD"), "doubles");
 assert.equal(policy.detectDivision("2D"), "doubles");
 assert.equal(policy.detectDivision("Singles"), "singles");
 
