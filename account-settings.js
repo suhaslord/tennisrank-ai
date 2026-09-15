@@ -155,6 +155,11 @@
     if (account) {
       account.setAttribute('aria-label', 'Open account settings');
       account.setAttribute('aria-haspopup', 'dialog');
+      const icon = account.querySelector('i');
+      if (icon) {
+        icon.className = 'ph ph-caret-down';
+        icon.setAttribute('aria-hidden', 'true');
+      }
     }
 
     win.addEventListener?.('tennisrank:auth-ready', () => {
