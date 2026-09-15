@@ -1,0 +1,188 @@
+(function (root, factory) {
+  const api = factory();
+  if (typeof module === 'object' && module.exports) module.exports = api;
+  if (root) {
+    root.TennisRankConnectedSheetGuard = api;
+    if (root.document) api.schedule(root);
+  }
+})(typeof globalThis !== 'undefined' ? globalThis : this, function () {
+  'use strict';
+
+  const SHEET_URL_KEY = 'tennisRankSheetUrl';
+
+  function clean(value) {
+    return String(value ?? '').replace(/\s+/g, ' ').trim();
+  }
+
+  function staleError() {
+    const error = new Error('This Sheet refresh was superseded by a newer data action. Nothing from the old refresh was published.');
+    error.code = 'STALE_SHEET_REFRESH';
+    return error;
+  }
+
+  function storedSheetUrl(win) {
+    try { return clean(win.localStorage?.getItem?.(SHEET_URL_KEY)); }
+    catch { return ''; }
+  }
+
+  function inputSheetUrl(win) {
+    return clean(win.document?.querySelector?.('#sheetUrl')?.value);
+  }
+
+  function currentSheetUrl(win) {
+    return inputSheetUrl(win) || storedSheetUrl(win);
+  }
+
+  function dependencies(win) {
+    return {
+      certainty: win.TennisRankImportCertainty,
+      importer: win.TennisRankImportV2,
+      runtime: win.TennisRankImportRuntime,
+      ai: win.TennisRankSpreadsheetAI,
+      auth: win.TennisRankAuth,
+      XLSX: win.XLSX,
+      bridge: win.TennisRankGoogleWorkbookBridge,
+    };
+  }
+
+  async function verifiedRows(win, input) {
+    const deps = dependencies(win);
+    const certainty = deps.certainty;
+    if (!certainty?.interpretText || !certainty?.interpretWorkbookBuffer || !certainty?.publishRows || !deps.importer || !deps.runtime) {
+      throw new Error('Spreadsheet intelligence is still loading. Try again in a moment.');
+    }
+
+    if (certainty.isStandardWorkbookLink?.(input)) {
+      const response = await win.fetch(certainty.workbookProxyUrl(input), { cache: 'no-store' });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}));
+        throw new Error(payload.error || `The Google Sheet could not be loaded (${response.status}).`);
+      }
+      const buffer = await response.arrayBuffer();
+      return certainty.interpretWorkbookBuffer(buffer, { ...deps, source: 'sheet' });
+    }
+
+    if (!deps.importer.googleCsvProxyUrl) throw new Error('Google Sheet support is still loading.');
+    const response = await win.fetch(deps.importer.googleCsvProxyUrl(input), { cache: 'no-store' });
+    const text = await response.text();
+    if (!response.ok) {
+      let message = `The Google Sheet could not be loaded (${response.status}).`;
+      try { message = JSON.parse(text).error || message; } catch {}
+      throw new Error(message);
+    }
+    return certainty.interpretText(text, {
+      importer: deps.importer,
+      runtime: deps.runtime,
+      ai: deps.ai,
+      auth: deps.auth,
+      source: 'sheet',
+      sourceName: 'Google Sheet tennis data',
+    });
+  }
+
+  function createController(win) {
+    let epoch = 0;
+    let inFlight = null;
+
+    const invalidate = () => { epoch += 1; };
+
+    const stillCurrent = (capturedEpoch, input) => {
+      if (capturedEpoch !== epoch) return false;
+      const stored = storedSheetUrl(win);
+      return Boolean(stored && stored === input);
+    };
+
+    const refresh = async () => {
+      if (inFlight) return inFlight;
+      const input = currentSheetUrl(win);
+      if (!input) throw new Error('Paste a Google Sheet link first.');
+      const capturedEpoch = epoch;
+
+      inFlight = (async () => {
+        const rows = await verifiedRows(win, input);
+        if (!stillCurrent(capturedEpoch, input)) throw staleError();
+        // Re-check immediately before the function that can mutate the visible board
+        // and open the coach publish flow. A stale network response never reaches it.
+        if (!stillCurrent(capturedEpoch, input)) throw staleError();
+        return dependencies(win).certainty.publishRows(win, rows, 'sheet', 'Google Sheet');
+      })();
+
+      try { return await inFlight; }
+      finally { inFlight = null; }
+    };
+
+    return { refresh, invalidate, stillCurrent, inFlight: () => inFlight, epoch: () => epoch };
+  }
+
+  function install(win) {
+    if (!win?.document) return false;
+    const deps = dependencies(win);
+    if (!deps.certainty?.publishRows || !deps.importer || !deps.runtime) return false;
+
+    if (!win.__tennisrankConnectedSheetGuardController) {
+      win.__tennisrankConnectedSheetGuardController = createController(win);
+    }
+    const controller = win.__tennisrankConnectedSheetGuardController;
+
+    if (!win.fetchSheet?.__connectedSheetGuard) {
+      const guardedFetch = async function guardedConnectedSheetRefresh() {
+        return controller.refresh();
+      };
+      guardedFetch.__connectedSheetGuard = true;
+      win.fetchSheet = guardedFetch;
+    }
+
+    if (!win.__tennisrankConnectedSheetGuardEvents) {
+      win.__tennisrankConnectedSheetGuardEvents = true;
+      win.addEventListener('click', event => {
+        const target = event.target?.closest?.('#connectSheet, #useCsv, #refreshNow');
+        if (!target) return;
+
+        if (target.id === 'connectSheet' || target.id === 'useCsv') {
+          controller.invalidate();
+          return;
+        }
+
+        if (target.id === 'refreshNow' && storedSheetUrl(win)) {
+          event.preventDefault();
+          event.stopImmediatePropagation();
+          const button = target;
+          win.setBusy?.(button, true);
+          win.setStatus?.('Refreshing connected Sheet…');
+          controller.refresh().then(() => {
+            win.setStatus?.('Connected Sheet refreshed.');
+          }).catch(error => {
+            if (error?.code !== 'STALE_SHEET_REFRESH') win.setStatus?.(error?.message || 'Connected Sheet refresh failed.', true);
+          }).finally(() => win.setBusy?.(button, false));
+        }
+      }, true);
+
+      win.addEventListener('change', event => {
+        if (event.target?.id === 'csvFile' || event.target?.id === 'refreshRate') controller.invalidate();
+      }, true);
+    }
+
+    return true;
+  }
+
+  function schedule(win) {
+    const apply = () => install(win);
+    apply();
+    if (win.document?.readyState === 'loading') win.document.addEventListener('DOMContentLoaded', apply, { once: true });
+    win.addEventListener?.('tennisrank:auth-ready', apply);
+    for (const delay of [50, 150, 300, 600, 1200, 2500]) win.setTimeout?.(apply, delay);
+  }
+
+  return {
+    clean,
+    staleError,
+    storedSheetUrl,
+    inputSheetUrl,
+    currentSheetUrl,
+    dependencies,
+    verifiedRows,
+    createController,
+    install,
+    schedule,
+  };
+});
