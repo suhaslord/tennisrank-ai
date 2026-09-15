@@ -54,6 +54,7 @@ jobs:
           node --check qa/human-copy.test.js
           node --check qa/human-theme.test.js
           node --check qa/doubles-mixed.test.js
+          node --check qa/startup-smoke.spec.js
           node --check qa/doubles-mixed-browser.spec.js
           node --check qa/account-settings.spec.js
           node --check qa/connected-sheet-guard.spec.js
@@ -114,6 +115,22 @@ jobs:
           node qa/universal-import.test.js
           node qa/certainty-workbook.test.js
 
+      - name: Browser startup preflight
+        run: |
+          set -euo pipefail
+          node qa/server.js >/tmp/tennisrank-startup-http.log 2>&1 &
+          SERVER_PID=$!
+          trap 'kill $SERVER_PID || true' EXIT
+          sleep 2
+          curl --fail --silent --show-error --max-time 5 http://127.0.0.1:4173/index.html >/tmp/tennisrank-startup.html
+          if ! npx playwright test qa/startup-smoke.spec.js --reporter=line --workers=1; then
+            echo '--- QA server log ---'
+            cat /tmp/tennisrank-startup-http.log || true
+            echo '--- rendered HTML head ---'
+            head -c 6000 /tmp/tennisrank-startup.html || true
+            exit 1
+          fi
+
       - name: Coach/browser strict path
         run: |
           set -euo pipefail
@@ -121,7 +138,7 @@ jobs:
           SERVER_PID=$!
           trap 'kill $SERVER_PID || true' EXIT
           sleep 2
-          npx playwright test \
+          if ! npx playwright test \
             qa/auth-flow.spec.js \
             qa/account-settings.spec.js \
             qa/connected-sheet-guard.spec.js \
@@ -140,7 +157,11 @@ jobs:
             qa/messy-form-factors.spec.js \
             qa/messy-player-charts.spec.js \
             qa/visual-stability.spec.js \
-            --reporter=line --workers=1
+            --reporter=line --workers=1; then
+            echo '--- QA server log ---'
+            cat /tmp/tennisrank-release-http.log || true
+            exit 1
+          fi
 
       - name: Deployment guardrails
         run: |
@@ -166,6 +187,7 @@ jobs:
           test -f coach-console-theme.css
           test -f account-settings.js
           test -f account-settings.css
+          test -f qa/startup-smoke.spec.js
           test -f qa/account-settings.spec.js
           test -f qa/connected-sheet-guard.test.js
           test -f qa/connected-sheet-guard.spec.js
