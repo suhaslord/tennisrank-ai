@@ -1,18 +1,33 @@
 (() => {
   let activeCoachTab = "approvals";
   let rosterRefreshing = false;
+  let rosterUnlockTimer = 0;
   const pendingRankEdits = new Map();
   const pendingStatusEdits = new Map();
   const originalAlert = typeof window.alert === "function" ? window.alert.bind(window) : null;
 
   function setRosterRefreshing(value) {
     rosterRefreshing = Boolean(value);
+    if (!rosterRefreshing && rosterUnlockTimer) {
+      clearTimeout(rosterUnlockTimer);
+      rosterUnlockTimer = 0;
+    }
     const consoleEl = document.querySelector("#coachLadderConsole");
     if (!consoleEl) return;
     consoleEl.setAttribute("aria-busy", String(rosterRefreshing));
     consoleEl.querySelectorAll("[data-status], [data-new-rank], [data-move]").forEach(control => {
       control.disabled = rosterRefreshing;
     });
+  }
+
+  function scheduleRosterUnlock(delay = 2200) {
+    clearTimeout(rosterUnlockTimer);
+    rosterUnlockTimer = setTimeout(() => {
+      rosterUnlockTimer = 0;
+      if (!rosterRefreshing) return;
+      setRosterRefreshing(false);
+      restoreCoachState();
+    }, delay);
   }
 
   function showToast(message, tone = "error") {
@@ -87,6 +102,23 @@
     captureRankEdit(input);
   }
 
+  function currentDisplayedRank(row) {
+    const raw = row?.querySelector(".coach-rank-number")?.textContent || "";
+    const value = Number(String(raw).replace(/[^0-9]/g, ""));
+    return Number.isInteger(value) && value > 0 ? value : null;
+  }
+
+  function revertRankMutation(playerId) {
+    const row = document.querySelector(`[data-roster-player="${CSS.escape(playerId)}"]`);
+    const input = row?.querySelector("[data-new-rank]");
+    const rank = currentDisplayedRank(row);
+    pendingRankEdits.delete(playerId);
+    if (input && rank) {
+      input.value = String(rank);
+      input.removeAttribute("aria-invalid");
+    }
+  }
+
   function validateRankMove(button) {
     const row = button?.closest("[data-roster-player]");
     const input = row?.querySelector("[data-new-rank]");
@@ -104,6 +136,13 @@
       showToast(`Enter a whole-number rank from 1 to ${maxRank}.`);
       return false;
     }
+    const current = currentDisplayedRank(row);
+    if (current === value) {
+      pendingRankEdits.delete(row.dataset.rosterPlayer);
+      input.removeAttribute("aria-invalid");
+      showToast(`This player is already ranked #${value}.`, "info");
+      return false;
+    }
     input.removeAttribute("aria-invalid");
     return true;
   }
@@ -114,6 +153,7 @@
     const playerId = row?.dataset.rosterPlayer;
     if (!playerId) return;
     const previous = select.dataset.confirmedValue || "active";
+    if (previous === select.value) return;
     pendingStatusEdits.set(playerId, { previous, next: select.value });
   }
 
@@ -225,12 +265,14 @@
       try {
         if (String(path) === "/api/admin/ladder" && String(options.method || "GET").toUpperCase() === "PATCH" && options.body) {
           const body = typeof options.body === "string" ? JSON.parse(options.body) : { ...options.body };
-          if (body.action === "move" && body.playerId && pendingRankEdits.has(body.playerId)) {
-            const preserved = Number(pendingRankEdits.get(body.playerId));
-            if (Number.isInteger(preserved) && preserved > 0) {
-              body.newRank = preserved;
-              movedPlayerId = body.playerId;
-              nextOptions = { ...options, body: JSON.stringify(body) };
+          if (body.action === "move" && body.playerId) {
+            movedPlayerId = body.playerId;
+            if (pendingRankEdits.has(body.playerId)) {
+              const preserved = Number(pendingRankEdits.get(body.playerId));
+              if (Number.isInteger(preserved) && preserved > 0) {
+                body.newRank = preserved;
+                nextOptions = { ...options, body: JSON.stringify(body) };
+              }
             }
           }
           if (body.action === "status" && body.playerId) statusPlayerId = body.playerId;
@@ -242,13 +284,24 @@
       try {
         const response = await baseFetch(path, nextOptions);
         if (movedPlayerId) {
-          if (response?.ok) pendingRankEdits.delete(movedPlayerId);
-          else setRosterRefreshing(false);
+          if (response?.ok) {
+            pendingRankEdits.delete(movedPlayerId);
+            scheduleRosterUnlock();
+          } else {
+            revertRankMutation(movedPlayerId);
+            setRosterRefreshing(false);
+          }
         }
-        if (statusPlayerId) resolveStatusMutation(statusPlayerId, Boolean(response?.ok));
+        if (statusPlayerId) {
+          resolveStatusMutation(statusPlayerId, Boolean(response?.ok));
+          if (response?.ok) scheduleRosterUnlock();
+        }
         return response;
       } catch (error) {
-        if (movedPlayerId) setRosterRefreshing(false);
+        if (movedPlayerId) {
+          revertRankMutation(movedPlayerId);
+          setRosterRefreshing(false);
+        }
         if (statusPlayerId) resolveStatusMutation(statusPlayerId, false);
         throw error;
       }
@@ -267,6 +320,10 @@
     },
     isRefreshing() {
       return rosterRefreshing;
+    },
+    forceUnlock() {
+      setRosterRefreshing(false);
+      restoreCoachState();
     },
   };
 
@@ -346,6 +403,8 @@
         event.stopImmediatePropagation();
         return;
       }
+      const previous = statusSelect.dataset.confirmedValue || statusSelect.value;
+      if (previous === statusSelect.value) return;
       rememberStatusBeforeChange(statusSelect);
       setRosterRefreshing(true);
     }
@@ -382,10 +441,10 @@
   window.addEventListener("tennisrank:auth-ready", installFetchGuard);
   window.addEventListener("tennisrank:ladder-workflow-ready", () => {
     installFetchGuard();
-    rosterRefreshing = false;
+    setRosterRefreshing(false);
     restoreCoachState();
     requestAnimationFrame(() => {
-      rosterRefreshing = false;
+      setRosterRefreshing(false);
       restoreCoachState();
     });
   });
