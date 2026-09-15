@@ -1,0 +1,66 @@
+name: One-time TennisRank production deploy
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/force-vercel-once.yml
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    if: contains(github.event.head_commit.message, '[force-vercel]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: production
+    steps:
+      - name: Check out latest main
+        uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Verify Vercel credential
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: test -n "$VERCEL_TOKEN"
+
+      - name: Link production project
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          mkdir -p .vercel
+          printf '%s\n' '{"orgId":"team_4fHq5Px7I3sXJ9v8FOyXNOHD","projectId":"prj_p1VA7WLWT5fCRL4eep6DinNntvU1"}' > .vercel/project.json
+          npx --yes vercel@latest pull --yes --environment=production --token="$VERCEL_TOKEN"
+
+      - name: Stamp deployed revision
+        run: printf '%s\n' "$GITHUB_SHA" > release-sha.txt
+
+      - name: Build latest source
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: npx --yes vercel@latest build --prod --token="$VERCEL_TOKEN"
+
+      - name: Deploy latest source to production
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: npx --yes vercel@latest deploy --prebuilt --prod --token="$VERCEL_TOKEN"
+
+      - name: Verify production SHA
+        run: |
+          set -euo pipefail
+          BASE='https://tennisrank-ai.vercel.app'
+          for attempt in {1..12}; do
+            deployed=$(curl --silent --show-error --location "$BASE/release-sha.txt" | tr -d '\r\n' || true)
+            if [ "$deployed" = "$GITHUB_SHA" ]; then
+              echo "Production is serving $GITHUB_SHA"
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "Production did not switch to $GITHUB_SHA" >&2
+          exit 1
