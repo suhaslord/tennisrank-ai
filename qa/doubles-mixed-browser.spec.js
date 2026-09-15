@@ -198,7 +198,7 @@ test('player dashboard recognizes mixed doubles across multiple partners without
   await expect(formatCard.locator('span')).toHaveText('Formats');
   await expect(formatCard.locator('strong')).toHaveText('1');
   await expect(page.locator('#playerMatchList')).toContainText('Ben Kim & Sophia Lee');
-  await expect(page.locator('#playerMatchList')).toContainText('Ethan Kim & Ava Patel');
+  await expect(page.locator('#playerMatchList')).toContainText('Ava Patel & Ethan Kim');
   await expect(page.locator('#playerMatchList')).toContainText('7-5');
   await expect(page.locator('#playerMatchList')).toContainText('6-4');
   await expect(page.locator('#playerMatchList')).toContainText('6-2');
