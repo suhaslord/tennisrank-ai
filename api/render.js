@@ -43,6 +43,12 @@ function stripBlockedTeamPhotos(html) {
     .replace(/\s*<figure class="season-photo season-photo-singles">[\s\S]*?<\/figure>/, '');
 }
 
+function makeSheetJsNonBlocking(html) {
+  return String(html || '')
+    .replaceAll(`<script defer src="${SHEETJS}"></script>`, `<script async src="${SHEETJS}" data-tennisrank-sheetjs="async"></script>`)
+    .replaceAll(`<script src="${SHEETJS}" defer></script>`, `<script async src="${SHEETJS}" data-tennisrank-sheetjs="async"></script>`);
+}
+
 function ensureHumanPresentation(html) {
   let out = String(html || '');
   if (!out.includes('human-theme.css')) {
@@ -71,7 +77,7 @@ function ensureHumanPresentation(html) {
 }
 
 function ensureRuntimePatch(html) {
-  let out = String(html || '');
+  let out = makeSheetJsNonBlocking(html);
   if (!out.includes('match-result-compat.js')) {
     const before = '<script src="/tesla-motion.js"></script>';
     if (out.includes(before)) out = out.replace(before, '<script src="/match-result-compat.js"></script>' + before);
@@ -96,7 +102,7 @@ function ensureRuntimePatch(html) {
 }
 
 function rewrite(html) {
-  let out = stripBlockedTeamPhotos(html);
+  let out = makeSheetJsNonBlocking(stripBlockedTeamPhotos(html));
   // index.html already contains the historical runtime bundle. Do not skip new
   // hotfix scripts just because that marker is present.
   if (out.includes('name="tennisrank-runtime"')) return ensureRuntimePatch(out);
@@ -116,7 +122,7 @@ function rewrite(html) {
 
   out = out.replace(
     '</head>',
-    `<meta name="tennisrank-runtime" content="coach-ready"><script defer src="${SHEETJS}"></script><link rel="stylesheet" href="${CDN}/production-stability.css"><link rel="stylesheet" href="${CDN}/tesla-authority.css"><link rel="stylesheet" href="${CDN}/tesla-finish.css"><link rel="stylesheet" href="${CDN}/tesla-motion.css"><link rel="stylesheet" href="${CDN}/story-photo-scale.css"><link rel="stylesheet" href="${CDN}/player-dashboard-state.css"><link rel="stylesheet" href="${CDN}/coach-ops.css"><link rel="stylesheet" href="${CDN}/coach-polish.css"><link rel="stylesheet" href="${CDN}/insights.css"><style>#showBootstrap,.bootstrap-form{display:none!important}</style></head>`,
+    `<meta name="tennisrank-runtime" content="coach-ready"><script async src="${SHEETJS}" data-tennisrank-sheetjs="async"></script><link rel="stylesheet" href="${CDN}/production-stability.css"><link rel="stylesheet" href="${CDN}/tesla-authority.css"><link rel="stylesheet" href="${CDN}/tesla-finish.css"><link rel="stylesheet" href="${CDN}/tesla-motion.css"><link rel="stylesheet" href="${CDN}/story-photo-scale.css"><link rel="stylesheet" href="${CDN}/player-dashboard-state.css"><link rel="stylesheet" href="${CDN}/coach-ops.css"><link rel="stylesheet" href="${CDN}/coach-polish.css"><link rel="stylesheet" href="${CDN}/insights.css"><style>#showBootstrap,.bootstrap-form{display:none!important}</style></head>`,
   );
 
   out = out.replace(
@@ -172,6 +178,7 @@ module.exports = handler;
 module.exports.rewrite = rewrite;
 module.exports.ensureRuntimePatch = ensureRuntimePatch;
 module.exports.ensureHumanPresentation = ensureHumanPresentation;
+module.exports.makeSheetJsNonBlocking = makeSheetJsNonBlocking;
 module.exports.CDN = CDN;
 module.exports.BLOCKED_TEAM_PHOTOS = BLOCKED_TEAM_PHOTOS;
 module.exports.PHOTO_PLACEHOLDER_SVG = PHOTO_PLACEHOLDER_SVG;
