@@ -74,7 +74,7 @@ async function openAdminCsv(page) {
   await expect(page.locator('#csvSource')).toBeVisible();
 }
 
-test('section context keeps doubles when a coach sheet switches only Boys/Girls labels', async ({ page }) => {
+test('section context keeps doubles across Boys/Girls and treats standalone Mixed as doubles', async ({ page }) => {
   await installMocks(page);
   await page.goto(BASE, { waitUntil: 'domcontentloaded' });
   await expect(page.locator('#appShell')).toBeVisible();
@@ -83,14 +83,15 @@ test('section context keeps doubles when a coach sheet switches only Boys/Girls 
     { name: 'Doubles' },
     { name: 'Boys' },
     { winner: 'Noah & Ethan', loser: 'Liam & Jack', result: 'W' },
-    { name: 'Mixed Doubles' },
+    { name: 'Singles' },
+    { name: 'Mixed' },
     { winner: 'Ravi / Olivia', loser: 'Ben / Sophia', result: 'W' },
   ]));
 
   expect(prepared[2].__contextGender).toBe('boys');
   expect(prepared[2].__contextDivision).toBe('doubles');
-  expect(prepared[4].__contextGender).toBe('mixed');
-  expect(prepared[4].__contextDivision).toBe('doubles');
+  expect(prepared[5].__contextGender).toBe('mixed');
+  expect(prepared[5].__contextDivision).toBe('doubles');
 });
 
 test('coach can import boys, girls and mixed doubles together without polluting the singles ladder', async ({ page }) => {
@@ -103,7 +104,7 @@ test('coach can import boys, girls and mixed doubles together without polluting 
     'Winner,Loser,Score,Gender,Division,Date',
     'Noah Williams & Ethan Kim,Liam Chen & Jack Park,6-3,Boys,Doubles,2026-09-14',
     'Ava Patel + Mia Rodriguez,Zoe Lee + Emma Wilson,6-4,Girls,Doubles,2026-09-14',
-    'Ravi Shah / Olivia Brown,Ben Kim / Sophia Lee,7-5,Mixed,Mixed Doubles,2026-09-14',
+    'Ravi Shah / Olivia Brown,Ben Kim / Sophia Lee,7-5,,MXD,2026-09-14',
   ].join('\n');
 
   await page.locator('#csvText').fill(csv);
