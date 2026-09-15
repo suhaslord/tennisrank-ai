@@ -27,24 +27,12 @@ assert.equal(invalid.some(row => row.winner || row.loser), false, 'mismatched re
 
 const partnerRows = [
   {
-    name: 'Noah Williams',
-    partner: 'Ethan Kim',
-    opponent: 'Liam Chen',
-    opponentPartner: 'Jack Park',
-    result: 'W',
-    score: '6-3',
-    gender: 'Boys',
-    date: '2026-09-15',
+    name: 'Noah Williams', partner: 'Ethan Kim', opponent: 'Liam Chen', opponentPartner: 'Jack Park',
+    result: 'W', score: '6-3', gender: 'Boys', date: '2026-09-15',
   },
   {
-    name: 'Ethan Kim',
-    partner: 'Noah Williams',
-    opponent: 'Jack Park',
-    opponentPartner: 'Liam Chen',
-    result: 'W',
-    score: '6-3',
-    gender: 'Boys',
-    date: '2026-09-15',
+    name: 'Ethan Kim', partner: 'Noah Williams', opponent: 'Jack Park', opponentPartner: 'Liam Chen',
+    result: 'W', score: '6-3', gender: 'Boys', date: '2026-09-15',
   },
 ];
 compat.normalizeRows(partnerRows);
@@ -54,15 +42,8 @@ assert.equal(partnerRows[0].loser, 'Jack Park & Liam Chen');
 assert.equal(partnerRows[0].division, 'Doubles');
 
 const mixedPartner = {
-  name: 'Olivia Brown',
-  partner: 'Ravi Shah',
-  opponent: 'Sophia Lee',
-  opponentPartner: 'Ben Kim',
-  result: 'W',
-  score: '7-5',
-  gender: 'F',
-  partnerGender: 'M',
-  date: '2026-09-15',
+  name: 'Olivia Brown', partner: 'Ravi Shah', opponent: 'Sophia Lee', opponentPartner: 'Ben Kim',
+  result: 'W', score: '7-5', gender: 'F', partnerGender: 'M', date: '2026-09-15',
 };
 compat.normalizeRow(mixedPartner);
 assert.equal(mixedPartner.winner, 'Olivia Brown & Ravi Shah');
@@ -71,24 +52,15 @@ assert.equal(mixedPartner.division, 'Doubles');
 assert.equal(mixedPartner.gender, 'Mixed');
 
 const explicitMixedPartner = {
-  name: 'Olivia Brown',
-  partner: 'Ravi Shah',
-  opponent: 'Sophia Lee',
-  opponentPartner: 'Ben Kim',
-  result: 'W',
-  division: 'MXD',
+  name: 'Olivia Brown', partner: 'Ravi Shah', opponent: 'Sophia Lee', opponentPartner: 'Ben Kim',
+  result: 'W', division: 'MXD',
 };
 compat.normalizeRow(explicitMixedPartner);
 assert.equal(explicitMixedPartner.gender, 'Mixed');
 assert.equal(explicitMixedPartner.division, 'Doubles');
 
 const splitWinnerColumns = {
-  winner1: 'Maya Patel',
-  winner2: 'Zoe Kim',
-  loser1: 'Emma Lee',
-  loser2: 'Ava Shah',
-  score: '6-4',
-  gender: 'Girls',
+  winner1: 'Maya Patel', winner2: 'Zoe Kim', loser1: 'Emma Lee', loser2: 'Ava Shah', score: '6-4', gender: 'Girls',
 };
 compat.normalizeRow(splitWinnerColumns);
 assert.equal(splitWinnerColumns.winner, 'Maya Patel & Zoe Kim');
@@ -96,13 +68,8 @@ assert.equal(splitWinnerColumns.loser, 'Ava Shah & Emma Lee');
 assert.equal(splitWinnerColumns.division, 'Doubles');
 
 const sidePartnerColumns = {
-  player1: 'Noah Williams',
-  partner1: 'Ethan Kim',
-  player2: 'Liam Chen',
-  partner2: 'Jack Park',
-  winner: 'Player 1',
-  score: '6-2',
-  gender: 'Boys',
+  player1: 'Noah Williams', partner1: 'Ethan Kim', player2: 'Liam Chen', partner2: 'Jack Park',
+  winner: 'Player 1', score: '6-2', gender: 'Boys',
 };
 compat.normalizeRow(sidePartnerColumns);
 assert.equal(sidePartnerColumns.player1, 'Ethan Kim & Noah Williams');
@@ -126,14 +93,8 @@ const importerWindow = {
   TennisRankImportV2: {
     parseText() {
       return [{
-        name: 'Noah Williams',
-        partner: 'Ethan Kim',
-        opponent: 'Liam Chen',
-        opponentpartner: 'Jack Park',
-        result: 'W',
-        score: '6-3',
-        gender: 'Boys',
-        date: '2026-09-15',
+        name: 'Noah Williams', partner: 'Ethan Kim', opponent: 'Liam Chen', opponentpartner: 'Jack Park',
+        result: 'W', score: '6-3', gender: 'Boys', date: '2026-09-15',
       }];
     },
   },
@@ -143,5 +104,28 @@ const interpreted = importerWindow.TennisRankImportV2.parseText('ignored');
 assert.equal(interpreted[0].winner, 'Ethan Kim & Noah Williams');
 assert.equal(interpreted[0].loser, 'Jack Park & Liam Chen');
 assert.equal(interpreted[0].division, 'Doubles');
+
+// The main importer can intentionally discard unknown columns. The compatibility
+// wrapper must recover doubles-only partner columns from the raw matrix before
+// certainty review and ranking calculation.
+const droppingImporterWindow = {
+  TennisRankImportV2: {
+    parseDelimited() {
+      return { matrix: [
+        ['Player 1', 'Partner 1', 'Player 2', 'Partner 2', 'Winner', 'Score', 'Gender'],
+        ['Noah Williams', 'Ethan Kim', 'Liam Chen', 'Jack Park', 'Player 1', '6-2', 'Boys'],
+      ] };
+    },
+    detectHeaderRow() { return { index: 0 }; },
+    parseText() {
+      return [{ __sourceRow: 2, player1: 'Noah Williams', player2: 'Liam Chen', winner: 'Player 1', score: '6-2', gender: 'Boys' }];
+    },
+  },
+};
+assert.equal(compat.installBrowser(droppingImporterWindow), true);
+const recovered = droppingImporterWindow.TennisRankImportV2.parseText('raw csv');
+assert.equal(recovered[0].player1, 'Ethan Kim & Noah Williams');
+assert.equal(recovered[0].player2, 'Jack Park & Liam Chen');
+assert.equal(recovered[0].division, 'Doubles');
 
 console.log('Named-result and doubles partner compatibility regression passed.');
