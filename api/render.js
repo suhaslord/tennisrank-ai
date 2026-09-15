@@ -48,6 +48,9 @@ function ensureHumanPresentation(html) {
   if (!out.includes('human-theme.css')) {
     out = out.replace('</head>', '<link rel="stylesheet" href="/human-theme.css" data-tennisrank-human-theme="true"></head>');
   }
+  if (!out.includes('account-settings.css')) {
+    out = out.replace('</head>', '<link rel="stylesheet" href="/account-settings.css" data-tennisrank-account-settings-style="true"></head>');
+  }
   if (!out.includes('human-copy.js')) {
     const before = '<script src="/brand-assets.js"></script>';
     if (out.includes(before)) out = out.replace(before, '<script src="/human-copy.js" data-tennisrank-human-copy="true"></script>' + before);
@@ -62,6 +65,11 @@ function ensureRuntimePatch(html) {
     const before = '<script src="/tesla-motion.js"></script>';
     if (out.includes(before)) out = out.replace(before, '<script src="/match-result-compat.js"></script>' + before);
     else out = out.replace('</body>', '<script src="/match-result-compat.js"></script></body>');
+  }
+  if (!out.includes('account-settings.js')) {
+    const before = '<script src="/brand-assets.js"></script>';
+    if (out.includes(before)) out = out.replace(before, '<script src="/account-settings.js" data-tennisrank-account-settings="true"></script>' + before);
+    else out = out.replace('</body>', '<script src="/account-settings.js" data-tennisrank-account-settings="true"></script></body>');
   }
   return ensureHumanPresentation(out);
 }
@@ -92,7 +100,7 @@ function rewrite(html) {
 
   out = out.replace(
     `<script src="${CDN}/app.js"></script>`,
-    `<script src="${CDN}/app.js"></script><script src="${CDN}/import-runtime-fixes.js"></script><script src="${CDN}/import-v2.js"></script><script src="${CDN}/import-delimiter-fix.js"></script><script src="${CDN}/spreadsheet-ml.js"></script><script src="${CDN}/import-v2-fixes.js"></script><script src="${CDN}/import-row-safety-fix.js"></script><script src="${CDN}/import-multiblock-fix.js"></script><script src="${CDN}/spreadsheet-semantic-calibration.js"></script><script src="${CDN}/spreadsheet-ai.js"></script><script src="${CDN}/ai-quota-guard.js"></script><script src="${CDN}/import-auto-sync.js"></script><script src="${CDN}/ranking-policy.js"></script><script src="${CDN}/player-dashboard-state.js"></script><script src="${CDN}/player-insights.js"></script><script src="${CDN}/coach-ops.js"></script><script src="${CDN}/coach-sharing.js"></script><script src="${CDN}/coach-preview-guard.js"></script><script src="${CDN}/coach-polish.js"></script><script src="${CDN}/match-result-compat.js"></script><script src="${CDN}/tesla-motion.js"></script><script src="${CDN}/brand-assets.js"></script>`,
+    `<script src="${CDN}/app.js"></script><script src="${CDN}/import-runtime-fixes.js"></script><script src="${CDN}/import-v2.js"></script><script src="${CDN}/import-delimiter-fix.js"></script><script src="${CDN}/spreadsheet-ml.js"></script><script src="${CDN}/import-v2-fixes.js"></script><script src="${CDN}/import-row-safety-fix.js"></script><script src="${CDN}/import-multiblock-fix.js"></script><script src="${CDN}/spreadsheet-semantic-calibration.js"></script><script src="${CDN}/spreadsheet-ai.js"></script><script src="${CDN}/ai-quota-guard.js"></script><script src="${CDN}/import-auto-sync.js"></script><script src="${CDN}/ranking-policy.js"></script><script src="${CDN}/player-dashboard-state.js"></script><script src="${CDN}/player-insights.js"></script><script src="${CDN}/coach-ops.js"></script><script src="${CDN}/coach-sharing.js"></script><script src="${CDN}/coach-preview-guard.js"></script><script src="${CDN}/coach-polish.js"></script><script src="${CDN}/match-result-compat.js"></script><script src="${CDN}/tesla-motion.js"></script><script src="${CDN}/account-settings.js"></script><script src="${CDN}/brand-assets.js"></script>`,
   );
 
   out = ensureRuntimePatch(out);
