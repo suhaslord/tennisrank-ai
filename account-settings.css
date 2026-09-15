@@ -1,0 +1,298 @@
+:root {
+  --tr-account-paper: #fafbf9;
+  --tr-account-ink: #20211f;
+  --tr-account-muted: #666b61;
+  --tr-account-line: #dedfdb;
+  --tr-account-orange: #ff7657;
+  --tr-account-orange-dark: #d8492b;
+}
+
+html.tr-account-open,
+html.tr-account-open body {
+  overflow: hidden !important;
+}
+
+.tr-account-shell[hidden] {
+  display: none !important;
+}
+
+.tr-account-shell {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 10000 !important;
+  display: grid !important;
+  place-items: center !important;
+  padding: 24px !important;
+  font-family: 'Court Grotesk', Arial, sans-serif !important;
+}
+
+.tr-account-backdrop {
+  position: absolute !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: rgba(32, 33, 31, .34) !important;
+  backdrop-filter: blur(8px) !important;
+}
+
+.tr-account-sheet {
+  position: relative !important;
+  z-index: 1 !important;
+  width: min(100%, 560px) !important;
+  max-height: min(760px, calc(100dvh - 48px)) !important;
+  overflow: auto !important;
+  padding: 0 34px 34px !important;
+  color: var(--tr-account-ink) !important;
+  background: var(--tr-account-paper) !important;
+  border: 1px solid var(--tr-account-line) !important;
+  border-radius: 0 !important;
+  box-shadow: 0 28px 80px rgba(32, 33, 31, .22) !important;
+  animation: tr-account-enter 220ms cubic-bezier(.16, 1, .3, 1) both !important;
+}
+
+.tr-account-accent {
+  height: 7px !important;
+  margin: 0 -34px 30px !important;
+  background: var(--tr-account-orange) !important;
+}
+
+.tr-account-heading {
+  display: flex !important;
+  align-items: flex-start !important;
+  justify-content: space-between !important;
+  gap: 24px !important;
+  padding-bottom: 24px !important;
+  border-bottom: 1px solid var(--tr-account-line) !important;
+}
+
+.tr-account-heading p {
+  margin: 0 0 8px !important;
+  color: var(--tr-account-muted) !important;
+  font: 11px/1.4 ui-monospace, Consolas, monospace !important;
+  letter-spacing: .12em !important;
+  text-transform: uppercase !important;
+}
+
+.tr-account-heading h2 {
+  margin: 0 !important;
+  color: var(--tr-account-ink) !important;
+  font-family: 'Court Grotesk', Arial, sans-serif !important;
+  font-size: clamp(30px, 5vw, 42px) !important;
+  font-weight: 400 !important;
+  line-height: 1.08 !important;
+  letter-spacing: -.04em !important;
+}
+
+.tr-account-icon-close {
+  display: grid !important;
+  place-items: center !important;
+  flex: 0 0 auto !important;
+  width: 42px !important;
+  height: 42px !important;
+  padding: 0 !important;
+  color: var(--tr-account-ink) !important;
+  background: transparent !important;
+  border: 1px solid var(--tr-account-line) !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
+.tr-account-icon-close:hover,
+.tr-account-icon-close:focus-visible {
+  color: var(--tr-account-ink) !important;
+  background: #eef0ea !important;
+  border-color: #a9aca2 !important;
+  transform: none !important;
+}
+
+.tr-account-identity {
+  display: grid !important;
+  grid-template-columns: auto minmax(0, 1fr) auto !important;
+  align-items: center !important;
+  gap: 16px !important;
+  padding: 28px 0 22px !important;
+}
+
+.tr-account-avatar {
+  display: grid !important;
+  place-items: center !important;
+  width: 54px !important;
+  height: 54px !important;
+  color: #fff !important;
+  background: var(--tr-account-ink) !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  font-size: 18px !important;
+  font-weight: 600 !important;
+  letter-spacing: -.04em !important;
+}
+
+.tr-account-person {
+  min-width: 0 !important;
+  display: grid !important;
+  gap: 4px !important;
+}
+
+.tr-account-person strong {
+  overflow: hidden !important;
+  color: var(--tr-account-ink) !important;
+  font-size: 18px !important;
+  font-weight: 500 !important;
+  line-height: 1.2 !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+.tr-account-person span {
+  color: var(--tr-account-muted) !important;
+  font: 12px/1.4 ui-monospace, Consolas, monospace !important;
+  letter-spacing: .04em !important;
+}
+
+.tr-account-status {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 7px !important;
+  padding: 9px 11px !important;
+  color: #3f5d49 !important;
+  background: #edf3ec !important;
+  border: 1px solid #cfdacf !important;
+  border-radius: 0 !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  white-space: nowrap !important;
+}
+
+.tr-account-help {
+  margin: 0 !important;
+  padding: 18px 0 24px !important;
+  color: var(--tr-account-muted) !important;
+  border-top: 1px solid var(--tr-account-line) !important;
+  font-size: 14px !important;
+  line-height: 1.6 !important;
+}
+
+.tr-account-actions {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) auto !important;
+  gap: 10px !important;
+  padding-top: 22px !important;
+  border-top: 1px solid var(--tr-account-line) !important;
+}
+
+.tr-account-signout,
+.tr-account-close {
+  min-height: 50px !important;
+  padding: 0 18px !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  font-family: ui-monospace, Consolas, monospace !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  letter-spacing: .06em !important;
+  text-transform: uppercase !important;
+}
+
+.tr-account-signout {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 9px !important;
+  color: var(--tr-account-ink) !important;
+  background: var(--tr-account-orange) !important;
+  border: 1px solid var(--tr-account-orange) !important;
+}
+
+.tr-account-signout:hover,
+.tr-account-signout:focus-visible {
+  color: #fff !important;
+  background: var(--tr-account-ink) !important;
+  border-color: var(--tr-account-ink) !important;
+  transform: none !important;
+}
+
+.tr-account-close {
+  color: var(--tr-account-ink) !important;
+  background: transparent !important;
+  border: 1px solid #a8aaa3 !important;
+}
+
+.tr-account-close:hover,
+.tr-account-close:focus-visible {
+  color: var(--tr-account-ink) !important;
+  background: #e9ebe5 !important;
+  border-color: #85897d !important;
+  transform: none !important;
+}
+
+.tr-account-sheet button:focus-visible {
+  outline: 2px solid var(--tr-account-orange-dark) !important;
+  outline-offset: 3px !important;
+}
+
+@keyframes tr-account-enter {
+  from { opacity: 0; transform: translateY(14px) scale(.985); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@media (max-width: 600px) {
+  .tr-account-shell {
+    align-items: end !important;
+    padding: 0 !important;
+  }
+
+  .tr-account-backdrop {
+    backdrop-filter: blur(5px) !important;
+  }
+
+  .tr-account-sheet {
+    width: 100% !important;
+    max-height: 88dvh !important;
+    padding: 0 20px 22px !important;
+    border-right: 0 !important;
+    border-bottom: 0 !important;
+    border-left: 0 !important;
+  }
+
+  .tr-account-accent {
+    margin: 0 -20px 24px !important;
+  }
+
+  .tr-account-heading {
+    gap: 14px !important;
+    padding-bottom: 20px !important;
+  }
+
+  .tr-account-heading h2 {
+    font-size: 34px !important;
+  }
+
+  .tr-account-identity {
+    grid-template-columns: auto minmax(0, 1fr) !important;
+    gap: 13px !important;
+    padding: 24px 0 18px !important;
+  }
+
+  .tr-account-status {
+    grid-column: 1 / -1 !important;
+    justify-self: start !important;
+  }
+
+  .tr-account-actions {
+    grid-template-columns: 1fr !important;
+  }
+
+  .tr-account-signout,
+  .tr-account-close {
+    width: 100% !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tr-account-sheet {
+    animation: none !important;
+  }
+}
