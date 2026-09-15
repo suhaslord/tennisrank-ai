@@ -29,9 +29,11 @@ for (const value of [
   `src="${cdn}/app.js"`,
   `src="${cdn}/assets/team-court.jpg"`,
   `href="${cdn}/account-settings.css"`,
+  `href="${cdn}/ui-cohesion.css"`,
   `src="${cdn}/match-dedup-guard.js"`,
   `src="${cdn}/connected-sheet-guard.js"`,
   `src="${cdn}/account-settings.js"`,
+  `src="${cdn}/ui-cohesion.js"`,
 ]) {
   assert.ok(out.includes(value), `missing quoted rewritten attribute: ${value}`);
 }
@@ -44,12 +46,14 @@ const previewGuard = out.indexOf(`${cdn}/coach-preview-guard.js`);
 const matchDedup = out.indexOf(`${cdn}/match-dedup-guard.js`);
 const sheetGuard = out.indexOf(`${cdn}/connected-sheet-guard.js`);
 const accountSettings = out.indexOf(`${cdn}/account-settings.js`);
+const uiCohesion = out.indexOf(`${cdn}/ui-cohesion.js`);
 const brandAssets = out.indexOf(`${cdn}/brand-assets.js`);
 assert.ok(importSync > 0 && ranking > importSync && dashboard > ranking && coachOps > dashboard && previewGuard > coachOps, 'runtime order must be importer sync -> ranking policy -> player dashboard -> coach ops -> final preview guard');
-assert.ok(matchDedup > previewGuard && sheetGuard > matchDedup && accountSettings > sheetGuard && brandAssets > accountSettings, 'late integrity/safety/UI patches must load before final brand assets');
+assert.ok(matchDedup > previewGuard && sheetGuard > matchDedup && accountSettings > sheetGuard && uiCohesion > accountSettings && brandAssets > uiCohesion, 'late integrity/safety/UI patches must load before final brand assets');
 assert.ok(out.includes(`${cdn}/player-dashboard-state.css`));
 assert.ok(out.includes(`${cdn}/coach-ops.css`));
 assert.ok(out.includes(`${cdn}/account-settings.css`));
+assert.ok(out.includes(`${cdn}/ui-cohesion.css`));
 assert.equal(out.includes('class="cursor-ball"'), false);
 
 console.log('render rewrite tests passed');
@@ -75,4 +79,6 @@ render({method:'GET'}, response).then(() => {
   assert.ok(response.body.includes('/connected-sheet-guard.js'));
   assert.ok(response.body.includes('/account-settings.js'));
   assert.ok(response.body.includes('/account-settings.css'));
+  assert.ok(response.body.includes('/ui-cohesion.js'));
+  assert.ok(response.body.includes('/ui-cohesion.css'));
 }).finally(() => { global.fetch = nativeFetch; });
