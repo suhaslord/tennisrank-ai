@@ -5,6 +5,14 @@
     return String(value || '').replace(/\s+/g, ' ').trim();
   }
 
+  function setTextIfChanged(node, value) {
+    if (!node) return false;
+    const next = String(value ?? '');
+    if (node.textContent === next) return false;
+    node.textContent = next;
+    return true;
+  }
+
   function hasMixedBoard() {
     try {
       return Array.isArray(state?.rankings) && state.rankings.some(item => String(item?.gender || '').toLowerCase() === 'mixed' && String(item?.division || '').toLowerCase() === 'doubles');
@@ -23,18 +31,20 @@
     const preview = document.querySelector('#importPreviewModal');
     const previewVisible = modalIsVisible(preview);
     if (!previewVisible) {
-      document.body.classList.remove('coach-modal-open');
-      document.body.removeAttribute('data-modal-stale');
+      if (document.body.classList.contains('coach-modal-open')) document.body.classList.remove('coach-modal-open');
+      if (document.body.hasAttribute('data-modal-stale')) document.body.removeAttribute('data-modal-stale');
     }
 
     const account = document.querySelector('#trAccountSettingsShell');
     const accountVisible = modalIsVisible(account);
-    if (!accountVisible) document.documentElement.classList.remove('tr-account-open');
+    if (!accountVisible && document.documentElement.classList.contains('tr-account-open')) {
+      document.documentElement.classList.remove('tr-account-open');
+    }
 
     if (!previewVisible && !accountVisible) {
-      document.documentElement.style.removeProperty('overflow');
-      document.body.style.removeProperty('overflow');
-      document.body.style.removeProperty('overflow-y');
+      if (document.documentElement.style.getPropertyValue('overflow')) document.documentElement.style.removeProperty('overflow');
+      if (document.body.style.getPropertyValue('overflow')) document.body.style.removeProperty('overflow');
+      if (document.body.style.getPropertyValue('overflow-y')) document.body.style.removeProperty('overflow-y');
     }
   }
 
@@ -58,28 +68,31 @@
     }
 
     const heading = warning.querySelector(':scope > strong');
-    if (heading) heading.textContent = 'Needs a quick look';
+    setTextIfChanged(heading, 'Needs a quick look');
   }
 
   function polishPreview() {
     const modal = document.querySelector('#importPreviewModal');
-    if (!modal || modal.hidden) return;
+    // Some historical markup hides this modal with CSS instead of the `hidden`
+    // attribute. Treat computed visibility as authoritative so the observer does
+    // not rewrite hidden modal text forever during DOMContentLoaded.
+    if (!modalIsVisible(modal)) return;
 
     const eyebrow = modal.querySelector('.coach-modal-head .eyebrow');
     const title = modal.querySelector('#importPreviewTitle');
-    if (eyebrow) eyebrow.textContent = 'Quick import check';
-    if (title) title.textContent = 'Check this before it goes live';
+    setTextIfChanged(eyebrow, 'Quick import check');
+    setTextIfChanged(title, 'Check this before it goes live');
 
     const articles = [...modal.querySelectorAll('.coach-preview-grid article')];
     const labels = ['New players', 'Removed or inactive', 'Ranking changes', 'Boards in this import'];
     articles.forEach((article, index) => {
       const heading = article.querySelector('h3');
-      if (heading && labels[index]) heading.textContent = labels[index];
+      if (heading && labels[index]) setTextIfChanged(heading, labels[index]);
     });
 
     if (hasMixedBoard()) {
       modal.querySelectorAll('.coach-preview-grid li b').forEach(node => {
-        if (clean(node.textContent) === 'Unknown Doubles') node.textContent = 'Mixed Doubles';
+        if (clean(node.textContent) === 'Unknown Doubles') setTextIfChanged(node, 'Mixed Doubles');
       });
     }
 
