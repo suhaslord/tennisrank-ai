@@ -56,7 +56,10 @@
   function exactMatchSignature(row) {
     const part = matchParts(row);
     if (!part) return '';
-    return [part.gender, part.division, part.winner, part.loser, part.score, part.date, part.qualifier].map(compact).join('|');
+    return [
+      compact(part.gender), compact(part.division), compact(part.winner), compact(part.loser),
+      compact(part.score), compact(part.date), part.qualifier,
+    ].join('|');
   }
 
   function contestSignature(row) {
