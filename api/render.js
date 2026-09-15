@@ -51,10 +51,18 @@ function ensureHumanPresentation(html) {
   if (!out.includes('account-settings.css')) {
     out = out.replace('</head>', '<link rel="stylesheet" href="/account-settings.css" data-tennisrank-account-settings-style="true"></head>');
   }
+  if (!out.includes('ui-cohesion.css')) {
+    out = out.replace('</head>', '<link rel="stylesheet" href="/ui-cohesion.css" data-tennisrank-ui-cohesion-style="true"></head>');
+  }
   if (!out.includes('human-copy.js')) {
     const before = '<script src="/brand-assets.js"></script>';
     if (out.includes(before)) out = out.replace(before, '<script src="/human-copy.js" data-tennisrank-human-copy="true"></script>' + before);
     else out = out.replace('</body>', '<script src="/human-copy.js" data-tennisrank-human-copy="true"></script></body>');
+  }
+  if (!out.includes('ui-cohesion.js')) {
+    const before = '<script src="/brand-assets.js"></script>';
+    if (out.includes(before)) out = out.replace(before, '<script src="/ui-cohesion.js" data-tennisrank-ui-cohesion="true"></script>' + before);
+    else out = out.replace('</body>', '<script src="/ui-cohesion.js" data-tennisrank-ui-cohesion="true"></script></body>');
   }
   return out;
 }
@@ -101,7 +109,7 @@ function rewrite(html) {
     .replaceAll('src="./app.js"', `src="${CDN}/app.js"`)
     .replaceAll('src="./ladder.js"', `src="${CDN}/ladder.js"`)
     .replaceAll('src="./challenge-ui.js"', `src="${CDN}/challenge-ui.js"`)
-    .replaceAll('src="./challenge-ui-state.js"', `src="${CDN}/challenge-ui-state.js"`);
+    .replaceAll('src="./challenge-ui-state.js"', `src="${CDN}/challenge-ui-state.js`);
 
   out = out.replace(
     '</head>',
