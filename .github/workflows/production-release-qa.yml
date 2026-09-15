@@ -50,6 +50,8 @@ jobs:
           node --check qa/photo-placeholder.test.js
           node --check qa/human-copy.test.js
           node --check qa/human-theme.test.js
+          node --check qa/doubles-mixed.test.js
+          node --check qa/doubles-mixed-browser.spec.js
           node --check qa/human-ui.spec.js
           node --check qa/certainty-ui.spec.js
           node --check qa/coach-real-sheet-browser.spec.js
@@ -62,6 +64,7 @@ jobs:
         run: |
           set -euo pipefail
           node qa/ranking-policy.test.js
+          node qa/doubles-mixed.test.js
           node qa/player-dashboard-state.test.js
           node qa/player-insights.test.js
           node qa/coach-sharing.test.js
@@ -115,6 +118,7 @@ jobs:
             qa/coach-ops-browser.spec.js \
             qa/coach-failure-recovery.spec.js \
             qa/import-board-sync.spec.js \
+            qa/doubles-mixed-browser.spec.js \
             qa/coach-real-sheet-browser.spec.js \
             qa/certainty-ui.spec.js \
             qa/messy-form-factors.spec.js \
@@ -142,6 +146,8 @@ jobs:
           test -f qa/human-copy.test.js
           test -f qa/human-theme.test.js
           test -f qa/human-ui.spec.js
+          test -f qa/doubles-mixed.test.js
+          test -f qa/doubles-mixed-browser.spec.js
           test -f supabase/import_publish_concurrency_guard.sql
           grep -q 'coach-polish.css' api/render.js
           grep -q 'coach-polish.js' api/render.js
