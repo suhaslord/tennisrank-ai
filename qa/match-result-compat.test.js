@@ -45,6 +45,7 @@ assert.equal(partnerRows.length, 1, 'reciprocal one-row-per-partner entries for 
 assert.equal(partnerRows[0].winner, 'Ethan Kim & Noah Williams');
 assert.equal(partnerRows[0].loser, 'Jack Park & Liam Chen');
 assert.equal(partnerRows[0].division, 'Doubles');
+assert.equal(compat.isCompletePartnerLayout(partnerRows), true);
 
 const mixedPartner = {
   name: 'Olivia Brown', partner: 'Ravi Shah', opponent: 'Sophia Lee', opponentPartner: 'Ben Kim',
@@ -112,9 +113,6 @@ assert.equal(interpreted[0].winner, 'Ethan Kim & Noah Williams');
 assert.equal(interpreted[0].loser, 'Jack Park & Liam Chen');
 assert.equal(interpreted[0].division, 'Doubles');
 
-// The main importer can intentionally discard unknown columns. The compatibility
-// wrapper must recover doubles-only partner columns from the raw matrix before
-// certainty review and ranking calculation.
 const droppingImporterWindow = {
   TennisRankImportV2: {
     parseDelimited() {
@@ -127,6 +125,9 @@ const droppingImporterWindow = {
     parseText() {
       return [{ __sourceRow: 2, player1: 'Noah Williams', player2: 'Liam Chen', winner: 'Player 1', score: '6-2', gender: 'Boys' }];
     },
+    validateInterpretation() {
+      return { valid: false, confidence: 0.4, level: 'LOW', reason: 'Base importer does not understand partner columns.' };
+    },
   },
 };
 assert.equal(compat.installBrowser(droppingImporterWindow), true);
@@ -136,5 +137,8 @@ assert.equal(recovered[0].player2, 'Jack Park & Liam Chen');
 assert.equal(recovered[0].winner, 'Ethan Kim & Noah Williams');
 assert.equal(recovered[0].loser, 'Jack Park & Liam Chen');
 assert.equal(recovered[0].division, 'Doubles');
+const deterministicReview = droppingImporterWindow.TennisRankImportV2.validateInterpretation(recovered);
+assert.equal(deterministicReview.valid, true);
+assert.equal(deterministicReview.confidence, 1);
 
 console.log('Named-result and doubles partner compatibility regression passed.');
