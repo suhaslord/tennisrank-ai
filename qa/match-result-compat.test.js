@@ -25,6 +25,77 @@ const invalid = [
 compat.normalizeRows(invalid);
 assert.equal(invalid.some(row => row.winner || row.loser), false, 'mismatched result names must stay unresolved instead of being guessed');
 
+const partnerRows = [
+  {
+    name: 'Noah Williams',
+    partner: 'Ethan Kim',
+    opponent: 'Liam Chen',
+    opponentPartner: 'Jack Park',
+    result: 'W',
+    score: '6-3',
+    gender: 'Boys',
+    date: '2026-09-15',
+  },
+  {
+    name: 'Ethan Kim',
+    partner: 'Noah Williams',
+    opponent: 'Jack Park',
+    opponentPartner: 'Liam Chen',
+    result: 'W',
+    score: '6-3',
+    gender: 'Boys',
+    date: '2026-09-15',
+  },
+];
+compat.normalizeRows(partnerRows);
+assert.equal(partnerRows.length, 1, 'reciprocal one-row-per-partner entries for the same dated score must count once');
+assert.equal(partnerRows[0].winner, 'Ethan Kim & Noah Williams');
+assert.equal(partnerRows[0].loser, 'Jack Park & Liam Chen');
+assert.equal(partnerRows[0].division, 'Doubles');
+
+const mixedPartner = {
+  name: 'Olivia Brown',
+  partner: 'Ravi Shah',
+  opponent: 'Sophia Lee',
+  opponentPartner: 'Ben Kim',
+  result: 'W',
+  score: '7-5',
+  gender: 'F',
+  partnerGender: 'M',
+  date: '2026-09-15',
+};
+compat.normalizeRow(mixedPartner);
+assert.equal(mixedPartner.winner, 'Olivia Brown & Ravi Shah');
+assert.equal(mixedPartner.loser, 'Ben Kim & Sophia Lee');
+assert.equal(mixedPartner.division, 'Doubles');
+
+const splitWinnerColumns = {
+  winner1: 'Maya Patel',
+  winner2: 'Zoe Kim',
+  loser1: 'Emma Lee',
+  loser2: 'Ava Shah',
+  score: '6-4',
+  gender: 'Girls',
+};
+compat.normalizeRow(splitWinnerColumns);
+assert.equal(splitWinnerColumns.winner, 'Maya Patel & Zoe Kim');
+assert.equal(splitWinnerColumns.loser, 'Ava Shah & Emma Lee');
+assert.equal(splitWinnerColumns.division, 'Doubles');
+
+const sidePartnerColumns = {
+  player1: 'Noah Williams',
+  partner1: 'Ethan Kim',
+  player2: 'Liam Chen',
+  partner2: 'Jack Park',
+  winner: 'Player 1',
+  score: '6-2',
+  gender: 'Boys',
+};
+compat.normalizeRow(sidePartnerColumns);
+assert.equal(sidePartnerColumns.player1, 'Ethan Kim & Noah Williams');
+assert.equal(sidePartnerColumns.player2, 'Jack Park & Liam Chen');
+assert.equal(sidePartnerColumns.division, 'Doubles');
+
 let received;
 const fakeWindow = {
   loadRows(incoming) {
@@ -38,4 +109,26 @@ assert.equal(fakeWindow.loadRows(persistedShape, 'backend'), 'ok');
 assert.equal(received[0].winner, 'a');
 assert.equal(received[0].loser, 'b');
 
-console.log('Named-result compatibility regression passed.');
+const importerWindow = {
+  TennisRankImportV2: {
+    parseText() {
+      return [{
+        name: 'Noah Williams',
+        partner: 'Ethan Kim',
+        opponent: 'Liam Chen',
+        opponentpartner: 'Jack Park',
+        result: 'W',
+        score: '6-3',
+        gender: 'Boys',
+        date: '2026-09-15',
+      }];
+    },
+  },
+};
+assert.equal(compat.installBrowser(importerWindow), true);
+const interpreted = importerWindow.TennisRankImportV2.parseText('ignored');
+assert.equal(interpreted[0].winner, 'Ethan Kim & Noah Williams');
+assert.equal(interpreted[0].loser, 'Jack Park & Liam Chen');
+assert.equal(interpreted[0].division, 'Doubles');
+
+console.log('Named-result and doubles partner compatibility regression passed.');
