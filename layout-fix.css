@@ -1,0 +1,324 @@
+/* TennisRank layout hotfix: compact rankings dashboard + guaranteed page scrolling. */
+:root {
+  --tr-layout-paper:#fafbf9;
+  --tr-layout-ink:#20211f;
+  --tr-layout-muted:#676b63;
+  --tr-layout-line:#dedfdb;
+  --tr-layout-line-strong:#b9bdb3;
+  --tr-layout-orange:#ff7657;
+  --tr-layout-orange-dark:#d8492b;
+  --tr-layout-soft:#f0f2ed;
+}
+
+/* Normal pages must always own the vertical scroll. Modal classes are the only exception. */
+html:not(.tr-account-open) {
+  height:auto!important;
+  min-height:100%!important;
+  max-height:none!important;
+  overflow-x:hidden!important;
+  overflow-y:auto!important;
+  position:static!important;
+  overscroll-behavior-y:auto!important;
+}
+html:not(.tr-account-open) body:not(.coach-modal-open) {
+  position:static!important;
+  inset:auto!important;
+  top:auto!important;
+  right:auto!important;
+  bottom:auto!important;
+  left:auto!important;
+  width:auto!important;
+  height:auto!important;
+  min-height:100%!important;
+  max-height:none!important;
+  overflow-x:hidden!important;
+  overflow-y:auto!important;
+  touch-action:auto!important;
+  overscroll-behavior-y:auto!important;
+}
+body:not(.coach-modal-open) .app-shell,
+body:not(.coach-modal-open) main#top,
+body:not(.coach-modal-open) #ladderExperience {
+  position:relative!important;
+  height:auto!important;
+  min-height:0!important;
+  max-height:none!important;
+  overflow:visible!important;
+}
+
+/* One board at a time. Compact header, compact controls, no giant dead space. */
+body .ladder-experience,
+body main#top > section.ladder-experience {
+  width:100%!important;
+  max-width:none!important;
+  margin:0!important;
+  padding:34px 48px 58px!important;
+  background:var(--tr-layout-paper)!important;
+  color:var(--tr-layout-ink)!important;
+  border:0!important;
+  border-top:1px solid var(--tr-layout-line)!important;
+  border-bottom:1px solid var(--tr-layout-line)!important;
+  box-shadow:none!important;
+}
+body .ladder-stage { display:none!important; }
+body .ladder-intro {
+  display:grid!important;
+  grid-template-columns:minmax(0,1fr) auto!important;
+  align-items:end!important;
+  gap:28px!important;
+  width:100%!important;
+  max-width:1500px!important;
+  min-height:0!important;
+  margin:0 auto 18px!important;
+  padding:0 0 18px!important;
+  border-bottom:1px solid var(--tr-layout-line)!important;
+}
+body .ladder-intro > div:first-child {
+  min-width:0!important;
+  display:block!important;
+}
+body .ladder-kicker {
+  margin:0!important;
+  color:var(--tr-layout-muted)!important;
+  font:10px/1.4 ui-monospace,Consolas,monospace!important;
+  letter-spacing:.12em!important;
+  text-transform:uppercase!important;
+  opacity:1!important;
+  visibility:visible!important;
+  transform:none!important;
+}
+body .ladder-intro h2 {
+  display:block!important;
+  max-width:none!important;
+  margin:8px 0 0!important;
+  color:var(--tr-layout-ink)!important;
+  font-family:'Court Grotesk',Arial,sans-serif!important;
+  font-size:clamp(34px,3.6vw,52px)!important;
+  font-weight:400!important;
+  line-height:1!important;
+  letter-spacing:-.045em!important;
+  opacity:1!important;
+  visibility:visible!important;
+  transform:none!important;
+  animation:none!important;
+}
+body .ladder-intro h2 br { display:none!important; }
+body .ladder-intro-copy {
+  max-width:720px!important;
+  margin:9px 0 0!important;
+  color:#565b53!important;
+  font-size:13px!important;
+  line-height:1.5!important;
+  opacity:1!important;
+  visibility:visible!important;
+}
+body .ladder-tabs {
+  display:flex!important;
+  flex-wrap:wrap!important;
+  justify-content:flex-end!important;
+  align-items:center!important;
+  gap:6px!important;
+  width:auto!important;
+  max-width:650px!important;
+  min-width:0!important;
+  padding:0!important;
+  background:transparent!important;
+}
+body .ladder-tab {
+  min-width:0!important;
+  min-height:38px!important;
+  height:38px!important;
+  padding:0 12px!important;
+  color:var(--tr-layout-ink)!important;
+  background:transparent!important;
+  border:1px solid var(--tr-layout-line-strong)!important;
+  border-radius:0!important;
+  box-shadow:none!important;
+  font:10px/1 ui-monospace,Consolas,monospace!important;
+  letter-spacing:.045em!important;
+  text-transform:uppercase!important;
+  white-space:nowrap!important;
+}
+body .ladder-tab:hover { background:var(--tr-layout-soft)!important; }
+body .ladder-tab[aria-selected="true"] {
+  color:var(--tr-layout-ink)!important;
+  background:var(--tr-layout-orange)!important;
+  border-color:var(--tr-layout-orange)!important;
+}
+
+/* Three useful numbers, full width, no tiny island floating in whitespace. */
+body .ladder-metrics {
+  display:grid!important;
+  grid-template-columns:repeat(3,minmax(0,1fr))!important;
+  gap:0!important;
+  width:100%!important;
+  max-width:1500px!important;
+  margin:0 auto!important;
+  background:transparent!important;
+  border-top:1px solid var(--tr-layout-line)!important;
+  border-bottom:1px solid var(--tr-layout-line)!important;
+}
+body .ladder-metric {
+  display:grid!important;
+  grid-template-columns:auto minmax(0,1fr)!important;
+  grid-template-rows:auto auto!important;
+  align-items:end!important;
+  column-gap:16px!important;
+  min-width:0!important;
+  min-height:86px!important;
+  padding:15px 20px!important;
+  background:transparent!important;
+  color:var(--tr-layout-ink)!important;
+  border:0!important;
+  border-right:1px solid var(--tr-layout-line)!important;
+  border-radius:0!important;
+}
+body .ladder-metric:last-child { border-right:0!important; }
+body .ladder-metric-label {
+  grid-column:1 / -1!important;
+  color:var(--tr-layout-muted)!important;
+  font:9px/1.3 ui-monospace,Consolas,monospace!important;
+  letter-spacing:.09em!important;
+  text-transform:uppercase!important;
+}
+body .ladder-metric strong {
+  margin:5px 0 0!important;
+  color:var(--tr-layout-ink)!important;
+  font-family:'Court Grotesk',Arial,sans-serif!important;
+  font-size:34px!important;
+  font-weight:400!important;
+  line-height:1!important;
+}
+body .ladder-metric small {
+  min-width:0!important;
+  margin:0 0 2px!important;
+  overflow:hidden!important;
+  color:var(--tr-layout-muted)!important;
+  font-size:11px!important;
+  line-height:1.25!important;
+  text-overflow:ellipsis!important;
+  white-space:nowrap!important;
+}
+
+body .ladder-board {
+  width:100%!important;
+  max-width:1500px!important;
+  margin:0 auto!important;
+  padding:24px 0 0!important;
+  background:transparent!important;
+  color:var(--tr-layout-ink)!important;
+  border:0!important;
+}
+body .ladder-board-head {
+  display:grid!important;
+  grid-template-columns:minmax(220px,.42fr) minmax(0,1fr)!important;
+  align-items:end!important;
+  gap:28px!important;
+  width:100%!important;
+  margin:0!important;
+  padding:0 0 14px!important;
+  border-bottom:1px solid var(--tr-layout-line)!important;
+}
+body .ladder-board-head h3 {
+  margin:0!important;
+  color:var(--tr-layout-ink)!important;
+  font-family:'Court Grotesk',Arial,sans-serif!important;
+  font-size:clamp(30px,3vw,42px)!important;
+  font-weight:400!important;
+  line-height:1!important;
+  letter-spacing:-.04em!important;
+}
+body .ladder-board-head p {
+  max-width:650px!important;
+  margin:0!important;
+  color:var(--tr-layout-muted)!important;
+  font-size:12px!important;
+  line-height:1.45!important;
+}
+body .ladder-list { width:100%!important; border-top:0!important; }
+body .ladder-row {
+  display:grid!important;
+  grid-template-columns:58px 44px minmax(0,1fr) 118px 118px!important;
+  align-items:center!important;
+  gap:12px!important;
+  width:100%!important;
+  min-height:64px!important;
+  padding:0 4px!important;
+  color:var(--tr-layout-ink)!important;
+  background:transparent!important;
+  border:0!important;
+  border-bottom:1px solid var(--tr-layout-line)!important;
+  border-radius:0!important;
+}
+body .ladder-row:hover { background:#f1f2ee!important; }
+body .ladder-rank {
+  color:var(--tr-layout-orange-dark)!important;
+  background:transparent!important;
+  font:16px/1 ui-monospace,Consolas,monospace!important;
+}
+body .ladder-movement { color:#7a7f75!important; font-size:11px!important; }
+body .ladder-movement.up { color:#2d7658!important; }
+body .ladder-player-name { color:var(--tr-layout-ink)!important; font-size:14px!important; font-weight:550!important; }
+body .ladder-record { margin-top:3px!important; color:var(--tr-layout-muted)!important; font-size:10px!important; }
+body .ladder-status {
+  color:var(--tr-layout-muted)!important;
+  font:9px/1.2 ui-monospace,Consolas,monospace!important;
+  letter-spacing:.06em!important;
+  text-transform:uppercase!important;
+}
+body .ladder-empty { padding:28px 0!important; color:var(--tr-layout-muted)!important; }
+
+/* Keep the old ranking cards/table from visually competing with the primary board. */
+body #rankingsSection { margin-top:42px!important; padding-top:0!important; }
+body #rankingsSection h2::after { content:' · overview'; color:var(--tr-layout-muted); font-weight:400; }
+body #rankingsGrid { grid-template-columns:repeat(auto-fit,minmax(210px,1fr))!important; gap:8px!important; }
+body #statsSection { margin-top:44px!important; }
+body .table-card { margin-bottom:26px!important; }
+
+/* Modal itself scrolls; the page unlocks immediately after it closes. */
+body .coach-modal-shell[hidden] { display:none!important; }
+body .coach-modal { overflow:auto!important; -webkit-overflow-scrolling:touch!important; }
+
+@media (max-width:1050px) {
+  body .ladder-experience,
+  body main#top > section.ladder-experience { padding:30px 28px 48px!important; }
+  body .ladder-intro { grid-template-columns:1fr!important; align-items:start!important; gap:16px!important; }
+  body .ladder-tabs { justify-content:flex-start!important; max-width:none!important; }
+  body .ladder-board-head { grid-template-columns:1fr!important; gap:8px!important; }
+  body .ladder-row { grid-template-columns:52px 40px minmax(0,1fr) 100px!important; }
+  body .ladder-challenge-state { display:none!important; }
+}
+
+@media (max-width:700px) {
+  body .ladder-experience,
+  body main#top > section.ladder-experience { padding:24px 16px 40px!important; }
+  body .ladder-intro { margin-bottom:14px!important; padding-bottom:14px!important; }
+  body .ladder-intro h2 { font-size:34px!important; }
+  body .ladder-intro-copy { font-size:12px!important; }
+  body .ladder-tabs {
+    display:grid!important;
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+    width:100%!important;
+    gap:5px!important;
+  }
+  body .ladder-tab { width:100%!important; min-height:40px!important; height:40px!important; padding:0 8px!important; font-size:9px!important; }
+  body .ladder-tab:last-child { grid-column:1 / -1!important; }
+  body .ladder-metrics { grid-template-columns:repeat(3,minmax(0,1fr))!important; }
+  body .ladder-metric {
+    grid-template-columns:1fr!important;
+    min-height:76px!important;
+    padding:12px!important;
+    column-gap:0!important;
+  }
+  body .ladder-metric strong { font-size:27px!important; }
+  body .ladder-metric small { margin-top:4px!important; font-size:9px!important; }
+  body .ladder-board { padding-top:18px!important; }
+  body .ladder-board-head h3 { font-size:30px!important; }
+  body .ladder-row {
+    grid-template-columns:42px 34px minmax(0,1fr)!important;
+    min-height:60px!important;
+    gap:7px!important;
+  }
+  body .ladder-status,
+  body .ladder-challenge-state { display:none!important; }
+}
