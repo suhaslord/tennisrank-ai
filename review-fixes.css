@@ -1,17 +1,42 @@
 /* Fixes found during the hostile 500-state screenshot review. */
 
-/* The live board switcher is now the ranking surface. Remove the older duplicate card leaderboard. */
-body #rankingsSection,
+/* The live board switcher is now the primary ranking surface. Keep the old
+   section as a mount point for coach share controls, but hide its duplicate
+   heading/cards/filter UI. */
+body #rankingsSection {
+  display: flex !important;
+  min-height: 0 !important;
+  margin: 20px auto 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+}
+body #rankingsSection > div:not(#rankingShareControls),
+body #rankingsSection > #lastUpdated,
 body .filter-bar,
 body #rankingsGrid {
   display: none !important;
 }
+body #rankingsSection:empty { display: none !important; }
+body #rankingShareControls {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  gap: 8px !important;
+  margin-left: auto !important;
+}
 
 /* Keep the useful cross-board table and match history, but separate them clearly from the live board. */
 body #statsSection {
-  margin-top: 48px !important;
+  margin-top: 38px !important;
   padding-top: 28px !important;
   border-top: 1px solid var(--tr-line, #dedfdb) !important;
+}
+
+/* Coach controls must retain the same selected orange state even when older
+   challenge CSS is present in the page. */
+body #coachLadderConsole .coach-tab[aria-selected="true"] {
+  color: #20211f !important;
+  background: #ff7657 !important;
+  border-color: #ff7657 !important;
 }
 
 /* Never depend on the external icon font for the account close affordance. */
@@ -41,9 +66,19 @@ html { scroll-padding-bottom: 92px !important; }
 @media (max-width: 700px) {
   body .app-shell { padding-bottom: 128px !important; }
   body main#top { padding-bottom: 24px !important; }
+  body #rankingsSection { margin-top: 14px !important; }
+  body #rankingShareControls { width: 100% !important; justify-content: flex-start !important; }
   body #statsSection { margin-top: 32px !important; padding-top: 22px !important; }
   body #settingsPanel,
   body #accountsPanel,
   body .coach-ladder-console,
   body .challenge-center { padding-bottom: 116px !important; }
+
+  .tr-account-shell { padding: 0 !important; }
+  .tr-account-sheet {
+    box-sizing: border-box !important;
+    max-height: calc(100dvh - 6px) !important;
+    overflow-y: auto !important;
+    overscroll-behavior: contain !important;
+  }
 }
