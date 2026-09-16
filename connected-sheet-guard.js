@@ -99,10 +99,15 @@
   async function publishVerifiedRows(win, rows) {
     const deps = dependencies(win);
     if (!Array.isArray(rows) || !rows.length) throw new Error('No verified Sheet rows are ready to publish.');
-    if (typeof win.loadRows !== 'function') throw new Error('The TennisRank importer is not ready yet.');
 
-    // Bind the preview to these exact verified rows. Do not rely on whichever
-    // syncToBackend wrapper happened to win the startup race.
+    // Pure/unit environments do not have the rendered app's loadRows function.
+    // Preserve the certainty module's publication contract there.
+    if (typeof win.loadRows !== 'function') {
+      return deps.certainty.publishRows(win, rows, 'sheet', 'Google Sheet');
+    }
+
+    // In the browser, bind the preview to these exact verified rows instead of
+    // relying on whichever syncToBackend wrapper happened to win startup timing.
     win.loadRows(rows, 'sheet');
     deps.certainty?.renderMeter?.(win, rows);
     win.TennisRankCoachPreviewGuard?.repair?.();
@@ -185,9 +190,8 @@
 
     if (!win.__tennisrankConnectedSheetGuardEvents) {
       win.__tennisrankConnectedSheetGuardEvents = true;
-      // Window capture runs before the legacy document listeners. This makes one
-      // code path authoritative for Sheet connect/refresh and prevents duplicate
-      // fetch/publish races.
+      // Window capture runs before legacy document listeners, so connect and
+      // refresh each have exactly one authoritative Sheet path.
       win.addEventListener('click', event => {
         const target = event.target?.closest?.('#connectSheet, #useCsv, #refreshNow');
         if (!target) return;
