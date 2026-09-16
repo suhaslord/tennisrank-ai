@@ -32,11 +32,18 @@ body #statsSection {
 }
 
 /* Coach controls must retain the same selected orange state even when older
-   challenge CSS is present in the page. */
+   challenge CSS or motion rules are present. Do not fade the selected state in:
+   a tab should be unmistakably selected the instant the click lands. */
+body #coachLadderConsole .coach-tab,
+body #coachLadderConsole .coach-tab[aria-selected="true"] {
+  transition: none !important;
+  animation: none !important;
+}
 body #coachLadderConsole .coach-tab[aria-selected="true"] {
   color: #20211f !important;
   background: #ff7657 !important;
   border-color: #ff7657 !important;
+  opacity: 1 !important;
 }
 
 /* Never depend on the external icon font for the account close affordance. */
@@ -74,11 +81,16 @@ html { scroll-padding-bottom: 92px !important; }
   body .coach-ladder-console,
   body .challenge-center { padding-bottom: 116px !important; }
 
-  .tr-account-shell { padding: 0 !important; }
+  .tr-account-shell {
+    padding: 0 !important;
+    overflow: hidden !important;
+  }
   .tr-account-sheet {
     box-sizing: border-box !important;
     max-height: calc(100dvh - 6px) !important;
     overflow-y: auto !important;
     overscroll-behavior: contain !important;
+    animation: none !important;
+    transform: none !important;
   }
 }
