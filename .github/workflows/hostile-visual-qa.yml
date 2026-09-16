@@ -21,6 +21,7 @@ on:
       - match-dedup-guard.js
       - coach-console-theme.css
       - challenge-ui.js
+      - challenge-ui-state.js
       - challenge-ui.css
       - challenge-ui-fixes.css
   workflow_dispatch:
