@@ -293,8 +293,15 @@
           }
         }
         if (statusPlayerId) {
-          resolveStatusMutation(statusPlayerId, Boolean(response?.ok));
-          if (response?.ok) scheduleRosterUnlock();
+          const ok = Boolean(response?.ok);
+          resolveStatusMutation(statusPlayerId, ok);
+          // The status mutation itself is complete once the server accepts it.
+          // Do not strand unrelated rank controls while refreshWorkflow reloads
+          // the roster in the background.
+          if (ok) {
+            setRosterRefreshing(false);
+            restoreCoachState();
+          }
         }
         return response;
       } catch (error) {
