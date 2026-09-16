@@ -128,24 +128,60 @@
   function createController(win) {
     let epoch = 0;
     let inFlight = null;
+    // Capture a configured Sheet before the authenticated app finishes startup.
+    // An empty backend used to call clearBoard() and erase this URL before the
+    // coach could press Refresh Now.
+    let rememberedUrl = currentSheetUrl(win);
 
     const invalidate = () => { epoch += 1; };
 
+    const remember = value => {
+      const next = clean(value);
+      if (!next) return rememberedUrl;
+      rememberedUrl = next;
+      try { win.localStorage?.setItem?.(SHEET_URL_KEY, next); } catch {}
+      const input = win.document?.querySelector?.('#sheetUrl');
+      if (input && !clean(input.value)) input.value = next;
+      return rememberedUrl;
+    };
+
+    const restore = () => {
+      if (!rememberedUrl) return '';
+      try {
+        if (!storedSheetUrl(win)) win.localStorage?.setItem?.(SHEET_URL_KEY, rememberedUrl);
+      } catch {}
+      const input = win.document?.querySelector?.('#sheetUrl');
+      if (input && !clean(input.value)) input.value = rememberedUrl;
+      return rememberedUrl;
+    };
+
+    const clearSource = () => {
+      epoch += 1;
+      rememberedUrl = '';
+      try { win.localStorage?.removeItem?.(SHEET_URL_KEY); } catch {}
+    };
+
+    const sourceUrl = () => currentSheetUrl(win) || rememberedUrl;
+
     const stillCurrent = (capturedEpoch, input) => {
       if (capturedEpoch !== epoch) return false;
-      const stored = storedSheetUrl(win);
-      return Boolean(stored && stored === input);
+      return Boolean((currentSheetUrl(win) || rememberedUrl) === input);
     };
 
     const refresh = async () => {
       if (inFlight) return inFlight;
-      const input = currentSheetUrl(win);
+      restore();
+      const input = sourceUrl();
       if (!input) throw new Error('Paste a Google Sheet link first.');
+      remember(input);
       const capturedEpoch = epoch;
 
       inFlight = (async () => {
         const rows = await verifiedRows(win, input);
         if (!stillCurrent(capturedEpoch, input)) throw staleError();
+        // Startup/backend reloads may clear browser storage while the Sheet is
+        // in flight. Restore the same source only after proving it is still current.
+        restore();
         if (!stillCurrent(capturedEpoch, input)) throw staleError();
         return publishVerifiedRows(win, rows);
       })();
@@ -154,10 +190,21 @@
       finally { inFlight = null; }
     };
 
-    return { refresh, invalidate, stillCurrent, inFlight: () => inFlight, epoch: () => epoch };
+    return {
+      refresh,
+      invalidate,
+      remember,
+      restore,
+      clearSource,
+      sourceUrl,
+      stillCurrent,
+      inFlight: () => inFlight,
+      epoch: () => epoch,
+    };
   }
 
   function runRefresh(win, controller, button, successMessage) {
+    controller.restore();
     win.setBusy?.(button, true);
     win.setStatus?.('Checking the connected Google Sheet…');
     win.TennisRankCoachPreviewGuard?.repair?.();
@@ -180,6 +227,10 @@
     }
     const controller = win.__tennisrankConnectedSheetGuardController;
 
+    // If startup briefly erased the saved URL, put it back before any user or
+    // auto-refresh action can observe a disconnected state.
+    controller.restore();
+
     if (!win.fetchSheet?.__connectedSheetGuard) {
       const guardedFetch = async function guardedConnectedSheetRefresh() {
         return controller.refresh();
@@ -197,7 +248,7 @@
         if (!target) return;
 
         if (target.id === 'useCsv') {
-          controller.invalidate();
+          controller.clearSource();
           return;
         }
 
@@ -205,14 +256,14 @@
           const input = inputSheetUrl(win);
           controller.invalidate();
           if (!input) return;
-          try { win.localStorage?.setItem?.(SHEET_URL_KEY, input); } catch {}
+          controller.remember(input);
           event.preventDefault();
           event.stopImmediatePropagation();
           runRefresh(win, controller, target, 'Google Sheet verified and saved.');
           return;
         }
 
-        if (target.id === 'refreshNow' && storedSheetUrl(win)) {
+        if (target.id === 'refreshNow' && controller.sourceUrl()) {
           event.preventDefault();
           event.stopImmediatePropagation();
           runRefresh(win, controller, target, 'Connected Sheet refreshed.');
@@ -220,7 +271,8 @@
       }, true);
 
       win.addEventListener('change', event => {
-        if (event.target?.id === 'csvFile' || event.target?.id === 'refreshRate') controller.invalidate();
+        if (event.target?.id === 'csvFile') controller.clearSource();
+        else if (event.target?.id === 'refreshRate') controller.invalidate();
       }, true);
     }
 
