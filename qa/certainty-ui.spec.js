@@ -59,9 +59,9 @@ async function installMocks(page) {
           globalGender: 'unknown',
           globalDivision: 'unknown',
           mappings: [
-            { inputKey: 'C1', target: 'name', confidence: 0.99, reason: 'player identity' },
-            { inputKey: 'C2', target: 'opponent', confidence: 0.99, reason: 'opponent identity' },
-            { inputKey: 'C3', target: 'result', confidence: 0.99, reason: 'W/L values' },
+            { inputKey: 'C1', target: 'player1', confidence: 0.99, reason: 'first side identity' },
+            { inputKey: 'C2', target: 'player2', confidence: 0.99, reason: 'second side identity' },
+            { inputKey: 'C3', target: 'winner', confidence: 0.99, reason: 'winner identity' },
             { inputKey: 'C4', target: 'score', confidence: 0.99, reason: 'tennis scores' },
             { inputKey: 'C5', target: 'gender', confidence: 0.99, reason: 'team values' },
             { inputKey: 'C6', target: 'division', confidence: 0.99, reason: 'event values' },
@@ -105,10 +105,12 @@ test('below-85 local interpretation visibly escalates to Google AI and publishes
   await page.locator('#openSettings').click();
   await page.locator('#tabCsv').click();
 
+  // C1..C6 plus a winner-name column is intentionally ambiguous to the local
+  // parser. Unlike a W/L column, this reliably exercises the sub-85% AI path.
   const csv = [
     'C1,C2,C3,C4,C5,C6',
-    'Noah Williams,Ethan Kim,W,6-3,Boys,Singles',
-    'Liam Chen,Noah Williams,L,4-6,Boys,Singles',
+    'Noah Williams,Ethan Kim,Noah Williams,6-3,Boys,Singles',
+    'Noah Williams,Liam Chen,Liam Chen,4-6,Boys,Singles',
   ].join('\n');
 
   const aiRequest = page.waitForRequest(request => new URL(request.url()).pathname === '/api/ai-analyze-sheet' && request.method() === 'POST');
@@ -120,6 +122,10 @@ test('below-85 local interpretation visibly escalates to Google AI and publishes
   expect(state.savedRows).toHaveLength(0);
   await page.locator('[data-preview-confirm]').click();
   await expect.poll(() => state.savedRows.length).toBe(2);
+  expect(state.savedRows.map(row => [row.winner, row.loser])).toEqual([
+    ['Noah Williams', 'Ethan Kim'],
+    ['Liam Chen', 'Noah Williams'],
+  ]);
   await expect(page.locator('#tennisrankCertaintyMeter')).toBeVisible();
   await expect(page.locator('[data-certainty-value]')).toHaveText(/^(?:8[5-9]|9\d|100)%$/);
   await expect(page.locator('[data-certainty-note]')).toContainText('Google AI verified');
