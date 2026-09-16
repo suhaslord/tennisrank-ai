@@ -82,7 +82,7 @@ test('rankings hero has no tennis court and switches across singles doubles and 
   await expect(page.locator('#appShell')).toBeVisible();
   await expect(page.locator('#ladderExperience')).toBeVisible();
   await expect(page.locator('#ladderExperience .ladder-stage')).toHaveCount(0);
-  await expect(page.locator('#ladderExperienceTitle')).toHaveText(/Every board/i);
+  await expect(page.locator('#ladderExperienceTitle')).toHaveText('Team rankings');
 
   const tabs = page.locator('[data-ladder-board]');
   await expect(tabs).toHaveCount(5);
@@ -134,8 +134,8 @@ test('import preview matches theme, does not nag about unused boards, and always
   const modal = page.locator('#importPreviewModal');
   await expect(modal).toBeVisible();
   await expect(page.locator('#importPreviewTitle')).toHaveText('Check this before it goes live');
-  await expect(modal).not.toContainText(/Boys Doubles (was not detected|wasn.t found)/i);
-  await expect(modal).not.toContainText(/Girls Doubles (was not detected|wasn.t found)/i);
+  await expect(modal).not.toContainText(/(?:We didn.t find )?Boys Doubles (?:was not detected|wasn.t found|in this import)/i);
+  await expect(modal).not.toContainText(/(?:We didn.t find )?Girls Doubles (?:was not detected|wasn.t found|in this import)/i);
   await expect(modal).toContainText('Boards in this import');
 
   const visual = await page.locator('.coach-modal').evaluate(el => ({
