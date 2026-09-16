@@ -3,7 +3,10 @@
   if (!win || !win.document) return;
 
   const SNAPSHOT_KEY = 'tennisRankDataSnapshotV1';
+  const IMPORT_SOURCES = new Set(['csv', 'file', 'sheet']);
   let activePreviewPromise = null;
+  let latestImportRows = null;
+  let latestImportSource = '';
 
   function savedRows() {
     try {
@@ -12,6 +15,33 @@
     } catch {
       return null;
     }
+  }
+
+  function rememberFreshRows(rows, source) {
+    const normalizedSource = String(source || '').trim().toLowerCase();
+    if (IMPORT_SOURCES.has(normalizedSource) && Array.isArray(rows) && rows.length) {
+      latestImportRows = rows;
+      latestImportSource = normalizedSource;
+      return;
+    }
+    if (normalizedSource === 'backend' || normalizedSource === 'empty') {
+      latestImportRows = null;
+      latestImportSource = '';
+    }
+  }
+
+  function installFreshRowTracker() {
+    if (typeof win.loadRows !== 'function') return false;
+    if (win.loadRows.__coachPreviewFreshRows) return true;
+    const baseLoad = win.loadRows;
+    const trackedLoad = function coachPreviewFreshRows(rows, source) {
+      rememberFreshRows(rows, source);
+      return baseLoad.apply(this, arguments);
+    };
+    trackedLoad.__coachPreviewFreshRows = true;
+    trackedLoad.__baseLoadRows = baseLoad;
+    win.loadRows = trackedLoad;
+    return true;
   }
 
   function installSettlingAwarePreview(api) {
@@ -33,6 +63,8 @@
         return await task;
       } finally {
         if (activePreviewPromise === task) activePreviewPromise = null;
+        latestImportRows = null;
+        latestImportSource = '';
       }
     };
     wrapped.__settlingAware = true;
@@ -42,6 +74,7 @@
   }
 
   function repair() {
+    installFreshRowTracker();
     const api = win.TennisRankCoachOps;
     if (!api?.previewAndPublish || typeof win.syncToBackend !== 'function') return false;
     installSettlingAwarePreview(api);
@@ -49,13 +82,12 @@
 
     const base = win.syncToBackend;
     const guarded = function (rows) {
-      // When loadRows has just received a CSV/Sheet import, CoachOps already tracks
-      // that exact in-memory candidate. Passing the older local-storage snapshot here
-      // could preview stale data (or no data at all) and made connected Sheet refreshes
-      // silently fail before the preview modal opened. Only forward explicit rows;
-      // otherwise let CoachOps use the candidate captured by its loadRows wrapper.
-      const candidate = Array.isArray(rows) && rows.length ? rows : undefined;
-      return api.previewAndPublish(win, candidate);
+      // Always bind a preview to the exact rows that were loaded immediately
+      // before the save. This avoids stale local-storage snapshots and also makes
+      // the guard independent of the order in which other runtime wrappers install.
+      const explicit = Array.isArray(rows) && rows.length ? rows : null;
+      const fresh = latestImportRows && IMPORT_SOURCES.has(latestImportSource) ? latestImportRows : null;
+      return api.previewAndPublish(win, explicit || fresh || undefined);
     };
     guarded.__coachOpsPreview = true;
     guarded.__coachOpsPreviewFinal = true;
@@ -65,14 +97,22 @@
   }
 
   function scheduleRepairs() {
-    for (const delay of [0, 25, 75, 200, 500, 1200, 2500]) win.setTimeout(repair, delay);
+    for (const delay of [0, 25, 75, 200, 500, 1200, 2500, 5000]) win.setTimeout(repair, delay);
   }
 
   win.addEventListener?.('tennisrank:auth-ready', event => {
     if (event?.detail?.profile?.role === 'admin') scheduleRepairs();
   });
+  win.addEventListener?.('tennisrank:coach-data-changed', repair);
   win.addEventListener?.('DOMContentLoaded', scheduleRepairs, { once: true });
   scheduleRepairs();
 
-  win.TennisRankCoachPreviewGuard = { repair, scheduleRepairs, savedRows, installSettlingAwarePreview };
+  win.TennisRankCoachPreviewGuard = {
+    repair,
+    scheduleRepairs,
+    savedRows,
+    rememberFreshRows,
+    installFreshRowTracker,
+    installSettlingAwarePreview,
+  };
 })(typeof window !== 'undefined' ? window : globalThis);
