@@ -1,0 +1,49 @@
+/* Fixes found during the hostile 500-state screenshot review. */
+
+/* The live board switcher is now the ranking surface. Remove the older duplicate card leaderboard. */
+body #rankingsSection,
+body .filter-bar,
+body #rankingsGrid {
+  display: none !important;
+}
+
+/* Keep the useful cross-board table and match history, but separate them clearly from the live board. */
+body #statsSection {
+  margin-top: 48px !important;
+  padding-top: 28px !important;
+  border-top: 1px solid var(--tr-line, #dedfdb) !important;
+}
+
+/* Never depend on the external icon font for the account close affordance. */
+.tr-account-icon-close i { display: none !important; }
+.tr-account-icon-close::before {
+  content: "×" !important;
+  display: block !important;
+  color: currentColor !important;
+  font: 400 24px/1 Arial, sans-serif !important;
+}
+
+/* Fixed mobile navigation must not strand controls underneath itself. */
+html { scroll-padding-bottom: 92px !important; }
+#settingsPanel button,
+#settingsPanel input,
+#settingsPanel select,
+#settingsPanel textarea,
+#accountsPanel button,
+#accountsPanel input,
+#accountsPanel select,
+.coach-ladder-console button,
+.coach-ladder-console input,
+.coach-ladder-console select {
+  scroll-margin-bottom: 96px !important;
+}
+
+@media (max-width: 700px) {
+  body .app-shell { padding-bottom: 128px !important; }
+  body main#top { padding-bottom: 24px !important; }
+  body #statsSection { margin-top: 32px !important; padding-top: 22px !important; }
+  body #settingsPanel,
+  body #accountsPanel,
+  body .coach-ladder-console,
+  body .challenge-center { padding-bottom: 116px !important; }
+}
