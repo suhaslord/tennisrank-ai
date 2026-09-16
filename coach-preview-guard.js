@@ -49,7 +49,12 @@
 
     const base = win.syncToBackend;
     const guarded = function (rows) {
-      const candidate = Array.isArray(rows) && rows.length ? rows : savedRows();
+      // When loadRows has just received a CSV/Sheet import, CoachOps already tracks
+      // that exact in-memory candidate. Passing the older local-storage snapshot here
+      // could preview stale data (or no data at all) and made connected Sheet refreshes
+      // silently fail before the preview modal opened. Only forward explicit rows;
+      // otherwise let CoachOps use the candidate captured by its loadRows wrapper.
+      const candidate = Array.isArray(rows) && rows.length ? rows : undefined;
       return api.previewAndPublish(win, candidate);
     };
     guarded.__coachOpsPreview = true;
