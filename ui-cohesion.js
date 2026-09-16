@@ -18,13 +18,18 @@
     return true;
   }
 
-  function ensureLayoutFixCss() {
-    if (document.querySelector('link[data-tennisrank-layout-fix]')) return;
+  function ensureStyle(href, dataName) {
+    if (document.querySelector(`link[${dataName}]`)) return;
     const link = document.createElement('link');
     link.rel = 'stylesheet';
-    link.href = '/layout-fix.css';
-    link.dataset.tennisrankLayoutFix = 'true';
+    link.href = href;
+    link.setAttribute(dataName, 'true');
     document.head.appendChild(link);
+  }
+
+  function ensureReviewStyles() {
+    ensureStyle('/layout-fix.css', 'data-tennisrank-layout-fix');
+    ensureStyle('/review-fixes.css', 'data-tennisrank-review-fixes');
   }
 
   function hasMixedBoard() {
@@ -85,7 +90,8 @@
 
     [...list.querySelectorAll('li')].forEach(item => {
       const text = clean(item.textContent);
-      if (/^(Boys|Girls|Mixed) (Singles|Doubles) (was not detected|wasn.t found|was not found|wasn.t detected)/i.test(text)) item.remove();
+      if (/^(We didn.t find )?(Boys|Girls|Mixed) (Singles|Doubles) (was not detected|wasn.t found|was not found|wasn.t detected|in this import)/i.test(text)
+        || /^We didn.t find (Boys|Girls|Mixed) (Singles|Doubles) in this import\.?$/i.test(text)) item.remove();
     });
 
     if (!list.querySelector('li')) {
@@ -125,6 +131,7 @@
     if (!shell) return;
     setTextIfChanged(shell.querySelector('#ladderExperienceTitle'), 'Team rankings');
     setTextIfChanged(shell.querySelector('.ladder-intro-copy'), 'One board at a time. Switch between singles, doubles, and mixed. Official challenges stay on the boys and girls singles ladders.');
+    document.querySelectorAll('a[href="#rankingsSection"]').forEach(link => link.setAttribute('href', '#ladderExperience'));
   }
 
   function refreshUi() {
@@ -134,19 +141,64 @@
   }
 
   function scheduleRefresh() {
-    for (const delay of [0, 60, 180, 360]) setTimeout(refreshUi, delay);
+    for (const delay of [0, 30, 80, 180, 360]) setTimeout(refreshUi, delay);
+  }
+
+  function attachPreviewWatcher(modal) {
+    if (!modal || modal.dataset.cohesionWatched === 'true') return;
+    modal.dataset.cohesionWatched = 'true';
+    const body = modal.querySelector('#importPreviewBody');
+    if (!body || !('MutationObserver' in window)) return;
+    const observer = new MutationObserver(() => {
+      // Scoped child-list observer only. It cannot feed back through global
+      // class/style mutations and exists solely to clean preview copy before paint.
+      polishPreview();
+    });
+    observer.observe(body, { childList: true });
+    polishPreview();
+  }
+
+  function installPreviewWatcher() {
+    const existing = document.querySelector('#importPreviewModal');
+    if (existing) { attachPreviewWatcher(existing); return; }
+    if (!document.body || !('MutationObserver' in window)) return;
+    const observer = new MutationObserver(mutations => {
+      for (const mutation of mutations) {
+        for (const node of mutation.addedNodes || []) {
+          if (node?.nodeType === 1 && node.id === 'importPreviewModal') {
+            observer.disconnect();
+            attachPreviewWatcher(node);
+            return;
+          }
+        }
+      }
+    });
+    observer.observe(document.body, { childList: true });
+  }
+
+  function scrollToRankings() {
+    const target = document.querySelector('#ladderExperience');
+    if (!target) return false;
+    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    return true;
   }
 
   function install() {
     if (window.__tennisrankUICohesionInstalled) return;
     window.__tennisrankUICohesionInstalled = true;
-    ensureLayoutFixCss();
+    ensureReviewStyles();
+    installPreviewWatcher();
 
     // Deliberately avoid a document-wide MutationObserver here. This layer changes
     // classes/styles/text itself, so observing those same mutations can create a
-    // synchronous feedback loop during startup. Event-driven refreshes plus a
-    // low-frequency safety timer are deterministic and still repair stale locks.
+    // synchronous feedback loop during startup.
     document.addEventListener('click', event => {
+      const rankingTrigger = event.target?.closest?.('#heroRankings,#navRankings');
+      if (rankingTrigger && scrollToRankings()) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        return;
+      }
       if (event.target?.closest?.(
         '[data-preview-cancel],[data-preview-confirm],.coach-modal-backdrop,[data-account-close],[data-account-signout],#accountMenu,#useCsv,#connectSheet,#refreshNow,#saveBackend,[data-ladder-board]'
       )) scheduleRefresh();
