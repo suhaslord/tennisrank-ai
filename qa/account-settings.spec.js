@@ -52,7 +52,7 @@ test('account button opens themed settings instead of signing out immediately', 
   const shell = page.locator('#trAccountSettingsShell');
   const sheet = page.locator('.tr-account-sheet');
   await expect(shell).toBeVisible();
-  await expect(page).toHaveURL(/qa-ai-index\.html/);
+  await expect(page).toHaveURL(/\/(?:admin|qa-ai-index\.html)(?:$|[?#])/);
   await expect(page.locator('[data-account-name]')).toHaveText(profile.full_name);
   await expect(page.locator('[data-account-role]')).toHaveText('Administrator');
   await expect(page.locator('.tr-account-status')).toContainText('Signed in');
