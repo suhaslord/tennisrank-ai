@@ -277,7 +277,9 @@
     });
     if (doc.documentElement) observer.observe(doc.documentElement, { childList: true, subtree: true, characterData: true });
 
-    win.addEventListener('tennisrank:auth-ready', applyStaticCopy.bind(null, doc));
+    // Auth-ready can fire again after imports/ladder synchronization. Reapplying
+    // defaults here used to overwrite live confidence, backend and hero values.
+    win.addEventListener('tennisrank:auth-ready', () => humanizeStatusArea(doc, doc.body));
   }
 
   return { COPY, HTML_COPY, SELECT_COPY, EXACT, STATUS_RULES, humanizeText, applyStaticCopy, install };
