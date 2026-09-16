@@ -127,7 +127,7 @@
     const columns = Array.isArray(rows?.__analysis?.columns) ? rows.__analysis.columns : [];
     return columns.filter(column => {
       const label = text(column);
-      return /^(?:c\d+|field\s+[a-z0-9]+|column\s+[a-z0-9]+)$/i.test(label);
+      return /^(?:c\d+|field\s+[a-z0-9]+|column\s+[a-z0-9]+|decision|numbers?|values?|data)$/i.test(label);
     });
   }
 
@@ -136,9 +136,9 @@
     const columns = Array.isArray(rows?.__analysis?.columns) ? rows.__analysis.columns : [];
     if (columns.length < 3) return false;
     const opaque = opaqueSchemaColumns(rows);
-    // Relationships can make an opaque sheet look structurally plausible even
-    // while useful columns such as Score are silently dropped. Treat a mostly
-    // opaque header row as unresolved schema, not as 85%+ publish confidence.
+    // Relationships can make an ambiguous sheet look structurally plausible even
+    // while useful columns such as Score are silently dropped. Generic headers
+    // like "Decision" or "Numbers" must be verified before publishing.
     return opaque.length >= Math.max(2, Math.ceil(columns.length * 0.5));
   }
 
@@ -172,7 +172,7 @@
             valid: true,
             confidence: Math.min(Number(review?.confidence) || 0, 0.84),
             level: 'MEDIUM',
-            reason: 'The tennis relationships look plausible, but the source column labels are too opaque to publish without schema verification.',
+            reason: 'The tennis relationships look plausible, but the source column labels are too ambiguous to publish without schema verification.',
           };
         }
         return review;
