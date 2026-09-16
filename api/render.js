@@ -82,6 +82,12 @@ function ensureHumanPresentation(html) {
   if (!out.includes('coach-console-theme.css')) {
     out = out.replace('</head>', '<link rel="stylesheet" href="/coach-console-theme.css" data-tennisrank-coach-console-theme="true"></head>');
   }
+  if (!out.includes('layout-fix.css')) {
+    out = out.replace('</head>', '<link rel="stylesheet" href="/layout-fix.css" data-tennisrank-layout-fix="true"></head>');
+  }
+  if (!out.includes('review-fixes.css')) {
+    out = out.replace('</head>', '<link rel="stylesheet" href="/review-fixes.css" data-tennisrank-review-fixes="true"></head>');
+  }
   if (!out.includes('human-copy.js')) {
     const before = '<script src="/brand-assets.js"></script>';
     if (out.includes(before)) out = out.replace(before, '<script src="/human-copy.js" data-tennisrank-human-copy="true"></script>' + before);
@@ -102,6 +108,12 @@ function ensureRuntimePatch(html) {
     if (out.includes(before)) out = out.replace(before, '<script src="/match-result-compat.js"></script>' + before);
     else out = out.replace('</body>', '<script src="/match-result-compat.js"></script></body>');
   }
+
+  // Install the certainty/universal runtime first. The integrity and connected-sheet
+  // guards must wrap the final importer functions, not versions that a later core
+  // patch will replace during startup.
+  out = ensureCoreRuntimeScripts(out);
+
   if (!out.includes('match-dedup-guard.js')) {
     const before = '<script src="/brand-assets.js"></script>';
     if (out.includes(before)) out = out.replace(before, '<script src="/match-dedup-guard.js" data-tennisrank-match-dedup-guard="true"></script>' + before);
@@ -117,7 +129,6 @@ function ensureRuntimePatch(html) {
     if (out.includes(before)) out = out.replace(before, '<script src="/account-settings.js" data-tennisrank-account-settings="true"></script>' + before);
     else out = out.replace('</body>', '<script src="/account-settings.js" data-tennisrank-account-settings="true"></script></body>');
   }
-  out = ensureCoreRuntimeScripts(out);
   return ensureHumanPresentation(out);
 }
 
@@ -147,7 +158,7 @@ function rewrite(html) {
 
   out = out.replace(
     `<script src="${CDN}/app.js"></script>`,
-    `<script src="${CDN}/app.js"></script><script src="${CDN}/import-runtime-fixes.js"></script><script src="${CDN}/import-v2.js"></script><script src="${CDN}/import-delimiter-fix.js"></script><script src="${CDN}/spreadsheet-ml.js"></script><script src="${CDN}/import-v2-fixes.js"></script><script src="${CDN}/import-row-safety-fix.js"></script><script src="${CDN}/import-multiblock-fix.js"></script><script src="${CDN}/spreadsheet-semantic-calibration.js"></script><script src="${CDN}/spreadsheet-ai.js"></script><script src="${CDN}/ai-quota-guard.js"></script><script src="${CDN}/import-auto-sync.js"></script><script src="${CDN}/ranking-policy.js"></script><script src="${CDN}/player-dashboard-state.js"></script><script src="${CDN}/player-insights.js"></script><script src="${CDN}/coach-ops.js"></script><script src="${CDN}/coach-sharing.js"></script><script src="${CDN}/coach-preview-guard.js"></script><script src="${CDN}/coach-polish.js"></script><script src="${CDN}/match-result-compat.js"></script><script src="${CDN}/tesla-motion.js"></script><script src="${CDN}/match-dedup-guard.js"></script><script src="${CDN}/connected-sheet-guard.js"></script><script src="${CDN}/account-settings.js"></script><script src="${CDN}/brand-assets.js"></script>`,
+    `<script src="${CDN}/app.js"></script><script src="${CDN}/import-runtime-fixes.js"></script><script src="${CDN}/import-v2.js"></script><script src="${CDN}/import-delimiter-fix.js"></script><script src="${CDN}/spreadsheet-ml.js"></script><script src="${CDN}/import-v2-fixes.js"></script><script src="${CDN}/import-row-safety-fix.js"></script><script src="${CDN}/import-multiblock-fix.js"></script><script src="${CDN}/spreadsheet-semantic-calibration.js"></script><script src="${CDN}/spreadsheet-ai.js"></script><script src="${CDN}/ai-quota-guard.js"></script><script src="${CDN}/import-auto-sync.js"></script><script src="${CDN}/ranking-policy.js"></script><script src="${CDN}/player-dashboard-state.js"></script><script src="${CDN}/player-insights.js"></script><script src="${CDN}/coach-ops.js"></script><script src="${CDN}/coach-sharing.js"></script><script src="${CDN}/coach-preview-guard.js"></script><script src="${CDN}/coach-polish.js"></script><script src="${CDN}/match-result-compat.js"></script><script src="${CDN}/tesla-motion.js"></script><script src="${CDN}/import-certainty-gate.js" data-tennisrank-import-certainty="true"></script><script src="${CDN}/spreadsheet-universal.js" data-tennisrank-universal-import="true"></script><script src="${CDN}/repeated-header-runtime-guard.js" data-tennisrank-repeated-header-guard="true"></script><script src="${CDN}/google-workbook-bridge.js" data-tennisrank-google-workbook-bridge="true"></script><script src="${CDN}/coach-essential.js" data-tennisrank-coach-essential="true"></script><script src="${CDN}/match-dedup-guard.js" data-tennisrank-match-dedup-guard="true"></script><script src="${CDN}/connected-sheet-guard.js" data-tennisrank-connected-sheet-guard="true"></script><script src="${CDN}/account-settings.js" data-tennisrank-account-settings="true"></script><script src="${CDN}/brand-assets.js"></script>`,
   );
 
   out = ensureRuntimePatch(out);
