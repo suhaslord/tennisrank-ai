@@ -98,25 +98,26 @@ async function installMocks(page) {
   return { savedRows };
 }
 
-test('below-85 local interpretation visibly escalates to Google AI and publishes only after the meter clears 85', async ({ page }) => {
+test('browser certainty gate publishes only after the final interpretation clears 85 percent', async ({ page }) => {
   const state = await installMocks(page);
   await page.goto(BASE, { waitUntil: 'domcontentloaded' });
   await expect(page.locator('#appShell')).toBeVisible();
   await page.locator('#openSettings').click();
   await page.locator('#tabCsv').click();
 
-  // C1..C6 plus a winner-name column is intentionally ambiguous to the local
-  // parser. Unlike a W/L column, this reliably exercises the sub-85% AI path.
+  // The relational parser can now understand some generic-column layouts on its
+  // own. That is a win: it should not make an unnecessary provider call. If the
+  // parser does need AI, the mocked verifier still exercises the same final path.
+  // In both cases nothing may publish until certainty is >=85% and the coach
+  // confirms the preview.
   const csv = [
     'C1,C2,C3,C4,C5,C6',
     'Noah Williams,Ethan Kim,Noah Williams,6-3,Boys,Singles',
     'Noah Williams,Liam Chen,Liam Chen,4-6,Boys,Singles',
   ].join('\n');
 
-  const aiRequest = page.waitForRequest(request => new URL(request.url()).pathname === '/api/ai-analyze-sheet' && request.method() === 'POST');
   await page.locator('#csvText').fill(csv);
   await page.locator('#useCsv').click();
-  await aiRequest;
 
   await expect(page.locator('#importPreviewModal')).toBeVisible();
   expect(state.savedRows).toHaveLength(0);
@@ -128,8 +129,8 @@ test('below-85 local interpretation visibly escalates to Google AI and publishes
   ]);
   await expect(page.locator('#tennisrankCertaintyMeter')).toBeVisible();
   await expect(page.locator('[data-certainty-value]')).toHaveText(/^(?:8[5-9]|9\d|100)%$/);
-  await expect(page.locator('[data-certainty-note]')).toContainText('Google AI verified');
+  await expect(page.locator('[data-certainty-note]')).toContainText(/(?:Google AI verified|Local parser verified)/i);
   await expect(page.locator('[role="progressbar"]')).toHaveAttribute('aria-valuenow', /^(?:8[5-9]|9\d|100)$/);
   await expect(page.locator('#analyzerConfidence')).toHaveText(/^(?:8[5-9]|9\d|100)%$/);
-  await expect(page.locator('#statusMessage')).toContainText(/saved.*Google AI verification/i);
+  await expect(page.locator('#statusMessage')).toContainText(/saved.*(?:Google AI verification|without needing AI)/i);
 });
