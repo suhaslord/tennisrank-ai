@@ -45,6 +45,22 @@
     };
   }
 
+  function isFullWorkbookLink(win, input) {
+    const deps = dependencies(win);
+    return Boolean(
+      deps.bridge?.isStandardGoogleSheet?.(input)
+      || deps.certainty?.isStandardWorkbookLink?.(input)
+    );
+  }
+
+  function workbookProxyUrl(win, input) {
+    const deps = dependencies(win);
+    if (deps.bridge?.isStandardGoogleSheet?.(input) && deps.bridge?.workbookProxyUrl) {
+      return deps.bridge.workbookProxyUrl(input);
+    }
+    return deps.certainty?.workbookProxyUrl?.(input) || `/api/sheet-workbook?url=${encodeURIComponent(String(input || '').trim())}`;
+  }
+
   async function verifiedRows(win, input) {
     const deps = dependencies(win);
     const certainty = deps.certainty;
@@ -52,8 +68,8 @@
       throw new Error('Spreadsheet intelligence is still loading. Try again in a moment.');
     }
 
-    if (certainty.isStandardWorkbookLink?.(input)) {
-      const response = await win.fetch(certainty.workbookProxyUrl(input), { cache: 'no-store' });
+    if (isFullWorkbookLink(win, input)) {
+      const response = await win.fetch(workbookProxyUrl(win, input), { cache: 'no-store' });
       if (!response.ok) {
         const payload = await response.json().catch(() => ({}));
         throw new Error(payload.error || `The Google Sheet could not be loaded (${response.status}).`);
@@ -80,6 +96,30 @@
     });
   }
 
+  async function publishVerifiedRows(win, rows) {
+    const deps = dependencies(win);
+    if (!Array.isArray(rows) || !rows.length) throw new Error('No verified Sheet rows are ready to publish.');
+    if (typeof win.loadRows !== 'function') throw new Error('The TennisRank importer is not ready yet.');
+
+    // Bind the preview to these exact verified rows. Do not rely on whichever
+    // syncToBackend wrapper happened to win the startup race.
+    win.loadRows(rows, 'sheet');
+    deps.certainty?.renderMeter?.(win, rows);
+    win.TennisRankCoachPreviewGuard?.repair?.();
+
+    if (win.TennisRankCoachOps?.previewAndPublish) {
+      await win.TennisRankCoachOps.previewAndPublish(win, rows);
+    } else if (typeof win.syncToBackend === 'function') {
+      await win.syncToBackend(rows);
+    } else {
+      throw new Error('The coach import preview is still loading. Try again in a moment.');
+    }
+
+    if (typeof win.startRefresh === 'function') win.startRefresh();
+    win.__tennisRankLastCertaintyRows = rows;
+    return rows;
+  }
+
   function createController(win) {
     let epoch = 0;
     let inFlight = null;
@@ -101,10 +141,8 @@
       inFlight = (async () => {
         const rows = await verifiedRows(win, input);
         if (!stillCurrent(capturedEpoch, input)) throw staleError();
-        // Re-check immediately before the function that can mutate the visible board
-        // and open the coach publish flow. A stale network response never reaches it.
         if (!stillCurrent(capturedEpoch, input)) throw staleError();
-        return dependencies(win).certainty.publishRows(win, rows, 'sheet', 'Google Sheet');
+        return publishVerifiedRows(win, rows);
       })();
 
       try { return await inFlight; }
@@ -112,6 +150,19 @@
     };
 
     return { refresh, invalidate, stillCurrent, inFlight: () => inFlight, epoch: () => epoch };
+  }
+
+  function runRefresh(win, controller, button, successMessage) {
+    win.setBusy?.(button, true);
+    win.setStatus?.('Checking the connected Google Sheet…');
+    win.TennisRankCoachPreviewGuard?.repair?.();
+    controller.refresh().then(() => {
+      win.setStatus?.(successMessage || 'Connected Sheet verified and saved.');
+    }).catch(error => {
+      if (error?.code !== 'STALE_SHEET_REFRESH' && error?.code !== 'IMPORT_CANCELLED') {
+        win.setStatus?.(error?.message || 'Connected Sheet refresh failed.', true);
+      }
+    }).finally(() => win.setBusy?.(button, false));
   }
 
   function install(win) {
@@ -134,26 +185,33 @@
 
     if (!win.__tennisrankConnectedSheetGuardEvents) {
       win.__tennisrankConnectedSheetGuardEvents = true;
+      // Window capture runs before the legacy document listeners. This makes one
+      // code path authoritative for Sheet connect/refresh and prevents duplicate
+      // fetch/publish races.
       win.addEventListener('click', event => {
         const target = event.target?.closest?.('#connectSheet, #useCsv, #refreshNow');
         if (!target) return;
 
-        if (target.id === 'connectSheet' || target.id === 'useCsv') {
+        if (target.id === 'useCsv') {
           controller.invalidate();
+          return;
+        }
+
+        if (target.id === 'connectSheet') {
+          const input = inputSheetUrl(win);
+          controller.invalidate();
+          if (!input) return;
+          try { win.localStorage?.setItem?.(SHEET_URL_KEY, input); } catch {}
+          event.preventDefault();
+          event.stopImmediatePropagation();
+          runRefresh(win, controller, target, 'Google Sheet verified and saved.');
           return;
         }
 
         if (target.id === 'refreshNow' && storedSheetUrl(win)) {
           event.preventDefault();
           event.stopImmediatePropagation();
-          const button = target;
-          win.setBusy?.(button, true);
-          win.setStatus?.('Refreshing connected Sheet…');
-          controller.refresh().then(() => {
-            win.setStatus?.('Connected Sheet refreshed.');
-          }).catch(error => {
-            if (error?.code !== 'STALE_SHEET_REFRESH') win.setStatus?.(error?.message || 'Connected Sheet refresh failed.', true);
-          }).finally(() => win.setBusy?.(button, false));
+          runRefresh(win, controller, target, 'Connected Sheet refreshed.');
         }
       }, true);
 
@@ -180,7 +238,10 @@
     inputSheetUrl,
     currentSheetUrl,
     dependencies,
+    isFullWorkbookLink,
+    workbookProxyUrl,
     verifiedRows,
+    publishVerifiedRows,
     createController,
     install,
     schedule,
