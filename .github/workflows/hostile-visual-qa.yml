@@ -10,12 +10,19 @@ on:
       - human-copy.js
       - ui-cohesion.js
       - ui-cohesion.css
+      - review-fixes.css
       - layout-fix.css
       - ladder.js
       - account-settings.js
       - account-settings.css
       - coach-ops.js
+      - coach-preview-guard.js
+      - connected-sheet-guard.js
+      - match-dedup-guard.js
       - coach-console-theme.css
+      - challenge-ui.js
+      - challenge-ui.css
+      - challenge-ui-fixes.css
   workflow_dispatch:
 
 permissions:
