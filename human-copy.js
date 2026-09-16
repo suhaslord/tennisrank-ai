@@ -18,7 +18,6 @@
     ['label[for="bootstrapPassword"]', 'Create a password'],
     ['#bootstrapButton span', 'Create admin account'],
     ['.auth-footnote', 'Team data is only available to invited accounts.'],
-
     ['.hero-section .eyebrow', 'River Islands tennis'],
     ['.hero-copy', 'Check rankings, recent results, and player stats. Coaches can update everything from the same sheet the team already uses.'],
     ['#heroRankings span', 'See rankings'],
@@ -31,13 +30,11 @@
     ['#heroDiffDetail', 'Waiting for results'],
     ['#heroMatchCount', 'No matches yet'],
     ['#heroUpdateState', 'No data yet'],
-
     ['#playerDashboard .eyebrow', 'Your season'],
     ['#playerDashboardTitle', 'How you’re doing'],
     ['#playerDashboard .role-pill', 'Player view'],
     ['.player-history-card .eyebrow', 'Recent results'],
     ['.player-history-card h3', 'Your matches'],
-
     ['#rankingsSection .eyebrow', 'Team rankings'],
     ['#rankingsSection h2', 'Current rankings'],
     ['#lastUpdated', 'No results yet'],
@@ -48,7 +45,6 @@
     ['#statsSection .record-note', 'Sorted by record'],
     ['.recent-heading .eyebrow', 'Recent results'],
     ['.recent-heading h2', 'Latest matches'],
-
     ['#settingsPanel .eyebrow', 'Coach tools'],
     ['#settingsPanel h2', 'Update team data'],
     ['#settingsPanel .panel-copy', 'Connect a Google Sheet, upload a CSV, or paste rows here. We’ll check the columns first so you can review everything before it goes live.'],
@@ -71,7 +67,6 @@
     ['#saveBackend span', 'Save this version'],
     ['.format-guide strong', 'Common columns we recognize'],
     ['.format-guide span', 'We also handle common variations, title rows, Boys/Girls sections, Singles/Doubles sections, and simple W/L match rows.'],
-
     ['#accountsPanel .eyebrow', 'Team access'],
     ['#accountsPanel h2', 'Player accounts'],
     ['#accountsPanel .role-pill', 'Coach only'],
@@ -83,7 +78,6 @@
     ['label[for="inviteDelivery"]', 'How should they get access?'],
     ['label[for="invitePassword"]', 'Temporary password'],
     ['#inviteButton span', 'Create account'],
-
     ['.season-gallery-heading .eyebrow', 'From the court'],
     ['#seasonGalleryTitle', 'More than rankings.'],
     ['.season-gallery-heading > p:last-child', 'The people, matches, and moments behind the season.'],
@@ -121,7 +115,6 @@
     ['Login is not configured yet.', 'Sign-in isn’t set up yet.'],
     ['Authentication failed.', 'We couldn’t sign you in.'],
     ['Your account is not connected to a team profile yet.', 'This account isn’t linked to the team yet.'],
-
     ['Import safety check', 'Quick import check'],
     ['Preview before publishing', 'Check this before it goes live'],
     ['Publish changes', 'Publish updates'],
@@ -158,7 +151,7 @@
 
   const STATUS_SELECTORS = [
     '#authStatus', '#statusMessage', '#backendStatus', '#inviteStatus', '#analyzerNote', '#analyzerTitle',
-    '.coach-empty', '.coach-more', '.coach-warning-box li', '.coach-safe-box span', '.status-message', '[role="status"]'
+    '.coach-empty', '.coach-more', '.coach-warning-box li', '.coach-safe-box span', '.status-message', '[role="status"]',
   ].join(',');
 
   function humanizeText(value) {
@@ -172,46 +165,66 @@
     return original;
   }
 
+  function directText(el) {
+    return [...el.childNodes]
+      .filter(node => node.nodeType === 3)
+      .map(node => node.nodeValue || '')
+      .join(' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
   function setText(doc, selector, value) {
     const el = doc.querySelector(selector);
-    if (!el) return;
+    if (!el) return false;
+    const next = String(value);
     if (!el.children.length) {
-      el.textContent = value;
-      return;
+      if (el.textContent === next) return false;
+      el.textContent = next;
+      return true;
     }
+    if (directText(el) === next) return false;
     for (const node of [...el.childNodes]) {
       if (node.nodeType === 3) node.remove();
     }
-    el.appendChild(doc.createTextNode(` ${value}`));
+    el.appendChild(doc.createTextNode(` ${next}`));
+    return true;
   }
 
   function applyStaticCopy(doc) {
     for (const [selector, value] of COPY) setText(doc, selector, value);
     for (const [selector, value] of HTML_COPY) {
       const el = doc.querySelector(selector);
-      if (el) el.innerHTML = value;
+      if (el && el.innerHTML !== value) el.innerHTML = value;
     }
     for (const [selector, options] of Object.entries(SELECT_COPY)) {
       const select = doc.querySelector(selector);
       if (!select) continue;
       for (const option of select.options || []) {
-        if (Object.prototype.hasOwnProperty.call(options, option.value)) option.textContent = options[option.value];
+        if (!Object.prototype.hasOwnProperty.call(options, option.value)) continue;
+        const next = options[option.value];
+        if (option.textContent !== next) option.textContent = next;
       }
     }
   }
 
   function humanizeElement(el) {
-    if (!el || el.nodeType !== 1) return;
+    if (!el || el.nodeType !== 1) return false;
     const current = String(el.textContent || '').trim();
-    if (!current) return;
+    if (!current) return false;
     const next = humanizeText(current);
-    if (next !== current) {
-      if (!el.children.length) el.textContent = next;
-      else {
-        for (const node of [...el.childNodes]) if (node.nodeType === 3) node.remove();
-        el.appendChild(el.ownerDocument.createTextNode(` ${next}`));
-      }
+    if (next === current) return false;
+    if (!el.children.length) {
+      el.textContent = next;
+      return true;
     }
+    const existingDirect = directText(el);
+    if (existingDirect === next) return false;
+    for (const node of [...el.childNodes]) {
+      if (node.nodeType === 3) node.remove();
+    }
+    el.appendChild(el.ownerDocument.createTextNode(` ${next}`));
+    return true;
   }
 
   function humanizeStatusArea(doc, root) {
@@ -221,7 +234,9 @@
 
     root.querySelectorAll?.('button span, h2, h3, .eyebrow, .coach-preview-summary span, .coach-preview-source span').forEach(el => {
       const current = String(el.textContent || '').trim();
-      if (EXACT.has(current)) el.textContent = EXACT.get(current);
+      if (!EXACT.has(current)) return;
+      const next = EXACT.get(current);
+      if (next !== current) el.textContent = next;
     });
   }
 
@@ -238,18 +253,31 @@
     if (doc.readyState === 'loading') doc.addEventListener('DOMContentLoaded', apply, { once: true });
     else apply();
 
+    let scheduled = false;
+    const pendingRoots = new Set();
+    const flush = () => {
+      scheduled = false;
+      for (const node of pendingRoots) humanizeStatusArea(doc, node);
+      pendingRoots.clear();
+    };
+    const queue = node => {
+      if (!node || node.nodeType !== 1) return;
+      pendingRoots.add(node);
+      if (scheduled) return;
+      scheduled = true;
+      win.queueMicrotask(flush);
+    };
+
     const observer = new win.MutationObserver(mutations => {
       for (const mutation of mutations) {
         const target = mutation.target?.nodeType === 1 ? mutation.target : mutation.target?.parentElement;
-        if (target) humanizeStatusArea(doc, target);
-        for (const node of mutation.addedNodes || []) {
-          if (node.nodeType === 1) humanizeStatusArea(doc, node);
-        }
+        queue(target);
+        for (const node of mutation.addedNodes || []) queue(node);
       }
     });
     if (doc.documentElement) observer.observe(doc.documentElement, { childList: true, subtree: true, characterData: true });
 
-    win.addEventListener('tennisrank:auth-ready', () => applyStaticCopy(doc));
+    win.addEventListener('tennisrank:auth-ready', applyStaticCopy.bind(null, doc));
   }
 
   return { COPY, HTML_COPY, SELECT_COPY, EXACT, STATUS_RULES, humanizeText, applyStaticCopy, install };
