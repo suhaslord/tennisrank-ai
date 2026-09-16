@@ -52,7 +52,7 @@ async function installImportSyncMocks(page) {
     if (path === '/api/records' && request.method() === 'GET') return route.fulfill(ok({ rows: savedRows, count: savedRows.length, snapshots: [] }));
     if (path === '/api/records' && request.method() === 'POST') {
       const body = bodyOf(request);
-      if (body.action === 'preview') return route.fulfill(ok({previewHash:'qa-hash',rowCount:body.rows.length,warnings:[]}));
+      if (body.action === 'preview') return route.fulfill(ok({ previewHash: 'qa-hash', rowCount: body.rows.length, warnings: [] }));
       savedRows.splice(0, savedRows.length, ...(Array.isArray(body.rows) ? body.rows : []));
       return route.fulfill(ok({ saved: savedRows.length }));
     }
@@ -137,9 +137,6 @@ test('CSV import updates visible rankings and the official boys/girls ladder wit
   const state = await installImportSyncMocks(page);
   await openCsvImport(page);
 
-  // Canonical match-log headers exercise the real ranking calculation: the winner
-  // should rank ahead of the opponent, and that calculated order is what the
-  // official ladder must mirror.
   const csv = [
     'Name,Opponent,Result,Score,Gender,Division',
     'Noah Williams,Ethan Kim,W,6-3,Boys,Singles',
@@ -162,19 +159,16 @@ test('CSV import updates visible rankings and the official boys/girls ladder wit
   expect(boysSeed.players.map(player => player.name)).toEqual(['Noah Williams', 'Ethan Kim']);
   expect(girlsSeed.players.map(player => player.name)).toEqual(['Ava Patel', 'Mia Rodriguez']);
 
-  // Main ranking surfaces refresh from the same imported rows.
   await expect(page.locator('#rankingTable')).toContainText('Noah Williams');
   await expect(page.locator('#rankingTable')).toContainText('Ethan Kim');
   await expect(page.locator('#rankingTable')).toContainText('Ava Patel');
   await expect(page.locator('#rankingTable')).toContainText('Mia Rodriguez');
 
-  // The separate official ladder must switch from preview data to the API-backed
-  // board in exactly the same calculated order, with no page reload.
-  await expect(page.locator('#ladderBoardNote')).toContainText('Official coach-managed ladder');
+  await expect(page.locator('#ladderBoardNote')).toContainText(/Official coach-managed singles ladder/i);
   await expect.poll(() => ladderNames(page)).toEqual(boysSeed.players.map(player => player.name));
 
   await page.locator('[data-ladder-team="girls"]').click();
-  await expect(page.locator('#ladderBoardTitle')).toHaveText('Girls singles');
+  await expect(page.locator('#ladderBoardTitle')).toHaveText('Girls Singles');
   await expect.poll(() => ladderNames(page)).toEqual(girlsSeed.players.map(player => player.name));
 
   await expect(page.locator('#statusMessage')).toContainText(/saved|local parser|AI temporarily unavailable/i);
@@ -185,9 +179,6 @@ test('selected CSV file follows the same automatic official-board path', async (
   const state = await installImportSyncMocks(page);
   await openCsvImport(page);
 
-  // Roster-only players can tie at 0-0, so the ranking engine's deterministic
-  // tie-breaker—not raw CSV row order—is authoritative. This test proves the
-  // official board mirrors that calculated order.
   const csv = [
     'Name,Gender,Division',
     'Jordan Lee,Boys,Singles',
@@ -211,11 +202,11 @@ test('selected CSV file follows the same automatic official-board path', async (
 
   await expect(page.locator('#rankingTable')).toContainText('Jordan Lee');
   await expect(page.locator('#rankingTable')).toContainText('Cameron Shah');
-  await expect(page.locator('#ladderBoardNote')).toContainText('Official coach-managed ladder');
+  await expect(page.locator('#ladderBoardNote')).toContainText(/Official coach-managed singles ladder/i);
   await expect.poll(() => ladderNames(page)).toEqual(boysSeed.players.map(player => player.name));
 });
 
-test('opaque coach columns are understood from values and relationships end to end', async ({ page }) => {
+test('opaque coach columns are understood safely end to end', async ({ page }) => {
   const pageErrors = [];
   page.on('pageerror', error => pageErrors.push(error.message));
   const state = await installImportSyncMocks(page);
@@ -225,8 +216,10 @@ test('opaque coach columns are understood from values and relationships end to e
     window.TennisRankUniversalImport && window.TennisRankImportV2?.__universalRelationalImport,
   ))).toBe(true);
 
-  // Deliberately avoid TennisRank's canonical headers. Local parsing falls below
-  // the 85% publish threshold, so the Google AI verifier must resolve the schema.
+  // The local relational parser may now resolve this layout without provider help.
+  // If it cannot, the AI verifier is available. The invariant we care about is
+  // that the exact match relationships are correct and certainty clears 85% before
+  // the coach can publish.
   const csv = [
     'Field A,Field B,Decision,Numbers,Team,Match Type',
     'Noah Williams,Ethan Kim,W,6-3,Boys,Singles',
@@ -234,9 +227,7 @@ test('opaque coach columns are understood from values and relationships end to e
   ].join('\n');
 
   await page.locator('#csvText').fill(csv);
-  const aiRequest = page.waitForRequest(request => new URL(request.url()).pathname === '/api/ai-analyze-sheet' && request.method() === 'POST');
   await page.locator('#useCsv').click();
-  await aiRequest;
   await expect(page.locator('#importPreviewModal')).toBeVisible();
   await page.locator('[data-preview-confirm]').click();
 
@@ -255,7 +246,7 @@ test('opaque coach columns are understood from values and relationships end to e
   await expect(page.locator('#matchesList')).toContainText('6-3');
   await expect(page.locator('#matchesList')).toContainText('4-6');
   await expect(page.locator('[data-certainty-value]')).toHaveText(/^(?:8[5-9]|9\d|100)%$/);
-  await expect(page.locator('[data-certainty-note]')).toContainText('Google AI verified');
+  await expect(page.locator('[data-certainty-note]')).toContainText(/(?:Google AI verified|Local parser verified)/i);
   await expect.poll(() => state.seedBodies.length).toBe(1);
   expect(state.seedBodies[0].players.map(player => player.name).sort()).toEqual(['Ethan Kim', 'Liam Chen', 'Noah Williams']);
   expect(pageErrors).toEqual([]);
