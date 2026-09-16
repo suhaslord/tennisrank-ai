@@ -60,21 +60,20 @@
     const accountVisible = modalIsVisible(account);
 
     if (!previewVisible) {
-      document.body.classList.remove('coach-modal-open');
-      document.body.removeAttribute('data-modal-stale');
+      if (document.body.classList.contains('coach-modal-open')) document.body.classList.remove('coach-modal-open');
+      if (document.body.hasAttribute('data-modal-stale')) document.body.removeAttribute('data-modal-stale');
     }
-    if (!accountVisible) document.documentElement.classList.remove('tr-account-open');
+    if (!accountVisible && document.documentElement.classList.contains('tr-account-open')) {
+      document.documentElement.classList.remove('tr-account-open');
+    }
 
     if (!previewVisible && !accountVisible) {
       clearInlineLock(document.documentElement);
       clearInlineLock(document.body);
       document.documentElement.removeAttribute('data-scroll-locked');
       document.body.removeAttribute('data-scroll-locked');
-
-      const shell = document.querySelector('#appShell');
-      const main = document.querySelector('main#top');
-      clearInlineLock(shell);
-      clearInlineLock(main);
+      clearInlineLock(document.querySelector('#appShell'));
+      clearInlineLock(document.querySelector('main#top'));
     }
   }
 
@@ -97,8 +96,7 @@
       return;
     }
 
-    const heading = warning.querySelector(':scope > strong');
-    setTextIfChanged(heading, 'Needs a quick look');
+    setTextIfChanged(warning.querySelector(':scope > strong'), 'Needs a quick look');
   }
 
   function polishPreview() {
@@ -111,8 +109,7 @@
     const articles = [...modal.querySelectorAll('.coach-preview-grid article')];
     const labels = ['New players', 'Removed or inactive', 'Ranking changes', 'Boards in this import'];
     articles.forEach((article, index) => {
-      const heading = article.querySelector('h3');
-      if (heading && labels[index]) setTextIfChanged(heading, labels[index]);
+      if (labels[index]) setTextIfChanged(article.querySelector('h3'), labels[index]);
     });
 
     if (hasMixedBoard()) {
@@ -120,7 +117,6 @@
         if (clean(node.textContent) === 'Unknown Doubles') setTextIfChanged(node, 'Mixed Doubles');
       });
     }
-
     removeMissingBoardWarnings(modal);
   }
 
@@ -131,10 +127,14 @@
     setTextIfChanged(shell.querySelector('.ladder-intro-copy'), 'One board at a time. Switch between singles, doubles, and mixed. Official challenges stay on the boys and girls singles ladders.');
   }
 
-  function onMutations() {
+  function refreshUi() {
     repairScrollLocks();
     polishPreview();
     polishRankings();
+  }
+
+  function scheduleRefresh() {
+    for (const delay of [0, 60, 180, 360]) setTimeout(refreshUi, delay);
   }
 
   function install() {
@@ -142,43 +142,29 @@
     window.__tennisrankUICohesionInstalled = true;
     ensureLayoutFixCss();
 
-    const observer = new MutationObserver(onMutations);
-    observer.observe(document.documentElement, {
-      subtree: true,
-      childList: true,
-      attributes: true,
-      attributeFilter: ['hidden', 'class', 'style', 'aria-hidden'],
-    });
-
+    // Deliberately avoid a document-wide MutationObserver here. This layer changes
+    // classes/styles/text itself, so observing those same mutations can create a
+    // synchronous feedback loop during startup. Event-driven refreshes plus a
+    // low-frequency safety timer are deterministic and still repair stale locks.
     document.addEventListener('click', event => {
-      if (event.target?.closest?.('[data-preview-cancel],[data-preview-confirm],.coach-modal-backdrop,[data-account-close],[data-account-signout]')) {
-        setTimeout(repairScrollLocks, 0);
-        setTimeout(repairScrollLocks, 80);
-        setTimeout(repairScrollLocks, 240);
-      }
+      if (event.target?.closest?.(
+        '[data-preview-cancel],[data-preview-confirm],.coach-modal-backdrop,[data-account-close],[data-account-signout],#accountMenu,#useCsv,#connectSheet,#refreshNow,#saveBackend,[data-ladder-board]'
+      )) scheduleRefresh();
     }, true);
 
     document.addEventListener('keydown', event => {
-      if (event.key === 'Escape') {
-        setTimeout(repairScrollLocks, 0);
-        setTimeout(repairScrollLocks, 80);
-        setTimeout(repairScrollLocks, 240);
-      }
+      if (event.key === 'Escape') scheduleRefresh();
     }, true);
 
-    window.addEventListener('pageshow', repairScrollLocks);
+    window.addEventListener('pageshow', scheduleRefresh);
     window.addEventListener('focus', repairScrollLocks);
     window.addEventListener('resize', repairScrollLocks);
-    window.addEventListener('tennisrank:auth-ready', () => setTimeout(() => { repairScrollLocks(); polishRankings(); }, 0));
-    window.addEventListener('tennisrank:coach-data-changed', () => setTimeout(repairScrollLocks, 0));
-    window.addEventListener('tennisrank:ladder-rendered', () => { polishRankings(); repairScrollLocks(); });
+    window.addEventListener('tennisrank:auth-ready', scheduleRefresh);
+    window.addEventListener('tennisrank:coach-data-changed', scheduleRefresh);
+    window.addEventListener('tennisrank:ladder-rendered', scheduleRefresh);
 
-    // Safety net for stale classes/styles left behind by interrupted preview/account flows.
-    window.setInterval(repairScrollLocks, 1000);
-
-    repairScrollLocks();
-    polishPreview();
-    polishRankings();
+    window.setInterval(refreshUi, 1000);
+    scheduleRefresh();
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', install, { once: true });
