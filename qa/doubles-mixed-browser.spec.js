@@ -74,6 +74,14 @@ async function openAdminCsv(page) {
   await expect(page.locator('#csvSource')).toBeVisible();
 }
 
+async function selectBoard(page, key, label) {
+  const tab = page.locator(`[data-ladder-board="${key}"]`);
+  await expect(tab).toBeVisible();
+  await tab.click();
+  await expect(tab).toHaveAttribute('aria-selected', 'true');
+  if (label) await expect(page.locator('#ladderBoardTitle')).toHaveText(label);
+}
+
 test('section context keeps doubles across Boys/Girls and treats standalone Mixed as doubles', async ({ page }) => {
   await installMocks(page);
   await page.goto(BASE, { waitUntil: 'domcontentloaded' });
@@ -117,19 +125,19 @@ test('coach can import boys, girls and mixed doubles together without polluting 
   await expect(page.locator('#rankingTable')).toContainText('Ava Patel & Mia Rodriguez');
   await expect(page.locator('#rankingTable')).toContainText('Olivia Brown & Ravi Shah');
   await expect(page.locator('#matchesList')).toContainText('7-5');
-  await expect(page.locator('[data-gender="mixed"]')).toBeVisible();
-  await expect(page.locator('#rankingsGrid')).toContainText('Mixed doubles');
 
-  await page.locator('[data-gender="mixed"]').click();
-  await expect(page.locator('#rankingTable')).toContainText('Olivia Brown & Ravi Shah');
-  await expect(page.locator('#rankingTable')).not.toContainText('Ethan Kim & Noah Williams');
+  await selectBoard(page, 'mixed|doubles', 'Mixed Doubles');
+  await expect(page.locator('#ladderList')).toContainText('Olivia Brown & Ravi Shah');
+  await expect(page.locator('#ladderList')).not.toContainText('Ethan Kim & Noah Williams');
   await expect(page.locator('#matchesList')).toContainText(/mixed doubles/i);
 
-  await page.locator('[data-gender="all"]').click();
-  await page.locator('[data-division="doubles"]').click();
-  await expect(page.locator('#rankingTable')).toContainText('Ethan Kim & Noah Williams');
-  await expect(page.locator('#rankingTable')).toContainText('Ava Patel & Mia Rodriguez');
-  await expect(page.locator('#rankingTable')).toContainText('Olivia Brown & Ravi Shah');
+  await selectBoard(page, 'boys|doubles', 'Boys Doubles');
+  await expect(page.locator('#ladderList')).toContainText('Ethan Kim & Noah Williams');
+  await expect(page.locator('#ladderList')).not.toContainText('Ava Patel & Mia Rodriguez');
+
+  await selectBoard(page, 'girls|doubles', 'Girls Doubles');
+  await expect(page.locator('#ladderList')).toContainText('Ava Patel & Mia Rodriguez');
+  await expect(page.locator('#ladderList')).not.toContainText('Olivia Brown & Ravi Shah');
 
   expect(state.seedBodies).toHaveLength(0);
   expect(pageErrors).toEqual([]);
@@ -161,21 +169,21 @@ test('coach partner-column sheet becomes doubles before publish and reciprocal p
   await expect(page.locator('#matchesList')).toContainText('6-3');
   await expect(page.locator('#matchesList')).toContainText('7-5');
 
-  await page.locator('[data-gender="mixed"]').click();
-  await expect(page.locator('#rankingTable')).toContainText('Olivia Brown & Ravi Shah');
-  await expect(page.locator('#rankingTable')).not.toContainText('Ethan Kim & Noah Williams');
+  await selectBoard(page, 'mixed|doubles', 'Mixed Doubles');
+  await expect(page.locator('#ladderList')).toContainText('Olivia Brown & Ravi Shah');
+  await expect(page.locator('#ladderList')).not.toContainText('Ethan Kim & Noah Williams');
 
   expect(state.savedRows.find(row => /Olivia Brown/.test(String(row.winner || '')))?.gender).toBe('Mixed');
   expect(state.seedBodies).toHaveLength(0);
 
   await page.reload({ waitUntil: 'domcontentloaded' });
   await expect(page.locator('#appShell')).toBeVisible();
-  await expect(page.locator('[data-gender="mixed"]')).toBeVisible();
+  await expect(page.locator('[data-ladder-board="mixed|doubles"]')).toBeVisible();
   await expect(page.locator('#rankingTable')).toContainText('Ethan Kim & Noah Williams');
   await expect(page.locator('#rankingTable')).toContainText('Olivia Brown & Ravi Shah');
-  await page.locator('[data-gender="mixed"]').click();
-  await expect(page.locator('#rankingTable')).toContainText('Olivia Brown & Ravi Shah');
-  await expect(page.locator('#rankingTable')).not.toContainText('Ethan Kim & Noah Williams');
+  await selectBoard(page, 'mixed|doubles', 'Mixed Doubles');
+  await expect(page.locator('#ladderList')).toContainText('Olivia Brown & Ravi Shah');
+  await expect(page.locator('#ladderList')).not.toContainText('Ethan Kim & Noah Williams');
   expect(state.savedRows).toHaveLength(2);
   expect(pageErrors).toEqual([]);
 });
