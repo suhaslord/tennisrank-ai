@@ -169,7 +169,7 @@ test('player sees official ladder and can issue an eligible challenge exactly on
   await expect(page.locator('#appShell')).toBeVisible();
   await expect(page.locator('#authGate')).toBeHidden();
   await expect(page.locator('#ladderExperience')).toBeVisible();
-  await expect(page.locator('#ladderBoardTitle')).toContainText('Boys singles');
+  await expect(page.locator('#ladderBoardTitle')).toContainText('Boys Singles');
   await expect(page.locator('.ladder-challenge-button')).toHaveCount(3);
   await expect(page.locator('.ladder-row[data-player-id="p5"] .ladder-challenge-button')).toBeVisible();
   await expect(page.locator('.ladder-row[data-player-id="p6"] .ladder-challenge-button')).toBeVisible();
