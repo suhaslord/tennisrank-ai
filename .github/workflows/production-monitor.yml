@@ -47,7 +47,7 @@ jobs:
           code=$(curl --retry 2 --retry-delay 2 --silent --show-error --location --output "$tmp/bridge" --write-out '%{http_code}' "$BASE/google-workbook-bridge.js")
           test "$code" = '200' || fail_stale "/google-workbook-bridge.js returned HTTP $code"
           grep -q 'TennisRankGoogleWorkbookBridge' "$tmp/bridge" || fail_stale 'Google workbook bridge marker is missing'
-          grep -q 'google-full-workbook-v1' "$tmp/bridge" || fail_stale 'Google workbook engine marker is missing'
+          grep -q 'google-full-workbook-universal-v2' "$tmp/bridge" || fail_stale 'Google workbook engine marker is missing'
 
           code=$(curl --retry 2 --retry-delay 2 --silent --show-error --output "$tmp/workbook" --write-out '%{http_code}' "$BASE/api/sheet-workbook?url=not-a-url")
           test "$code" = '400' || fail_stale "/api/sheet-workbook returned HTTP $code instead of 400 for an invalid URL"
