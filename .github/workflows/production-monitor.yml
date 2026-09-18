@@ -17,6 +17,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: main
+          fetch-depth: 0
 
       - name: Check exact production revision, workbook release assets, and critical APIs
         shell: bash
@@ -42,7 +43,10 @@ jobs:
           code=$(curl --retry 2 --retry-delay 2 --silent --show-error --location --output "$tmp/release-sha" --write-out '%{http_code}' "$BASE/release-sha.txt")
           test "$code" = '200' || fail_stale "/release-sha.txt returned HTTP $code"
           DEPLOYED_SHA=$(tr -d '\r\n' < "$tmp/release-sha")
-          test "$DEPLOYED_SHA" = "$EXPECTED_SHA" || fail_stale "production is $DEPLOYED_SHA"
+          if [ "$DEPLOYED_SHA" != "$EXPECTED_SHA" ]; then
+            git diff --quiet "$DEPLOYED_SHA..$EXPECTED_SHA" -- . ':(exclude).github/**' || fail_stale "production is $DEPLOYED_SHA"
+            echo "Production SHA differs only by GitHub workflow/config changes; continuing."
+          fi
 
           code=$(curl --retry 2 --retry-delay 2 --silent --show-error --location --output "$tmp/bridge" --write-out '%{http_code}' "$BASE/google-workbook-bridge.js")
           test "$code" = '200' || fail_stale "/google-workbook-bridge.js returned HTTP $code"
