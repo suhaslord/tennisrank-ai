@@ -319,7 +319,13 @@
   }
 
   window.TennisRankCoachState = {
+    capturePendingRankEdits(container) {
+      container?.querySelectorAll('[data-new-rank]').forEach(input => {
+        if (input.value !== input.defaultValue) captureRankEdit(input);
+      });
+    },
     getPendingRank(playerId, fallback = "") {
+      if (pendingRankEdits.get(playerId) === String(fallback)) pendingRankEdits.delete(playerId);
       return pendingRankEdits.has(playerId) ? pendingRankEdits.get(playerId) : fallback;
     },
     clearPendingRank(playerId) {

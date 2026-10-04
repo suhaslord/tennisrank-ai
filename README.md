@@ -2,6 +2,22 @@
 
 TennisRank turns River Islands High School tennis data into a current team ranking board and an authenticated challenge ladder.
 
+## CSC Back-to-School Hackathon
+
+See [the final project write-up](devpost-submission.md) for the prior-work disclosure, the improvements made during the event, AI usage, and judging instructions. The [Devpost gallery](https://devpost.com/software/tennisrank) shows the actual frontend with clearly labeled synthetic data. The [hosted app](https://tennisrank-ai.vercel.app/) requires invited accounts; no public coach credentials are provided.
+
+To exercise the frontend without a live database, install the pinned QA dependencies and run the existing mock-backed browser scenarios:
+
+```sh
+npm install --no-save @playwright/test@1.55.0 https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz
+npx playwright install chrome
+node qa/server.js
+# In a second terminal:
+npx playwright test qa/startup-smoke.spec.js qa/core-flow-browser.spec.js qa/browser.spec.js qa/coach-ops-browser.spec.js qa/coach-ladder-controls.spec.js qa/doubles-mixed-browser.spec.js qa/connected-sheet-guard.spec.js qa/match-dedup-guard.spec.js qa/ui-cohesion.spec.js --workers=1
+```
+
+The server listens on `http://127.0.0.1:4173`. These fixtures use synthetic identities and intercept API requests; they do not write to production or test the live database/Gemini provider.
+
 ## Local setup
 
 The repository declares **Node.js 22.x** and has no frontend build step. For a static preview, run:

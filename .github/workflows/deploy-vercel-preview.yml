@@ -1,0 +1,38 @@
+name: TennisRank hackathon preview
+
+on:
+  push:
+    branches:
+      - release/csc-final-2026-10-04
+
+permissions:
+  contents: read
+
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Link preview project
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          test -n "$VERCEL_TOKEN"
+          mkdir -p .vercel
+          printf '%s\n' '{"orgId":"team_4fHq5Px7I3sXJ9v8FOyXNOHD","projectId":"prj_p1VA7WLWT5fCRL4eep6DinNntvU1"}' > .vercel/project.json
+          npx --yes vercel@48.2.9 pull --yes --environment=preview --token="$VERCEL_TOKEN"
+      - name: Build preview
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          printf '%s\n' "$GITHUB_SHA" > release-sha.txt
+          npx --yes vercel@48.2.9 build --token="$VERCEL_TOKEN"
+      - name: Deploy preview
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: npx --yes vercel@48.2.9 deploy --prebuilt --token="$VERCEL_TOKEN"

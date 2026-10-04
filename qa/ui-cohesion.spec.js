@@ -93,6 +93,8 @@ test('rankings hero has no tennis court and switches across singles doubles and 
   await expect(page.locator('[data-ladder-board="mixed|doubles"]')).toHaveText('Mixed Doubles');
 
   await expect(page.locator('#ladderList')).toContainText('Noah');
+  await expect(page.locator('#ladderExperienceTitle')).toHaveCSS('color', 'rgb(32, 33, 31)');
+  await expect(page.locator('.ladder-player-name').first()).toHaveCSS('color', 'rgb(32, 33, 31)');
   await page.locator('[data-ladder-board="girls|singles"]').click();
   await expect(page.locator('#ladderBoardTitle')).toHaveText('Girls Singles');
   await expect(page.locator('#ladderList')).toContainText('Ava');

@@ -232,6 +232,9 @@
       consoleEl.className = "coach-ladder-console";
       anchor.insertAdjacentElement("afterend", consoleEl);
     }
+    // A background status refresh can arrive between typing and the input event.
+    // Preserve edits synchronously before replacing the roster DOM.
+    window.TennisRankCoachState?.capturePendingRankEdits(consoleEl);
     const pending = ui.challenges.filter(challenge => challenge.status === "pending_coach_approval" && challenge.match?.approval_status === "pending");
     const officialEntries = [...ui.ladder].sort((a, b) => a.team_gender.localeCompare(b.team_gender) || a.rank_position - b.rank_position);
     consoleEl.innerHTML = `
@@ -242,7 +245,7 @@
       <div class="coach-panel" data-coach-panel="roster" hidden>
         <div class="coach-seed-actions"><button class="coach-action" data-seed-team="boys">Initialize Boys from current board</button><button class="coach-action" data-seed-team="girls">Initialize Girls from current board</button></div>
         <div class="coach-roster-list">${officialEntries.length ? officialEntries.map(entry => `
-          <article class="coach-roster-row" data-roster-player="${entry.player_id}"><div class="coach-rank-number">#${entry.rank_position}</div><div><div class="coach-roster-name">${escapeHtml(entry.player.display_name)}</div><div class="coach-roster-meta">${escapeHtml(entry.team_gender)} · ${escapeHtml(entry.player.active_status)}</div></div><select class="coach-status-select" data-status><option value="active" ${entry.player.active_status === "active" ? "selected" : ""}>Active</option><option value="injured" ${entry.player.active_status === "injured" ? "selected" : ""}>Injured</option><option value="inactive" ${entry.player.active_status === "inactive" ? "selected" : ""}>Inactive</option></select><div class="coach-roster-actions"><input class="coach-rank-input" data-new-rank type="number" min="1" value="${entry.rank_position}" aria-label="New rank for ${escapeHtml(entry.player.display_name)}" /><button class="coach-action" data-move>Move</button></div></article>`).join("") : `<div class="coach-empty">Official ladder tables are empty. Initialize Boys and Girls from the current singles board.</div>`}</div>
+          <article class="coach-roster-row" data-roster-player="${entry.player_id}"><div class="coach-rank-number">#${entry.rank_position}</div><div><div class="coach-roster-name">${escapeHtml(entry.player.display_name)}</div><div class="coach-roster-meta">${escapeHtml(entry.team_gender)} · ${escapeHtml(entry.player.active_status)}</div></div><select class="coach-status-select" data-status><option value="active" ${entry.player.active_status === "active" ? "selected" : ""}>Active</option><option value="injured" ${entry.player.active_status === "injured" ? "selected" : ""}>Injured</option><option value="inactive" ${entry.player.active_status === "inactive" ? "selected" : ""}>Inactive</option></select><div class="coach-roster-actions"><input class="coach-rank-input" data-new-rank type="number" min="1" value="${escapeHtml(window.TennisRankCoachState?.getPendingRank(entry.player_id, String(entry.rank_position)) ?? entry.rank_position)}" aria-label="New rank for ${escapeHtml(entry.player.display_name)}" /><button class="coach-action" data-move>Move</button></div></article>`).join("") : `<div class="coach-empty">Official ladder tables are empty. Initialize Boys and Girls from the current singles board.</div>`}</div>
         <div class="coach-console-status" id="coachConsoleStatus"></div>
       </div>`;
 

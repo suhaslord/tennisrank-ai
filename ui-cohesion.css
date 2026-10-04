@@ -42,7 +42,7 @@ body .ladder-intro{
   padding:0 0 34px!important;
   border-bottom:1px solid var(--tr-line)!important;
 }
-body .ladder-intro h2{
+body .ladder-experience .ladder-intro h2{
   max-width:700px!important;
   margin:10px 0 0!important;
   color:var(--tr-ink)!important;
@@ -52,7 +52,7 @@ body .ladder-intro h2{
   line-height:1.02!important;
   letter-spacing:-.045em!important;
 }
-body .ladder-intro-copy{
+body .ladder-experience .ladder-intro-copy{
   max-width:560px!important;
   margin:22px 0 0!important;
   color:#484d45!important;
@@ -138,7 +138,7 @@ body .ladder-row:hover{background:#f0f2eb!important}
 body .ladder-rank{color:var(--tr-orange-dark)!important;background:transparent!important;font:18px/1 ui-monospace,Consolas,monospace!important}
 body .ladder-movement{color:#7a7f75!important;font-size:12px!important}
 body .ladder-movement.up{color:#2d7658!important}
-body .ladder-player-name{color:var(--tr-ink)!important;font-size:16px!important;font-weight:500!important}
+body .ladder-experience .ladder-player-name{color:var(--tr-ink)!important;font-size:16px!important;font-weight:500!important}
 body .ladder-record,body .ladder-status,body .ladder-empty{color:var(--tr-muted)!important}
 body .ladder-status{font:11px/1.2 ui-monospace,Consolas,monospace!important;text-transform:uppercase!important;letter-spacing:.06em!important}
 
