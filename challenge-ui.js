@@ -235,6 +235,7 @@
     // A background status refresh can arrive between typing and the input event.
     // Preserve edits synchronously before replacing the roster DOM.
     window.TennisRankCoachState?.capturePendingRankEdits(consoleEl);
+    const focusedTab = consoleEl.contains(document.activeElement) ? document.activeElement.dataset.coachTab : null;
     const pending = ui.challenges.filter(challenge => challenge.status === "pending_coach_approval" && challenge.match?.approval_status === "pending");
     const officialEntries = [...ui.ladder].sort((a, b) => a.team_gender.localeCompare(b.team_gender) || a.rank_position - b.rank_position);
     consoleEl.innerHTML = `
@@ -284,6 +285,7 @@
         catch (error) { alert(error.message); }
       };
     });
+    if (focusedTab) consoleEl.querySelector(`[data-coach-tab="${CSS.escape(focusedTab)}"]`)?.focus({ preventScroll: true });
   }
 
   async function loadOfficialLadder() {
@@ -299,6 +301,7 @@
   }
 
   async function refreshWorkflow() {
+    window.TennisRankCoachState?.beginRefresh();
     try {
       await Promise.all([loadOfficialLadder(), loadChallenges()]);
       renderChallengeCenter();
@@ -308,6 +311,8 @@
     } catch (error) {
       // During rollout the new tables/endpoints may not exist yet. Keep the existing app usable.
       console.warn("TennisRank ladder workflow unavailable:", error.message);
+    } finally {
+      window.TennisRankCoachState?.endRefresh();
     }
   }
 

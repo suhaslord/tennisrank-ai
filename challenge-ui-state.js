@@ -2,6 +2,7 @@
   let activeCoachTab = "approvals";
   let rosterRefreshing = false;
   let rosterUnlockTimer = 0;
+  let activeWorkflowRefreshes = 0;
   const pendingRankEdits = new Map();
   const pendingStatusEdits = new Map();
   const originalAlert = typeof window.alert === "function" ? window.alert.bind(window) : null;
@@ -25,6 +26,7 @@
     rosterUnlockTimer = setTimeout(() => {
       rosterUnlockTimer = 0;
       if (!rosterRefreshing) return;
+      if (activeWorkflowRefreshes) return;
       setRosterRefreshing(false);
       restoreCoachState();
     }, delay);
@@ -295,12 +297,10 @@
         if (statusPlayerId) {
           const ok = Boolean(response?.ok);
           resolveStatusMutation(statusPlayerId, ok);
-          // The status mutation itself is complete once the server accepts it.
-          // Do not strand unrelated rank controls while refreshWorkflow reloads
-          // the roster in the background.
+          // Keep controls stable until the ensuing roster refresh finishes.
+          // Unlocking here lets a refresh replace a rank input during typing.
           if (ok) {
-            setRosterRefreshing(false);
-            restoreCoachState();
+            scheduleRosterUnlock();
           }
         }
         return response;
@@ -319,6 +319,15 @@
   }
 
   window.TennisRankCoachState = {
+    beginRefresh() {
+      activeWorkflowRefreshes += 1;
+      setRosterRefreshing(true);
+    },
+    endRefresh() {
+      activeWorkflowRefreshes = Math.max(0, activeWorkflowRefreshes - 1);
+      if (!activeWorkflowRefreshes && !pendingStatusEdits.size) setRosterRefreshing(false);
+      restoreCoachState();
+    },
     capturePendingRankEdits(container) {
       container?.querySelectorAll('[data-new-rank]').forEach(input => {
         if (input.value !== input.defaultValue) captureRankEdit(input);
@@ -454,12 +463,8 @@
   window.addEventListener("tennisrank:auth-ready", installFetchGuard);
   window.addEventListener("tennisrank:ladder-workflow-ready", () => {
     installFetchGuard();
-    setRosterRefreshing(false);
     restoreCoachState();
-    requestAnimationFrame(() => {
-      setRosterRefreshing(false);
-      restoreCoachState();
-    });
+    requestAnimationFrame(restoreCoachState);
   });
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start, { once: true });
   else start();

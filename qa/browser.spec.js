@@ -121,7 +121,10 @@ async function installMocks(page, role, options = {}) {
     else if (path === '/api/session') response = json({ profile });
     else if (path === '/api/records') response = json({ rows: [], count: 0 });
     else if (path === '/api/users') response = json({ profiles: [] });
-    else if (path === '/api/ladder') response = json(ladderPayload(role));
+    else if (path === '/api/ladder') {
+      if (options.ladderReadDelayMs) await new Promise(resolve => setTimeout(resolve, options.ladderReadDelayMs));
+      response = json(ladderPayload(role));
+    }
     else if (path === '/api/challenges' && req.method() === 'GET') {
       const defaultChallenges = role === 'admin' ? [pendingApproval()] : [];
       response = json({ challenges: options.challenges ?? defaultChallenges });
@@ -153,7 +156,8 @@ async function assertNoHorizontalOverflow(page) {
 async function expectMinHeight(locator, minimum = 44) {
   const box = await locator.boundingBox();
   expect(box).not.toBeNull();
-  expect(box.height).toBeGreaterThanOrEqual(minimum);
+  // Browser transforms can report 43.999992 for a 44px touch target.
+  expect(Math.round(box.height * 1000) / 1000).toBeGreaterThanOrEqual(minimum);
 }
 
 test('player sees official ladder and can issue an eligible challenge exactly once', async ({ page }) => {
@@ -231,7 +235,7 @@ test('score entry matches backend winner-perspective validation before sending',
 test('coach sees approval queue and roster controls', async ({ page }) => {
   const pageErrors = [];
   page.on('pageerror', error => pageErrors.push(error.message));
-  await installMocks(page, 'admin');
+  await installMocks(page, 'admin', { ladderReadDelayMs: 500 });
   await page.goto(BASE, { waitUntil: 'domcontentloaded' });
 
   await expect(page.locator('#coachLadderConsole')).toBeVisible();
@@ -250,9 +254,12 @@ test('coach sees approval queue and roster controls', async ({ page }) => {
 
   const p3 = page.locator('[data-roster-player="p3"]');
   const statusRequest = apiRequest(page, '/api/admin/ladder', (request, body) => request.method() === 'PATCH' && body.action === 'status' && body.playerId === 'p3');
+  const statusResponse = page.waitForResponse(response => response.url().endsWith('/api/admin/ladder') && bodyOf(response.request()).action === 'status');
   await p3.locator('[data-status]').selectOption('injured');
   const status = await statusRequest;
   expect(bodyOf(status).status).toBe('injured');
+  await statusResponse;
+  await expect(page.locator('[data-roster-player="p4"] [data-new-rank]')).toBeDisabled();
 
   await expect(page.locator('[data-coach-panel="roster"]')).toBeVisible();
   const p4 = page.locator('[data-roster-player="p4"]');
