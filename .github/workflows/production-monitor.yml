@@ -74,3 +74,15 @@ jobs:
           grep -q 'Invalid Google Sheets URL' "$tmp/sheet"
 
           echo "TennisRank production smoke checks passed for exact revision $EXPECTED_SHA."
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install import smoke-test dependencies
+        run: npm install --no-save @playwright/test@1.55.0 https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz
+
+      - name: Verify deployed importer with isolated account and data responses
+        env:
+          QA_BASE: https://tennisrank-ai.vercel.app/
+        run: npx playwright test qa/ai-import.spec.js --grep 'single-row paste|low-certainty opaque' --reporter=line --workers=1

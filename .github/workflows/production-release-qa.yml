@@ -55,6 +55,7 @@ jobs:
           node --check qa/human-theme.test.js
           node --check qa/doubles-mixed.test.js
           node --check qa/startup-smoke.spec.js
+          node --check qa/ai-import.spec.js
           node --check qa/doubles-mixed-browser.spec.js
           node --check qa/account-settings.spec.js
           node --check qa/connected-sheet-guard.spec.js
@@ -139,6 +140,7 @@ jobs:
           trap 'kill $SERVER_PID || true' EXIT
           sleep 2
           if ! npx playwright test \
+            qa/ai-import.spec.js \
             qa/auth-flow.spec.js \
             qa/account-settings.spec.js \
             qa/connected-sheet-guard.spec.js \

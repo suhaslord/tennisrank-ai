@@ -13,7 +13,7 @@ npm install --no-save @playwright/test@1.55.0 https://cdn.sheetjs.com/xlsx-0.20.
 npx playwright install chrome
 node qa/server.js
 # In a second terminal:
-npx playwright test qa/startup-smoke.spec.js qa/core-flow-browser.spec.js qa/browser.spec.js qa/coach-ops-browser.spec.js qa/coach-ladder-controls.spec.js qa/doubles-mixed-browser.spec.js qa/connected-sheet-guard.spec.js qa/match-dedup-guard.spec.js qa/ui-cohesion.spec.js --workers=1
+npx playwright test qa/startup-smoke.spec.js qa/ai-import.spec.js qa/core-flow-browser.spec.js qa/browser.spec.js qa/coach-ops-browser.spec.js qa/coach-ladder-controls.spec.js qa/doubles-mixed-browser.spec.js qa/connected-sheet-guard.spec.js qa/match-dedup-guard.spec.js qa/ui-cohesion.spec.js --workers=1
 ```
 
 The server listens on `http://127.0.0.1:4173`. These fixtures use synthetic identities and intercept API requests; they do not write to production or test the live database/Gemini provider.
@@ -98,5 +98,7 @@ node qa/ladder-engine.test.js
 ```
 
 ## Deployment safety
+
+The hourly production monitor checks the deployed revision, critical APIs, and browser import regressions against the hosted frontend. Its browser scenarios intercept account, AI, and data API responses so they never publish test data to the live database. Invited-account sign-in, email delivery, and real database/provider behavior still require a separate live-account check.
 
 Do not overwrite a newer direct Vercel source with an older Git snapshot. The feature branch was reconciled from the last known-good auth-enabled production frontend before the ladder layer was added. Preview deployment is required before production promotion.

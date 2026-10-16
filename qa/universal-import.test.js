@@ -130,4 +130,34 @@ Date,Court,Notes
   assert.equal(q.matches, 0, 'non-result tennis admin sheet must not invent match winners');
 }
 
+{
+  const csv = 'Opaque A,Opaque B,Opaque C,Opaque D,Opaque E,Opaque F\nRavi Patel,Noah Chen,W,6-2 6-4,Boys,Singles';
+  const unsafeRows = [{ name: 'Ravi Patel', opponent: 'Singles', result: 'W', score: '6-2 6-4', gender: 'Boys', division: 'Singles' }];
+  const inferredRows = universal.inferRows(csv, 'coach-export.csv', importer, ml);
+  assert.equal(universal.quality(unsafeRows).score, universal.quality(inferredRows).score, 'legacy completeness scores tie');
+  assert.ok(universal.quality(unsafeRows).invalidParticipants > universal.quality(inferredRows).invalidParticipants);
+  const parser = universal.createParser(importer, ml, () => unsafeRows);
+  const rows = parser(csv, 'coach-export.csv');
+  assert.equal(rows[0].winner, 'Ravi Patel');
+  assert.equal(rows[0].loser, 'Noah Chen', 'metadata must not win a parser tie over a real opponent');
+  assert.equal(rows[0].division, 'Singles');
+}
+
+{
+  const scheduled = [];
+  const listeners = new Map();
+  const loadingImporter = { ...importer, parseText: () => [] };
+  delete loadingImporter.__universalRelationalImport;
+  const document = { readyState: 'loading', addEventListener: (type, callback) => listeners.set(type, callback) };
+  universal.installBrowser({ TennisRankImportV2: loadingImporter, TennisRankSpreadsheetML: ml, document, setTimeout: callback => scheduled.push(callback) });
+  scheduled.forEach(callback => callback());
+  assert.equal(loadingImporter.__universalRelationalImport, undefined, 'retry timers must not wrap a parser that startup will replace');
+  loadingImporter.parseText = () => [];
+  document.readyState = 'interactive';
+  listeners.get('DOMContentLoaded')();
+  const rows = loadingImporter.parseText('Player,Opponent,Result,Score\nAva Kim,Mia Shah,W,6-2', 'Girls Singles');
+  assert.equal(rows[0].winner, 'Ava Kim');
+  assert.equal(rows[0].loser, 'Mia Shah');
+}
+
 console.log('Universal import regression pack passed: flexible headers, opaque schemas, relational winners, standings, CSV/TSV/semicolon, and safe non-match rejection.');

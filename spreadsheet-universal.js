@@ -294,9 +294,12 @@
 
   function quality(rows) {
     const list = Array.isArray(rows) ? rows : [];
-    let matches = 0; let aggregates = 0; let interpreted = 0; let completeMatches = 0; let metadata = 0;
+    let matches = 0; let aggregates = 0; let interpreted = 0; let completeMatches = 0; let metadata = 0; let invalidParticipants = 0;
     for (const row of list) {
       normalizeCanonicalRow(row);
+      const participants = [row.name, row.opponent, row.player1, row.player2, row.winner, row.loser]
+        .map(text).filter(value => value && !looksResult(value));
+      invalidParticipants += participants.filter(value => !looksPerson(value)).length;
       const match = Boolean((text(row.winner) && text(row.loser))
         || (text(row.name) && text(row.opponent) && text(row.result))
         || (text(row.player1) && text(row.player2) && (text(row.winner) || text(row.result))));
@@ -317,6 +320,7 @@
       interpreted,
       completeMatches,
       metadata,
+      invalidParticipants,
       score: (matches / total) * 0.6
         + (aggregates / total) * 0.16
         + (interpreted / total) * 0.08
@@ -418,11 +422,14 @@
         inferredQuality.completeMatches > baseQuality.completeMatches
         || inferredQuality.metadata > baseQuality.metadata
       );
+      const saferParticipants = noCoreRegression
+        && inferredQuality.invalidParticipants < baseQuality.invalidParticipants;
       const chooseInferred = inferredRows.length && (
         inferredQuality.matches > baseQuality.matches
         || inferredQuality.aggregates > baseQuality.aggregates
         || (baseQuality.matches === 0 && inferredQuality.matches > 0)
         || richerMatchData
+        || saferParticipants
         || inferredQuality.score > baseQuality.score + 0.08
       );
       if (!chooseInferred) return baseRows;
@@ -445,9 +452,11 @@
   }
 
   function installBrowser(win) {
-    const apply = () => patchImporterObject(win?.TennisRankImportV2, win?.TennisRankSpreadsheetML);
-    apply();
-    win?.document?.addEventListener?.('DOMContentLoaded', apply, { once: true });
+    const apply = () => {
+      if (win?.document?.readyState !== 'loading') patchImporterObject(win?.TennisRankImportV2, win?.TennisRankSpreadsheetML);
+    };
+    if (win?.document?.readyState === 'loading') win.document.addEventListener('DOMContentLoaded', apply, { once: true });
+    else apply();
     for (const delay of [25, 100, 300, 1000]) win?.setTimeout?.(apply, delay);
   }
 
