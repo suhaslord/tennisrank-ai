@@ -87,3 +87,20 @@ test('Refresh now on a connected Sheet opens exactly one preview and publishes e
   await expect(page.locator('#rankingTable')).toContainText('Noah Williams');
   expect(pageErrors).toEqual([]);
 });
+
+test('cancelling a connected Sheet preview restores the empty board and clears its progress message', async ({ page }) => {
+  const state = await installMocks(page);
+  await page.goto(BASE, { waitUntil: 'domcontentloaded' });
+  await expect(page.locator('#appShell')).toBeVisible();
+  await expect.poll(() => page.evaluate(() => Boolean(window.fetchSheet?.__connectedSheetGuard))).toBe(true);
+  await page.locator('#openSettings').click();
+  await page.locator('#refreshNow').click();
+  await expect(page.locator('#importPreviewModal')).toBeVisible();
+  await page.locator('#importPreviewModal [data-preview-cancel]').first().click();
+  await expect(page.locator('#importPreviewModal')).toBeHidden();
+  await expect(page.locator('#refreshNow')).toBeEnabled();
+  await expect(page.locator('#statusMessage')).toContainText('Import cancelled. Nothing changed.');
+  await expect(page.locator('#rankingTable')).toContainText('No ranking data');
+  expect(state.recordActions.filter(action => action === 'publish')).toHaveLength(0);
+  expect(state.savedRows).toHaveLength(0);
+});

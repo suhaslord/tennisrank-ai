@@ -211,7 +211,9 @@
     controller.refresh().then(() => {
       win.setStatus?.(successMessage || 'Connected Sheet verified and saved.');
     }).catch(error => {
-      if (error?.code !== 'STALE_SHEET_REFRESH' && error?.code !== 'IMPORT_CANCELLED') {
+      if (error?.code === 'IMPORT_CANCELLED') {
+        win.setStatus?.('Import cancelled. The live board was not changed.');
+      } else if (error?.code !== 'STALE_SHEET_REFRESH') {
         win.setStatus?.(error?.message || 'Connected Sheet refresh failed.', true);
       }
     }).finally(() => win.setBusy?.(button, false));
