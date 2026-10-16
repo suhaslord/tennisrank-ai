@@ -141,6 +141,9 @@ jobs:
           sleep 2
           if ! npx playwright test \
             qa/ai-import.spec.js \
+            qa/coach-reset.spec.js \
+            qa/brand-logo.spec.js \
+            qa/editorial-visual.spec.js \
             qa/auth-flow.spec.js \
             qa/account-settings.spec.js \
             qa/connected-sheet-guard.spec.js \

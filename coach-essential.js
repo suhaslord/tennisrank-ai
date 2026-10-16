@@ -42,6 +42,10 @@
       .tr-essential-actions button{min-height:42px}
       .tr-remove-data{border-color:rgba(180,40,40,.25)!important;color:#a92222!important;background:#fff!important}
       .tr-remove-data:hover{background:#fff4f4!important}
+      dialog.tr-remove-dialog{position:fixed;inset:0;width:min(520px,calc(100% - 32px));margin:auto}
+      dialog.tr-remove-dialog::backdrop{background:rgba(7,18,24,.62)}
+      .tr-remove-dialog p{line-height:1.5}
+      .tr-essential-error{flex-basis:100%;margin:0}
       .tr-essential-note{margin:0 0 18px;color:#6d797f;font-size:13px}
       #settingsPanel.tr-essential-open,#accountsPanel.tr-essential-open{margin-top:18px}
 
@@ -104,9 +108,35 @@
     button.innerHTML = busy ? `<i class="ph ph-circle-notch" aria-hidden="true"></i><span>${label || 'Working…'}</span>` : button.dataset.originalText;
   }
 
+  function confirmRemoval(win) {
+    const doc = win.document;
+    if (doc.getElementById('trRemoveDataDialog')) return Promise.resolve(false);
+    const dialog = doc.createElement('dialog');
+    dialog.id = 'trRemoveDataDialog';
+    dialog.className = 'coach-modal tr-remove-dialog';
+    dialog.setAttribute('aria-labelledby', 'trRemoveDataTitle');
+    dialog.setAttribute('aria-describedby', 'trRemoveDataDescription');
+    dialog.innerHTML = `<h2 id="trRemoveDataTitle">Remove team data?</h2>
+      <p id="trRemoveDataDescription">All imported matches and live rankings will be cleared. Player accounts stay. A rollback snapshot is kept in Import History.</p>
+      <form method="dialog" class="coach-modal-actions">
+        <button type="submit" value="cancel" class="secondary-button" autofocus>Keep data</button>
+        <button type="submit" value="remove" class="secondary-button tr-remove-data">Remove data</button>
+      </form>`;
+    doc.body.appendChild(dialog);
+    return new Promise(resolve => {
+      dialog.addEventListener('close', () => {
+        const confirmed = dialog.returnValue === 'remove';
+        dialog.remove();
+        resolve(confirmed);
+      }, { once: true });
+      dialog.showModal();
+    });
+  }
+
   async function removeData(win, button) {
-    const confirmed = win.confirm('Remove all imported match data and clear the live leaderboard? Player accounts will stay. A rollback snapshot is kept in Import History.');
+    const confirmed = await confirmRemoval(win);
     if (!confirmed) return;
+    win.document.getElementById('trRemoveDataError')?.remove();
     setBusy(button, true, 'Removing…');
     try {
       const response = await win.TennisRankAuth.fetch('/api/records', {
@@ -127,7 +157,12 @@
       }
       win.setTimeout?.(() => win.location.reload(), 350);
     } catch (error) {
-      win.alert(error.message || 'The data could not be removed.');
+      const message = win.document.createElement('p');
+      message.id = 'trRemoveDataError';
+      message.className = 'status-message error tr-essential-error';
+      message.setAttribute('role', 'alert');
+      message.textContent = error.message || 'The data could not be removed. Try again.';
+      win.document.getElementById(BAR_ID)?.appendChild(message);
       setBusy(button, false);
     }
   }
