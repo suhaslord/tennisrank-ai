@@ -54,6 +54,8 @@ calibration.wrapImporter(importer, ml);
   assert.match(prompt, /Boys Singles, Girls Singles, Boys Doubles, and Girls Doubles/i);
   assert.match(prompt, /0-0 entries/i, "roster-only newcomer behavior is frozen into the AI contract");
   assert.match(prompt, /one team identity/i, "doubles teams cannot be split by the AI verifier");
+  assert.match(prompt, /map the main athlete to name, the other athlete to opponent, and W\/L to result/, "row-per-player logs require a complete canonical identity pair");
+  assert.match(prompt, /Never mix player1 with opponent or name with player2/, "AI must use one consistent match schema");
   assert.match(prompt, /must never override explicit Coach Lokesh-style match rows/i, "aggregate standings cannot supersede explicit match evidence");
 }
 
