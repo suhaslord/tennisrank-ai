@@ -45,7 +45,7 @@ jobs:
           node --check tesla-motion.js
           node --check brand-assets.js
       - name: Install Playwright runner
-        run: npm install --no-save @playwright/test@1.55.0
+        run: npm install --no-save @playwright/test@1.56.1
       - name: Run deep visual and motion checks
         env:
           QA_BASE: http://127.0.0.1:4173/qa-index.html

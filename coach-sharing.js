@@ -14,7 +14,7 @@
   function parts(value) { return clean(value).split(/\s+(?:&|and|\+|\/|vs\.?|versus)\s+/i).map(identity).filter(Boolean); }
   function belongs(value, playerName) { const target = identity(playerName); return Boolean(target && (identity(value) === target || parts(value).includes(target))); }
   function boardTitle(gender, division) {
-    const g = gender === "girls" ? "Girls" : gender === "boys" ? "Boys" : "All teams";
+    const g = gender === "girls" ? "Girls" : gender === "boys" ? "Boys" : gender === "mixed" ? "Mixed" : "All teams";
     const d = division === "doubles" ? "Doubles" : division === "singles" ? "Singles" : "Singles + Doubles";
     return `${g} ${d}`;
   }
@@ -22,6 +22,7 @@
     const parts = ["RIHS"];
     if (gender === "boys") parts.push("Boys");
     if (gender === "girls") parts.push("Girls");
+    if (gender === "mixed") parts.push("Mixed");
     if (division === "singles") parts.push("Singles");
     if (division === "doubles") parts.push("Doubles");
     parts.push("Tennis Rankings");
@@ -94,6 +95,11 @@
       return calculated;
     }
     function currentFilters() {
+      const board = win.document.querySelector('[data-ladder-board][aria-selected="true"]')?.dataset.ladderBoard;
+      if (board) {
+        const [gender, division] = board.split("|");
+        return { gender, division };
+      }
       return {
         gender: win.document.querySelector('.filter-chip.active[data-gender]')?.dataset.gender || "all",
         division: win.document.querySelector('.filter-chip.active[data-division]')?.dataset.division || "all",
@@ -115,19 +121,29 @@
       const controls = win.document.createElement("div");
       controls.id = "rankingShareControls";
       controls.className = "ranking-share-controls admin-only";
-      controls.innerHTML = `<button type="button" class="secondary-button" data-share-rankings="copy"><i class="ph ph-copy"></i><span>Copy rankings</span></button><button type="button" class="secondary-button" data-share-rankings="csv"><i class="ph ph-download-simple"></i><span>CSV</span></button><button type="button" class="secondary-button" data-share-rankings="print"><i class="ph ph-printer"></i><span>Print</span></button>`;
+      controls.innerHTML = `<button type="button" class="secondary-button" data-share-rankings="copy" aria-label="Copy rankings" title="Copy rankings"><i class="ph ph-copy" aria-hidden="true"></i><span>Copy rankings</span></button><button type="button" class="secondary-button" data-share-rankings="csv" aria-label="Download rankings CSV" title="Download rankings CSV"><i class="ph ph-download-simple" aria-hidden="true"></i><span>CSV</span></button><button type="button" class="secondary-button" data-share-rankings="print" aria-label="Print rankings" title="Print rankings"><i class="ph ph-printer" aria-hidden="true"></i><span>Print</span></button>`;
       heading.appendChild(controls);
       controls.addEventListener("click", async event => {
-        const button = event.target.closest("[data-share-rankings]"); if (!button) return;
-        const data = await loadCalculated(); const filters = currentFilters(); const action = button.dataset.shareRankings;
-        if (action === "copy") { await copyText(rankingsText(data.rankings, filters)); toast("Rankings copied — ready for the team chat."); }
-        if (action === "csv") {
-          const blob = new Blob([rankingsCsv(data.rankings, filters)], { type:"text/csv;charset=utf-8" }); const url = URL.createObjectURL(blob); const a = win.document.createElement("a"); a.href=url; a.download=`rihs-tennis-${filters.gender}-${filters.division}-rankings.csv`; a.click(); setTimeout(()=>URL.revokeObjectURL(url),1000); toast("CSV downloaded.");
-        }
-        if (action === "print") {
-          const text = rankingsText(data.rankings, filters); const popup = win.open("", "_blank", "width=860,height=900"); if (!popup) { toast("Allow pop-ups to open the print view."); return; }
-          try { popup.opener = null; } catch (_) {}
-          popup.document.write(`<!doctype html><meta charset="utf-8"><title>RIHS Tennis Rankings</title><style>body{font-family:Arial,sans-serif;max-width:760px;margin:48px auto;color:#111;white-space:pre-wrap;line-height:1.55}h1{font-size:28px} @media print{body{margin:24px}}</style><h1>RIHS Tennis Rankings</h1><div>${escapeHtml(text).replaceAll("\n","<br>")}</div><script>window.onload=()=>window.print()<\/script>`); popup.document.close();
+        const button = event.target.closest("[data-share-rankings]"); if (!button || button.disabled) return;
+        const filters = currentFilters(); const action = button.dataset.shareRankings;
+        button.disabled = true;
+        button.setAttribute("aria-busy", "true");
+        try {
+          const data = await loadCalculated();
+          if (action === "copy") { await copyText(rankingsText(data.rankings, filters)); toast("Rankings copied — ready for the team chat."); }
+          if (action === "csv") {
+            const blob = new Blob([rankingsCsv(data.rankings, filters)], { type:"text/csv;charset=utf-8" }); const url = URL.createObjectURL(blob); const a = win.document.createElement("a"); a.href=url; a.download=`rihs-tennis-${filters.gender}-${filters.division}-rankings.csv`; a.click(); setTimeout(()=>URL.revokeObjectURL(url),1000); toast("CSV downloaded.");
+          }
+          if (action === "print") {
+            const text = rankingsText(data.rankings, filters); const popup = win.open("", "_blank", "width=860,height=900"); if (!popup) { toast("Allow pop-ups to open the print view."); return; }
+            try { popup.opener = null; } catch (_) {}
+            popup.document.write(`<!doctype html><meta charset="utf-8"><title>RIHS Tennis Rankings</title><style>body{font-family:Arial,sans-serif;max-width:760px;margin:48px auto;color:#111;white-space:pre-wrap;line-height:1.55}h1{font-size:28px} @media print{body{margin:24px}}</style><h1>RIHS Tennis Rankings</h1><div>${text.split("\n").map(escapeHtml).join("<br>")}</div><script>window.onload=()=>window.print()<\/script>`); popup.document.close();
+          }
+        } catch (error) {
+          toast(`Could not share rankings. ${error.message || "Please try again."}`);
+        } finally {
+          button.disabled = false;
+          button.removeAttribute("aria-busy");
         }
       });
     }
