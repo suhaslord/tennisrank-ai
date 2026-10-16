@@ -116,6 +116,16 @@
         plan.push(item);
       }
     }
+    // Both formats describe the same ordered sides; providers sometimes mix aliases.
+    if (byTarget.has("result")) {
+      if (byTarget.has("player1") && byTarget.has("opponent") && !byTarget.has("name") && !byTarget.has("player2")) {
+        const index = plan.indexOf(byTarget.get("player1"));
+        plan[index] = { ...plan[index], target: "name" };
+      } else if (byTarget.has("name") && byTarget.has("player2") && !byTarget.has("player1") && !byTarget.has("opponent")) {
+        const index = plan.indexOf(byTarget.get("player2"));
+        plan[index] = { ...plan[index], target: "opponent" };
+      }
+    }
     return plan;
   }
 
