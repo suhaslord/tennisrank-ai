@@ -1,6 +1,6 @@
 const { test, expect } = require('@playwright/test');
 
-const BASE = 'http://127.0.0.1:4173/qa-ai-index.html';
+const BASE = process.env.QA_BASE || 'http://127.0.0.1:4173/qa-ai-index.html';
 const SUPABASE = 'https://fake.supabase.test';
 
 function bodyOf(request) {
@@ -74,6 +74,77 @@ const multiBoardRows = [
   { winner: 'Ava & Zoe', loser: 'Emma & Mia', score: '6-1', gender: 'Girls', division: 'Doubles', date: '2026-09-15' },
   { winner: 'Olivia & Ravi', loser: 'Ben & Sophia', score: '7-5', gender: 'Mixed', division: 'Doubles', date: '2026-09-15' },
 ];
+
+test('mobile sharing names and exports follow each selected ranking board', async ({ page }) => {
+  await installMocks(page, { rows: multiBoardRows });
+  await page.setViewportSize({ width: 320, height: 740 });
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText: async text => { window.qaCopied = text; } } });
+  });
+  await page.goto(BASE, { waitUntil: 'domcontentloaded' });
+  const copy = page.getByRole('button', { name: 'Copy rankings', exact: true });
+  const csv = page.getByRole('button', { name: 'Download rankings CSV', exact: true });
+  await expect(copy).toBeVisible();
+  await expect(csv).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Print rankings', exact: true })).toBeVisible();
+
+  for (const [board, label, player] of [
+    ['boys|singles', 'Boys Singles', 'Noah'],
+    ['girls|singles', 'Girls Singles', 'Ava'],
+    ['boys|doubles', 'Boys Doubles', 'Ethan & Noah'],
+    ['girls|doubles', 'Girls Doubles', 'Ava & Zoe'],
+    ['mixed|doubles', 'Mixed Doubles', 'Olivia & Ravi'],
+  ]) {
+    await page.locator(`[data-ladder-board="${board}"]`).click();
+    await copy.click();
+    await expect.poll(() => page.evaluate(() => window.qaCopied)).toContain(`RIHS ${label} Tennis Rankings`);
+    const text = await page.evaluate(() => window.qaCopied);
+    expect(text).toContain(player);
+    expect(text.split('\n').filter(line => /^\d+\./.test(line))).toHaveLength(2);
+    const pendingDownload = page.waitForEvent('download');
+    await csv.click();
+    const download = await pendingDownload;
+    expect(download.suggestedFilename()).toBe(`rihs-tennis-${board.replace('|', '-')}-rankings.csv`);
+    const content = await require('node:fs/promises').readFile(await download.path(), 'utf8');
+    expect(content).toContain(player);
+    expect(content.split('\n')).toHaveLength(3);
+  }
+});
+
+test('sharing failure stays inline and allows a successful retry', async ({ page }) => {
+  const errors = [];
+  page.on('pageerror', error => errors.push(error.message));
+  await installMocks(page, { rows: multiBoardRows });
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText: async () => {
+      if (!window.qaAllowCopy) throw new Error('Clipboard permission denied.');
+    } } });
+  });
+  await page.goto(BASE, { waitUntil: 'domcontentloaded' });
+  const copy = page.getByRole('button', { name: 'Copy rankings', exact: true });
+  await copy.click();
+  await expect(page.locator('#rankingShareToast')).toContainText('Could not share rankings. Clipboard permission denied.');
+  await expect(copy).toBeEnabled();
+  await page.evaluate(() => { window.qaAllowCopy = true; });
+  await copy.click();
+  await expect(page.locator('#rankingShareToast')).toContainText('Rankings copied');
+  await expect(copy).toBeEnabled();
+  expect(errors).toEqual([]);
+});
+
+test('print export preserves ranking lines and escapes player names', async ({ page }) => {
+  await installMocks(page, { rows: [{ winner: 'Ava <QA>', loser: 'Mia', score: '6-4', gender: 'Girls', division: 'Singles' }] });
+  await page.goto(BASE, { waitUntil: 'domcontentloaded' });
+  await page.locator('[data-ladder-board="girls|singles"]').click();
+  await page.evaluate(() => {
+    window.open = () => ({ document: { write: html => { window.qaPrintHtml = html; }, close() {} } });
+  });
+  await page.getByRole('button', { name: 'Print rankings', exact: true }).click();
+  await expect.poll(() => page.evaluate(() => window.qaPrintHtml)).toContain('RIHS Girls Singles Tennis Rankings<br><br>Girls Singles<br>');
+  const html = await page.evaluate(() => window.qaPrintHtml);
+  expect(html).toContain('Ava &lt;QA&gt;');
+  expect(html).not.toContain('Ava <QA>');
+});
 
 test('rankings hero has no tennis court and switches across singles doubles and mixed', async ({ page }) => {
   await installMocks(page, { rows: multiBoardRows });

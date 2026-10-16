@@ -28,7 +28,7 @@ jobs:
           node-version: 22
 
       - name: Install test dependencies
-        run: npm install --no-save @playwright/test@1.55.0 https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz
+        run: npm install --no-save @playwright/test@1.56.1 https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz
 
       - name: Syntax check production code
         run: |

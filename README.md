@@ -9,7 +9,7 @@ See [the final project write-up](devpost-submission.md) for the prior-work discl
 To exercise the frontend without a live database, install the pinned QA dependencies and run the existing mock-backed browser scenarios:
 
 ```sh
-npm install --no-save @playwright/test@1.55.0 https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz
+npm install --no-save @playwright/test@1.56.1 https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz
 npx playwright install chrome
 node qa/server.js
 # In a second terminal:

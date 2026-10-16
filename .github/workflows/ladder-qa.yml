@@ -189,7 +189,7 @@ jobs:
           Path('qa-ai-index.html').write_text(html)
           PY
       - name: Install Playwright test runner
-        run: npm install --no-save @playwright/test@1.55.0
+        run: npm install --no-save @playwright/test@1.56.1
       - name: Browser QA — real app, mocked network only
         run: |
           set -euo pipefail

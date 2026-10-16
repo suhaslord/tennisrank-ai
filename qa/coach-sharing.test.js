@@ -16,6 +16,8 @@ assert.match(text, /1\. Aiden Brooks — 4-1/);
 const csv = sharing.rankingsCsv(rankings, { gender:'boys', division:'singles' });
 assert.match(csv, /Rank,Player \/ Team,Gender,Type,Wins,Losses,Win Rate/);
 assert.match(csv, /1,Aiden Brooks,boys,singles,4,1,80%/);
+assert.equal(sharing.boardTitle('mixed', 'doubles'), 'Mixed Doubles');
+assert.match(sharing.rankingsText([], { gender: 'mixed', division: 'doubles' }), /RIHS Mixed Doubles Tennis Rankings/);
 
 const imported = sharing.importedSnapshot([
   { winner:'Aiden Brooks', loser:'Mateo Rivera', date:'2026-08-15', score:'6-3' },

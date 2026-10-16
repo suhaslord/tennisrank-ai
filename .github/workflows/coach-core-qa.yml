@@ -147,7 +147,7 @@ jobs:
           PY
 
       - name: Install Playwright
-        run: npm install --no-save @playwright/test@1.55.0
+        run: npm install --no-save @playwright/test@1.56.1
 
       - name: Browser regression QA
         run: |
