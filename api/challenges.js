@@ -13,12 +13,16 @@ function badRequest(message) {
 
 async function listChallenges(context) {
   const linked = context.profile.role === "admin" ? { linkedPlayer: null } : await findLinkedPlayer(context);
-  const result = await rest(context, "challenges?select=id,challenger_id,defender_id,team_gender,status,proposed_times,scheduled_for,court_location,created_at,responded_at,completed_at&order=created_at.desc&limit=100");
+  if (context.profile.role !== "admin" && !linked.linkedPlayer) {
+    return { challenges: [], linkedPlayer: null, linkState: linked.reason, matches: [] };
+  }
+  const playerId = linked.linkedPlayer ? encodeURIComponent(linked.linkedPlayer.id) : "";
+  const playerFilter = playerId ? `&or=(challenger_id.eq.${playerId},defender_id.eq.${playerId})` : "";
+  const result = await rest(context, `challenges?select=id,challenger_id,defender_id,team_gender,status,proposed_times,scheduled_for,court_location,created_at,responded_at,completed_at${playerFilter}&order=created_at.desc&limit=100`);
   if (!result.response.ok) throw Object.assign(new Error(result.payload.message || "Challenges could not be loaded."), { status: result.response.status });
 
   let challenges = Array.isArray(result.payload) ? result.payload : [];
   if (context.profile.role !== "admin") {
-    if (!linked.linkedPlayer) return { challenges: [], linkedPlayer: null, linkState: linked.reason, matches: [] };
     challenges = challenges.filter(challenge => challenge.challenger_id === linked.linkedPlayer.id || challenge.defender_id === linked.linkedPlayer.id);
   }
 

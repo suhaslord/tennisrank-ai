@@ -56,6 +56,19 @@ test("legacy 8-6 pro-set format remains valid", () => {
   assert.equal(engine.parseScoreSummary("8-6").valid, true);
 });
 
+test("valid five-set matches remain supported", () => {
+  assert.equal(engine.validateWinnerScore("6-4, 4-6, 6-3, 3-6, 6-2").valid, true);
+});
+
+test("six or more sets are rejected before score submission", () => {
+  for (const count of [6, 1000]) {
+    const parsed = engine.validateWinnerScore(Array(count).fill("6-0").join(", "));
+    assert.equal(parsed.valid, false);
+    assert.match(parsed.error, /more than 5 sets/);
+    assert.deepStrictEqual(parsed.sets, []);
+  }
+});
+
 test("10-9 is rejected because a tiebreak must be won by two", () => {
   assert.equal(engine.parseScoreSummary("10-9").valid, false);
 });

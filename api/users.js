@@ -40,13 +40,16 @@ async function rosterPlayer(context, playerId) {
 async function linkDirect(context, player, profileId) {
   if (!player) return null;
   if (player.profile_id && player.profile_id !== profileId) throw Object.assign(new Error("That roster player already has an account."), { status: 409 });
-  const result = await rest(context, `players?id=eq.${encodeURIComponent(player.id)}`, {
+  if (player.profile_id === profileId) return player;
+  const result = await rest(context, `players?id=eq.${encodeURIComponent(player.id)}&profile_id=is.null`, {
     method: "PATCH",
     headers: { Prefer: "return=representation" },
     body: JSON.stringify({ profile_id: profileId, updated_at: new Date().toISOString() }),
   });
   if (!result.response.ok) throw Object.assign(new Error(result.payload.message || "Roster account link failed."), { status: result.response.status });
-  return Array.isArray(result.payload) ? result.payload[0] || player : player;
+  const linkedPlayer = Array.isArray(result.payload) ? result.payload[0] : null;
+  if (!linkedPlayer) throw Object.assign(new Error("That roster player already has an account. Refresh the roster and try again."), { status: 409 });
+  return linkedPlayer;
 }
 
 module.exports = async function handler(req, res) {
