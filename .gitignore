@@ -3,3 +3,5 @@
 .vercel
 node_modules
 *.log
+qa-artifacts/
+test-results*/

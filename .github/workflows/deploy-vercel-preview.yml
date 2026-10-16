@@ -4,17 +4,23 @@ on:
   push:
     branches:
       - release/csc-final-2026-10-04
+  pull_request:
+    branches:
+      - main
 
 permissions:
   contents: read
 
 jobs:
   preview:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     timeout-minutes: 15
     environment: production
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -29,10 +35,17 @@ jobs:
       - name: Build preview
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          PREVIEW_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
-          printf '%s\n' "$GITHUB_SHA" > release-sha.txt
+          printf '%s\n' "$PREVIEW_SHA" > release-sha.txt
           npx --yes vercel@48.2.9 build --token="$VERCEL_TOKEN"
       - name: Deploy preview
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-        run: npx --yes vercel@48.2.9 deploy --prebuilt --token="$VERCEL_TOKEN"
+        run: |
+          npx --yes vercel@48.2.9 deploy --prebuilt --token="$VERCEL_TOKEN" > preview-url.txt
+          cat preview-url.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tennisrank-preview-url
+          path: preview-url.txt

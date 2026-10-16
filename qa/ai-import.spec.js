@@ -1,6 +1,7 @@
 const { test, expect } = require('@playwright/test');
+const XLSX = require('xlsx');
 
-const BASE = 'http://127.0.0.1:4173/qa-ai-index.html';
+const BASE = process.env.QA_BASE || 'http://127.0.0.1:4173/qa-ai-index.html';
 const GOOGLE_SHEET_CSV = [
   'Odd Player,Other Human,Outcome,Final,Team Sex,Event Type',
   'Aiden Shah,Leo Kim,W,6-3 6-4,Boys,Singles',
@@ -43,6 +44,10 @@ function inferMappings(rows) {
 
 async function installAdminMocks(page, options = {}) {
   const profile = { id: 'profile-admin', email: 'coach@example.test', full_name: 'Coach QA', player_name: null, role: 'admin', must_change_password: false };
+  const savedRows = [];
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet(GOOGLE_SHEET_CSV.split('\n').map(row => row.split(','))), 'Results');
+  const workbookBuffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
   await page.addInitScript(({ profile }) => {
     const now = Math.floor(Date.now() / 1000);
     localStorage.setItem('tennisRankAuthSessionV1', JSON.stringify({
@@ -54,7 +59,7 @@ async function installAdminMocks(page, options = {}) {
   }, { profile });
 
   await page.route('https://cdn.jsdelivr.net/**', route => route.fulfill({ status: 200, contentType: 'text/css', body: '' }));
-  await page.route('https://cdn.sheetjs.com/**', route => route.fulfill({ status: 200, contentType: 'application/javascript', body: 'window.XLSX = window.XLSX || {};' }));
+  await page.route('https://cdn.sheetjs.com/**', route => route.fulfill({ status: 200, contentType: 'application/javascript', path: require.resolve('xlsx/dist/xlsx.full.min.js') }));
 
   await page.route('**/api/**', async route => {
     const request = route.request();
@@ -66,13 +71,19 @@ async function installAdminMocks(page, options = {}) {
     if (path === '/api/users') return route.fulfill(ok({ profiles: [] }));
     if (path === '/api/ladder') return route.fulfill(ok(emptyLadder()));
     if (path === '/api/challenges') return route.fulfill(ok({ challenges: [] }));
+    if (path === '/api/admin/seed-ladder') return route.fulfill(ok({ seeded: bodyOf(request).players.length }));
+    if (path === '/api/sheet-workbook') {
+      return route.fulfill({ status: 200, contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', body: workbookBuffer });
+    }
     if (path === '/api/sheet-proxy' && request.method() === 'GET') {
       return route.fulfill({ status: 200, contentType: 'text/csv', body: GOOGLE_SHEET_CSV });
     }
-    if (path === '/api/records' && request.method() === 'GET') return route.fulfill(ok({ rows: [], count: 0 }));
+    if (path === '/api/records' && request.method() === 'GET') return route.fulfill(ok({ rows: savedRows, count: savedRows.length, snapshots: [] }));
     if (path === '/api/records' && request.method() === 'POST') {
       const body = bodyOf(request);
-      return route.fulfill(ok({ saved: Array.isArray(body.rows) ? body.rows.length : 0 }));
+      if (body.action === 'preview') return route.fulfill(ok({ previewHash: 'ai-import-qa', rowCount: body.rows.length, warnings: [] }));
+      savedRows.splice(0, savedRows.length, ...(body.rows || []));
+      return route.fulfill(ok({ saved: savedRows.length }));
     }
     if (path === '/api/ai-analyze-sheet' && request.method() === 'POST') {
       if (options.aiMode === 'unavailable') {
@@ -110,6 +121,18 @@ async function installAdminMocks(page, options = {}) {
     }
     return route.fulfill({ status: 404, contentType: 'application/json', body: JSON.stringify({ error: `Unhandled QA route ${path}` }) });
   });
+  return { savedRows };
+}
+
+function waitForPublish(page) {
+  return page.waitForRequest(request => new URL(request.url()).pathname === '/api/records'
+    && request.method() === 'POST' && bodyOf(request).action === 'publish');
+}
+
+async function confirmPreview(page) {
+  await expect(page.locator('#importPreviewModal')).toBeVisible();
+  await page.locator('[data-preview-confirm]').click();
+  await expect(page.locator('#importPreviewModal')).toBeHidden();
 }
 
 async function openImport(page) {
@@ -138,7 +161,7 @@ test('AI schema verification becomes accurate board rows before backend publicat
   ].join('\n');
 
   const aiRequest = page.waitForRequest(request => new URL(request.url()).pathname === '/api/ai-analyze-sheet' && request.method() === 'POST');
-  const saveRequest = page.waitForRequest(request => new URL(request.url()).pathname === '/api/records' && request.method() === 'POST');
+  const saveRequest = waitForPublish(page);
 
   await page.locator('#csvText').fill(weirdCsv);
   await page.locator('#useCsv').click();
@@ -147,6 +170,7 @@ test('AI schema verification becomes accurate board rows before backend publicat
   const aiBody = bodyOf(aiCall);
   expect(aiBody.rows).toHaveLength(2);
 
+  await confirmPreview(page);
   const saveCall = await saveRequest;
   const saved = bodyOf(saveCall);
   expect(saved.rows).toHaveLength(2);
@@ -187,9 +211,10 @@ test('Coach Lokesh canonical roster and match rows survive even if AI is unavail
     ',Boys,Singles,Aiden Brooks,Mateo Rivera,Aiden Brooks,Mateo Rivera,6-3,2026-08-01',
   ].join('\n');
 
-  const saveRequest = page.waitForRequest(request => new URL(request.url()).pathname === '/api/records' && request.method() === 'POST');
+  const saveRequest = waitForPublish(page);
   await page.locator('#csvText').fill(coachCsv);
   await page.locator('#useCsv').click();
+  await confirmPreview(page);
   const saved = bodyOf(await saveRequest);
   expect(saved.rows).toHaveLength(3);
   expect(saved.rows[0]).toMatchObject({ name: 'Aiden Brooks', gender: 'Boys', division: 'Singles' });
@@ -219,9 +244,10 @@ test('Coach Lokesh doubles teams remain one identity end to end', async ({ page 
     'Marcus Lee & James Park,Boys,Doubles,,,,,,',
     ',Boys,Doubles,Liam Chen & Oliver Davis,Marcus Lee & James Park,Liam Chen & Oliver Davis,Marcus Lee & James Park,8-5,2026-08-01',
   ].join('\n');
-  const saveRequest = page.waitForRequest(request => new URL(request.url()).pathname === '/api/records' && request.method() === 'POST');
+  const saveRequest = waitForPublish(page);
   await page.locator('#csvText').fill(coachCsv);
   await page.locator('#useCsv').click();
+  await confirmPreview(page);
   const saved = bodyOf(await saveRequest);
   expect(saved.rows).toHaveLength(3);
   expect(saved.rows[0].name).toBe('Liam Chen & Oliver Davis');
@@ -253,42 +279,72 @@ test('selected CSV remains the source when the action button is clicked again', 
     'Ravi Patel,Noah Chen,W,6-2 6-4,Boys,Singles',
   ].join('\n');
 
-  const firstSave = page.waitForRequest(request => new URL(request.url()).pathname === '/api/records' && request.method() === 'POST');
+  const firstSave = waitForPublish(page);
   await page.locator('#csvFile').setInputFiles({ name: 'coach-export.csv', mimeType: 'text/csv', buffer: Buffer.from(fileCsv) });
+  await confirmPreview(page);
   const initialSave = bodyOf(await firstSave);
   expect(initialSave.rows).toHaveLength(1);
-  expect(initialSave.rows[0]).toMatchObject({ name: 'Ravi Patel', opponent: 'Noah Chen', result: 'W' });
-  await expect(page.locator('#useCsv span')).toContainText('coach-export.csv');
+  expect(initialSave.rows[0]).toMatchObject({ winner: 'Ravi Patel', loser: 'Noah Chen', result: 'W' });
+  await expect(page.locator('#useCsv')).toBeEnabled();
 
   await page.locator('#csvText').fill('Name,Notes\nWrong Person,This must not replace the selected file');
-  const secondSave = page.waitForRequest(request => new URL(request.url()).pathname === '/api/records' && request.method() === 'POST');
+  const secondSave = waitForPublish(page);
   await page.locator('#useCsv').click();
+  await confirmPreview(page);
   const repeatedSave = bodyOf(await secondSave);
   expect(repeatedSave.rows).toHaveLength(1);
-  expect(repeatedSave.rows[0]).toMatchObject({ name: 'Ravi Patel', opponent: 'Noah Chen', result: 'W' });
+  expect(repeatedSave.rows[0]).toMatchObject({ winner: 'Ravi Patel', loser: 'Noah Chen', result: 'W' });
   expect(JSON.stringify(repeatedSave.rows)).not.toContain('Wrong Person');
 });
 
-test('Google Sheet Connect uses the server proxy and publishes verified CSV rows', async ({ page }) => {
+test('Google Sheet Connect uses the workbook proxy and publishes verified match rows', async ({ page }) => {
   await installAdminMocks(page);
   await openImport(page);
   await page.locator('#tabSheet').click();
   await expect(page.locator('#sheetSource')).toBeVisible();
 
-  const proxyRequest = page.waitForRequest(request => new URL(request.url()).pathname === '/api/sheet-proxy' && request.method() === 'GET');
-  const saveRequest = page.waitForRequest(request => new URL(request.url()).pathname === '/api/records' && request.method() === 'POST');
+  const proxyRequest = page.waitForRequest(request => new URL(request.url()).pathname === '/api/sheet-workbook' && request.method() === 'GET');
+  const saveRequest = waitForPublish(page);
   await page.locator('#sheetUrl').fill('https://docs.google.com/spreadsheets/d/fake-sheet-id/edit?gid=401074214#gid=401074214');
   await page.locator('#connectSheet').click();
 
   const proxy = await proxyRequest;
   const proxyUrl = new URL(proxy.url());
-  expect(proxyUrl.searchParams.get('url')).toContain('docs.google.com/spreadsheets/d/fake-sheet-id/export');
-  expect(proxyUrl.searchParams.get('url')).toContain('gid=401074214');
+  expect(proxyUrl.searchParams.get('url')).toContain('docs.google.com/spreadsheets/d/fake-sheet-id/edit');
 
+  await confirmPreview(page);
   const saved = bodyOf(await saveRequest);
   expect(saved.rows).toHaveLength(2);
   expect(saved.rows[0]).toMatchObject({ name: 'Aiden Shah', opponent: 'Leo Kim', result: 'W' });
   expect(saved.rows[1]).toMatchObject({ name: 'Maya Lee', opponent: 'Zoe Rivera', result: 'L' });
   await expect(page.locator('#statusMessage')).toContainText(/Google Sheet verified|saved/i);
   await expect(page.locator('#analyzerTitle')).toContainText('2 matches recognized from 2 rows');
+});
+
+test('single-row paste preserves the actual opponent through preview and publication', async ({ page }) => {
+  const state = await installAdminMocks(page);
+  await openCsvImport(page);
+  await page.locator('#csvText').fill('Opaque A,Opaque B,Opaque C,Opaque D,Opaque E,Opaque F\nRavi Patel,Noah Chen,W,6-2 6-4,Boys,Singles');
+  await page.locator('#useCsv').click();
+  await expect(page.locator('#importPreviewModal')).toBeVisible();
+  expect(state.savedRows).toHaveLength(0);
+  await expect(page.locator('#importPreviewBody')).toContainText('Noah Chen');
+  await confirmPreview(page);
+  await expect.poll(() => state.savedRows.length).toBe(1);
+  expect(state.savedRows[0]).toMatchObject({ winner: 'Ravi Patel', loser: 'Noah Chen', division: 'Singles' });
+  await expect(page.locator('#rankingTable')).toContainText('Noah Chen');
+  await expect(page.locator('#statusMessage')).toContainText('saved');
+  await page.locator('#rankingTable').scrollIntoViewIfNeeded();
+  await page.screenshot({ path: 'qa-artifacts/opponent-import-fixed.png' });
+});
+
+test('low-certainty opaque import stays unpublished when AI is unavailable', async ({ page }) => {
+  const state = await installAdminMocks(page, { aiMode: 'unavailable' });
+  await openCsvImport(page);
+  await page.locator('#csvText').fill('Opaque A,Opaque B,Opaque C,Opaque D,Opaque E,Opaque F\nRavi Patel,Noah Chen,W,6-2 6-4,Boys,Singles');
+  await page.locator('#useCsv').click();
+  await expect(page.locator('#statusMessage')).toContainText('85%');
+  await expect(page.locator('#useCsv')).toBeEnabled();
+  await expect(page.locator('#importPreviewModal')).toBeHidden();
+  expect(state.savedRows).toHaveLength(0);
 });
