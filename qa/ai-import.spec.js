@@ -72,6 +72,7 @@ async function installAdminMocks(page, options = {}) {
     if (path === '/api/ladder') return route.fulfill(ok(emptyLadder()));
     if (path === '/api/challenges') return route.fulfill(ok({ challenges: [] }));
     if (path === '/api/admin/seed-ladder') return route.fulfill(ok({ seeded: bodyOf(request).players.length }));
+    if (['/api/sheet-workbook', '/api/sheet-proxy'].includes(path) && !/^Bearer .+/.test(request.headers().authorization || '')) return route.fulfill({ status: 401, contentType: 'application/json', body: JSON.stringify({error:'Sign in is required.'}) });
     if (path === '/api/sheet-workbook') {
       return route.fulfill({ status: 200, contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', body: workbookBuffer });
     }

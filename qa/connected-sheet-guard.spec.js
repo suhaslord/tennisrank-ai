@@ -31,7 +31,9 @@ async function installMocks(page) {
   await page.route('**/api/ladder**', route => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ladder: [], settings: [{ team_gender: 'boys', max_challenge_distance: 3 }, { team_gender: 'girls', max_challenge_distance: 3 }], viewer: { role: 'admin' }, needsAttention: {}, teamStatus: {}, audit: [], undoCandidates: [], missingAccounts: [], importWarnings: [] }) }));
   await page.route('**/api/admin/seed-ladder', route => route.fulfill({ status: 201, contentType: 'application/json', body: JSON.stringify({ seeded: 2 }) }));
   await page.route('**/api/ai-analyze-sheet', route => route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ error: 'AI should not be required for this clean fixture.' }) }));
-  await page.route('**/api/sheet-proxy?*', route => route.fulfill({
+  await page.route('**/api/sheet-proxy?*', route => {
+    expect(route.request().headers().authorization).toBe('Bearer qa-access');
+    return route.fulfill({
     status: 200,
     contentType: 'text/csv',
     body: [
@@ -39,7 +41,8 @@ async function installMocks(page) {
       'Noah Williams,Liam Chen,W,6-3,Boys,Singles,2026-09-15',
       'Ethan Kim,Jack Park,W,6-4,Boys,Singles,2026-09-15',
     ].join('\n'),
-  }));
+    });
+  });
 
   await page.route('**/api/records**', route => {
     const request = route.request();
