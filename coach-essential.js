@@ -31,7 +31,12 @@
       html.tr-admin-essential #settingsPanel .backend-row,
       html.tr-admin-essential #settingsPanel .format-guide{display:none!important}
 
-      html.tr-admin-essential main{padding-top:18px}
+      html.tr-essential body main#top{padding-top:108px!important}
+      html.tr-essential body .ladder-experience .ladder-kicker,
+      html.tr-essential body .ladder-experience .ladder-empty,
+      html.tr-essential body .ladder-experience .ladder-player-meta,
+      html.tr-essential body .ladder-experience .ladder-metric-label,
+      html.tr-essential body .ladder-experience small{color:var(--tr-layout-muted,#676b63)!important}
       html.tr-admin-essential #rankingsSection{margin-top:12px}
 
       .tr-essential-bar{display:flex;align-items:center;justify-content:space-between;gap:18px;flex-wrap:wrap;margin:12px 0 26px;padding:18px 20px;border:1px solid rgba(23,26,32,.10);border-radius:18px;background:#fff;box-shadow:0 10px 30px rgba(23,26,32,.05)}
@@ -54,6 +59,9 @@
         .tr-essential-actions{display:grid;grid-template-columns:1fr 1fr;width:100%}
         .tr-essential-actions button{width:100%;justify-content:center}
         .tr-essential-actions .tr-remove-data{grid-column:1/-1}
+      }
+      @media(max-width:600px){
+        html.tr-essential body main#top{padding-top:72px!important}
       }
     `;
     doc.head.appendChild(style);
