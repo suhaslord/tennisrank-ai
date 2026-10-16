@@ -81,8 +81,8 @@ begin
     returning id into v_snapshot_id;
   end if;
 
-  delete from public.tennis_records;
-  delete from public.ladder_entries;
+  delete from public.tennis_records where record_key is not null;
+  delete from public.ladder_entries where team_gender in ('boys', 'girls');
 
   insert into public.audit_logs(actor_profile_id, action_type, target_type, target_id, metadata)
   values(
