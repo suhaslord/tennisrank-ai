@@ -109,7 +109,7 @@ async function ladderNames(page) {
 for(const width of [320,1440]) test(`editorial layout ${width}`,async({page})=>{
  await page.setViewportSize({width,height:950});await page.emulateMedia({reducedMotion:'reduce'});
  await installImportSyncMocks(page);await page.goto(BASE);await expect(page.locator('#appShell')).toBeVisible();
- await expect(page.locator('.hero-content h1')).toContainText('One team.');
+ await expect(page.locator('.hero-content h1')).toContainText('See the team.');
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
  expect(await page.locator('.court-ribbon').first().evaluate(el=>getComputedStyle(el).animationName)).toBe('none');
  await expect(page.locator('.hero-photo')).toBeHidden();

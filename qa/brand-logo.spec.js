@@ -6,7 +6,9 @@ test('TennisRank logo system stays crisp and non-disruptive', async ({ page }) =
   await page.goto(base, { waitUntil: 'networkidle' });
 
   const authMark = page.locator('.auth-brand-lockup .tr-logo-mark');
-  await expect(authMark).toBeVisible();
+  await expect(authMark).toBeHidden();
+  await expect(page.locator('#authGate .auth-card')).toBeVisible();
+  await expect(page.locator('#authTitle')).toHaveText('Welcome back.');
   await expect(page.locator('.topbar .tr-logo-wordmark')).toHaveCount(1);
   await expect(page.locator('#accountAvatar .tr-logo-mark')).toHaveCount(1);
 
@@ -20,6 +22,7 @@ test('TennisRank logo system stays crisp and non-disruptive', async ({ page }) =
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   expect(overflow).toBeLessThanOrEqual(1);
 
-  const mobileTextDisplay = await page.locator('.tr-logo-wordmark-text').evaluate(el => getComputedStyle(el).display);
-  expect(mobileTextDisplay).toBe('none');
+  const mobileCard = await page.locator('#authGate .auth-card').boundingBox();
+  expect(mobileCard.x).toBeGreaterThanOrEqual(0);
+  expect(mobileCard.x + mobileCard.width).toBeLessThanOrEqual(390);
 });

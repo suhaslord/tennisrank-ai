@@ -8,7 +8,7 @@ async function scenario(options, run) {
   const env = [process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY];
   process.env.SUPABASE_URL = 'https://auth.example.test';
   process.env.SUPABASE_SERVICE_ROLE_KEY = 'service-test';
-  const state = {profiles:options.existing ? [{id:'existing',email:'player@example.test'}] : [], events:[], deleted:[], recovery:[], passwordUpdates:0, cleared:false};
+  const state = {profiles:options.existing ? [{id:'existing',email:'player@example.test'}] : [], events:[], deleted:[], recovery:[], passwordUpdates:0, cleared:false, player:options.player ? {...options.player} : null, authCount:0};
   global.fetch = async (input, init={}) => {
     const url = new URL(input); const path = url.pathname; const method = init.method || 'GET';
     const body = init.body ? JSON.parse(init.body) : {};
@@ -24,7 +24,8 @@ async function scenario(options, run) {
     if(path==='/auth/v1/admin/users' && method==='POST') {
       if(options.authError) return reply({msg:'Email already exists'},422);
       state.newPassword=body.password;
-      return reply({id:'new-user'});
+      state.authCount++;
+      return reply({id:`new-user-${state.authCount}`});
     }
     if(path.startsWith('/auth/v1/admin/users/') && method==='DELETE') { state.deleted.push(path); return reply({}); }
     if(path==='/auth/v1/recover') {
@@ -40,9 +41,16 @@ async function scenario(options, run) {
       }
       if(method==='PATCH') {state.cleared=true;return reply([{id:'viewer',must_change_password:false}]);}
       if(url.searchParams.get('id')==='eq.viewer') return reply([{id:'viewer',role:options.role||'admin',must_change_password:Boolean(options.pending)}]);
-      return reply(state.profiles);
+      return reply(state.profiles.filter(profile => !url.searchParams.has('email') || url.searchParams.get('email') === `eq.${profile.email}`));
     }
-    if(path==='/rest/v1/players') return reply([]);
+    if(path==='/rest/v1/players') {
+      if(method==='PATCH') {
+        if(!state.player || (url.searchParams.get('profile_id')==='is.null' && state.player.profile_id)) return reply([]);
+        state.player.profile_id=body.profile_id;
+        return reply([{...state.player}]);
+      }
+      return reply(state.player ? [{...state.player}] : []);
+    }
     throw new Error(`Unhandled mock ${method} ${path}`);
   };
   try {await run(state);} finally {global.fetch=previous;env.forEach((v,i)=>{const k=['SUPABASE_URL','SUPABASE_SERVICE_ROLE_KEY'][i];if(v===undefined)delete process.env[k];else process.env[k]=v;});}
@@ -91,6 +99,21 @@ test('duplicate account sends no email and does not alter existing account',()=>
 }));
 test('failed profile creation rolls back the newly created auth user before any email',()=>scenario({profileError:true},async state=>{
   const result=await invoke(users,account);assert.equal(result.code,503);assert.equal(state.deleted.length,1);assert.equal(state.recovery.length,0);
+}));
+
+test('concurrent account creation cannot overwrite one roster player link',()=>scenario({player:{id:'roster-player',profile_id:null,display_name:'Roster Player'}},async state=>{
+  const results=await Promise.all(['first','second'].map(name=>invoke(users,{
+    email:`${name}@example.test`,playerId:'roster-player',role:'player',
+    deliveryMethod:'manual',temporaryPassword:'test-password-123',
+  })));
+  assert.deepEqual(results.map(result=>result.code).sort(),[201,409]);
+  const winner=results.find(result=>result.code===201);
+  assert.equal(state.player.profile_id,winner.body.profile.id,'the winning account remains linked');
+  assert.equal(winner.body.linkedPlayerId,'roster-player');
+  assert.equal(state.authCount,2,'both requests passed the initial unclaimed-player read');
+  assert.equal(state.deleted.length,1,'only the account that lost the claim is rolled back');
+  assert.ok(!state.deleted[0].endsWith(winner.body.profile.id));
+  assert.equal(state.recovery.length,0,'the losing claim never sends an invitation');
 }));
 for(const options of [{role:'player'},{pending:true}]) test(`account admin access enforced ${JSON.stringify(options)}`,()=>scenario(options,async state=>{
   const result=await invoke(users,account);assert.equal(result.code,403);assert.equal(state.recovery.length,0);assert.equal(state.newPassword,undefined);
