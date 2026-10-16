@@ -80,7 +80,9 @@ console.log('render rewrite tests passed');
 
 // Rendering must use deployed files even when an external CDN is unavailable.
 const fs = require('node:fs');
-const html = render.rewrite(fs.readFileSync(require('node:path').join(__dirname, '../index.html'), 'utf8'));
+const staticHtml = fs.readFileSync(require('node:path').join(__dirname, '../index.html'), 'utf8');
+const html = render.rewrite(staticHtml);
+assert.equal(render.stripBlockedTeamPhotos(staticHtml), html, 'the static homepage must ship the same runtime as the rendered routes');
 for (const match of html.matchAll(/(?:src|href)="(\/[^"?#]+)"/g)) {
   assert.ok(fs.existsSync(require('node:path').join(__dirname, '..', match[1])), `missing deployed asset ${match[1]}`);
 }
