@@ -1,3 +1,4 @@
+const { allRows } = require("../lib/paged-rest");
 const { randomBytes } = require("node:crypto");
 const { sendSetupEmail } = require("../lib/account-email");
 const { json, authenticatedContext, rest, allowApi, parseBody, serviceHeaders } = require("./_supabase");
@@ -63,7 +64,7 @@ module.exports = async function handler(req, res) {
     if (req.method === "GET") {
       const [profilesResult, playersResult] = await Promise.all([
         rest(context, "profiles?select=id,email,full_name,player_name,role,must_change_password,created_at,updated_at&order=role.asc,full_name.asc"),
-        rest(context, "players?select=id,profile_id,display_name,team_gender,grade_level,division,active_status,created_at,updated_at&order=active_status.asc,team_gender.asc,display_name.asc"),
+        allRows(context, rest, "players?active_status=neq.inactive&select=id,profile_id,display_name,team_gender,grade_level,division,active_status,created_at,updated_at&order=active_status.asc,team_gender.asc,display_name.asc"),
       ]);
       if (!profilesResult.response.ok) return json(res, profilesResult.response.status, { error: profilesResult.payload.message || "Player accounts could not be loaded." });
       if (!playersResult.response.ok) return json(res, playersResult.response.status, { error: playersResult.payload.message || "Roster players could not be loaded." });

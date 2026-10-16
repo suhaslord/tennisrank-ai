@@ -155,7 +155,7 @@
       win.document.body.appendChild(modal); modal.addEventListener("click", e => { if (e.target.closest("[data-player-close]")) { modal.hidden=true; win.document.body.classList.remove("coach-modal-open"); } }); return modal;
     }
     function snapshotCard(snapshot) {
-      return `<button type="button" class="coach-player-snapshot-card" data-player-snapshot="${escapeHtml(snapshot.id)}"><span class="snapshot-rank">${snapshot.currentRank ? `#${snapshot.currentRank}` : "—"}</span><span><b>${escapeHtml(snapshot.name)}</b><small>${snapshot.teamGender === "girls" ? "Girls" : "Boys"} · ${snapshot.division === "jv" ? "JV" : "Varsity"}${snapshot.gradeLevel ? ` · Grade ${snapshot.gradeLevel}` : ""}</small></span><i class="ph ph-caret-right"></i></button>`;
+      return `<button type="button" class="coach-player-snapshot-card" data-player-snapshot="${escapeHtml(snapshot.id)}"><span class="snapshot-rank">${snapshot.currentRank ? `#${snapshot.currentRank}` : "—"}</span><span><b>${escapeHtml(snapshot.name)}</b><small>${snapshot.teamGender === "girls" ? "Girls" : "Boys"} · ${snapshot.division === "jv" ? "JV" : "Varsity"}${snapshot.gradeLevel ? ` · Grade ${snapshot.gradeLevel}` : ""}${["injured", "injury_hold"].includes(snapshot.status) ? " · Injury hold" : ""}</small></span><i class="ph ph-caret-right"></i></button>`;
     }
     async function openSnapshot(id) {
       const snapshot = (coachData?.playerSnapshots || []).find(item => item.id === id); if (!snapshot) return;

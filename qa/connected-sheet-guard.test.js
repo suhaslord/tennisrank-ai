@@ -45,6 +45,8 @@ function fakeWindow({ url = 'https://docs.google.com/spreadsheets/d/team/edit#gi
       async publishRows(_win, rows) { publishCalls += 1; return rows; },
     },
   };
+  win.TennisRankAuth.fetch = win.fetch;
+  win.fetch = async () => { throw new Error("Sheet requests must use authenticated fetch"); };
   return { win, input, parseGate, fetchCalls: () => fetchCalls, publishCalls: () => publishCalls };
 }
 

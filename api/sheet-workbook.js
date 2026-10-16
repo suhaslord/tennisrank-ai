@@ -122,6 +122,8 @@ async function fetchGoogleWorkbook(target, options = {}) {
   throw lastError || Object.assign(new Error('Google Sheets did not respond.'), { name: 'AbortError' });
 }
 
+const { authenticatedContext } = require("./_supabase");
+
 module.exports = async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store');
   res.setHeader('X-Content-Type-Options', 'nosniff');
@@ -135,6 +137,8 @@ module.exports = async function handler(req, res) {
   catch (error) { return res.status(400).json({ error: error.message }); }
 
   try {
+    const context = await authenticatedContext(req);
+    if (context.profile.role !== "admin") return res.status(403).json({ error: "Coach/admin access is required." });
     const result = await fetchGoogleWorkbook(target);
     res.setHeader('X-TennisRank-Sheet-Attempts', String(result.attempts || 1));
     if (!result.ok) return res.status(result.status).json({ error: result.error });
@@ -142,6 +146,7 @@ module.exports = async function handler(req, res) {
     res.setHeader('Content-Disposition', 'inline; filename="tennis-results.xlsx"');
     return res.status(200).send(result.buffer);
   } catch (error) {
+    if (error.status) return res.status(error.status).json({ error: error.message });
     if (error?.name === 'AbortError') return res.status(504).json({ error: 'Google Sheets took too long to respond after retrying. Try again.' });
     return res.status(502).json({ error: error?.message || 'The workbook could not be loaded.' });
   }

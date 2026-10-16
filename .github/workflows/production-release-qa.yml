@@ -81,6 +81,7 @@ jobs:
           node qa/player-link.test.js
           node qa/roster-metadata.test.js
           node qa/render-rewrite.test.js
+          node qa/launch-hardening.test.js
           node qa/ladder-engine.test.js
           node qa/challenge-api.test.js
           node qa/coach-ladder-controls.test.js

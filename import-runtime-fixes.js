@@ -383,7 +383,7 @@
     const importer = win.TennisRankImportV2;
     if (!importer?.googleCsvProxyUrl) throw new Error("Google Sheet support is still loading.");
     const proxyUrl = importer.googleCsvProxyUrl(input);
-    const response = await fetch(proxyUrl, { cache: "no-store" });
+    const response = await win.TennisRankAuth.fetch(proxyUrl, { cache: "no-store" });
     const text = await response.text();
     if (!response.ok) {
       let message = `The sheet could not be loaded (${response.status}).`;

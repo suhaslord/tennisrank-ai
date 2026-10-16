@@ -490,11 +490,11 @@
     if (win.TennisRankAuth?.getProfile?.()?.role !== "admin") return;
     ensureRosterAccountTools(win);
     const payload = await request(win, "/api/users", { method: "GET" });
-    const roster = payload.roster || [];
+    const roster = (payload.roster || []).filter(player => player.active_status !== "inactive");
     const select = win.document.querySelector("#inviteRosterPlayer");
     if (select) {
       const previous = select.value;
-      select.innerHTML = `<option value="">Select imported player…</option>${roster.filter(player => player.active_status === "active" && !player.accountCreated).map(player => `<option value="${escapeHtml(player.id)}">${escapeHtml(player.display_name)} · ${escapeHtml(player.team_gender)} · ${escapeHtml(player.division)}</option>`).join("")}`;
+      select.innerHTML = `<option value="">Select imported player…</option>${roster.filter(player => player.active_status !== "inactive" && !player.accountCreated).map(player => `<option value="${escapeHtml(player.id)}">${escapeHtml(player.display_name)} · ${escapeHtml(player.team_gender)} · ${escapeHtml(player.division)}</option>`).join("")}`;
       if ([...select.options].some(option => option.value === previous)) select.value = previous;
       select.onchange = () => {
         const player = roster.find(item => item.id === select.value);
@@ -505,7 +505,7 @@
       };
     }
     const matrix = win.document.querySelector("#rosterAccountMatrix");
-    if (matrix) matrix.innerHTML = `<div class="roster-account-head"><strong>Imported roster</strong><span>${roster.filter(player => player.accountCreated).length}/${roster.length} accounts created</span></div><div class="roster-account-list">${roster.map(player => `<div class="roster-account-row"><div><b>${escapeHtml(player.display_name)}</b><span>${escapeHtml(player.team_gender)} · ${escapeHtml(player.division)}${player.grade_level ? ` · Grade ${player.grade_level}` : ""}</span></div><span class="account-state ${player.accountCreated ? "created" : "missing"}">${player.accountCreated ? "Account created" : "Not created"}</span>${!player.accountCreated && player.active_status === "active" ? `<button type="button" class="text-button" data-create-account="${escapeHtml(player.id)}">Create</button>` : ""}</div>`).join("")}</div>`;
+    if (matrix) matrix.innerHTML = `<div class="roster-account-head"><strong>Imported roster</strong><span>${roster.filter(player => player.accountCreated).length}/${roster.length} accounts created</span></div><div class="roster-account-list">${roster.map(player => `<div class="roster-account-row"><div><b>${escapeHtml(player.display_name)}</b><span>${escapeHtml(player.team_gender)} · ${escapeHtml(player.division)}${player.grade_level ? ` · Grade ${player.grade_level}` : ""}</span></div><span class="account-state ${player.accountCreated ? "created" : "missing"}">${player.accountCreated ? "Account created" : "Not created"}</span>${!player.accountCreated && player.active_status !== "inactive" ? `<button type="button" class="text-button" data-create-account="${escapeHtml(player.id)}">Create</button>` : ""}</div>`).join("")}</div>`;
     return roster;
   }
 

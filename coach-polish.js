@@ -215,7 +215,7 @@
       throw new Error('The TennisRank importer is not ready yet.');
     }
 
-    const response = await win.fetch(googleWorkbookProxy(input), { cache: 'no-store' });
+    const response = await win.TennisRankAuth.fetch(googleWorkbookProxy(input), { cache: 'no-store' });
     if (!response.ok) throw new Error(await responseError(response, 'The workbook could not be loaded'));
     const buffer = await response.arrayBuffer();
     if (!buffer.byteLength) throw new Error('The workbook did not contain any data.');

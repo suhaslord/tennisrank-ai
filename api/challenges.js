@@ -69,7 +69,8 @@ function normalizeFutureTime(raw, label) {
 }
 
 function normalizeProposedTimes(value) {
-  if (!Array.isArray(value)) return [];
+  if (!Array.isArray(value)) throw badRequest("Propose at least one match time.");
+  if (value.length > 3) throw badRequest("Propose at most three match times.");
   const normalized = [];
   for (const raw of value.slice(0, 3)) normalized.push(normalizeFutureTime(raw, "One of the proposed times"));
   if (!normalized.length) throw badRequest("Propose at least one match time.");
@@ -98,6 +99,8 @@ async function handler(req, res) {
     const context = await authenticatedContext(req);
 
     if (req.method === "GET") {
+      const expired = await rpc(context, "expire_ladder_challenges", {});
+      if (!expired.response.ok) return json(res, expired.response.status, { error: expired.payload.message || "Challenge deadlines could not be checked." });
       return json(res, 200, await listChallenges(context));
     }
 

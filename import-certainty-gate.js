@@ -461,7 +461,7 @@
       const deps = browserDeps(win);
       let rows;
       if (isStandardWorkbookLink(input)) {
-        const response = await win.fetch(workbookProxyUrl(input), { cache: "no-store" });
+        const response = await deps.auth.fetch(workbookProxyUrl(input), { cache: "no-store" });
         if (!response.ok) {
           const payload = await response.json().catch(() => ({}));
           throw new Error(payload.error || `The Google Sheet could not be loaded (${response.status}).`);
@@ -473,7 +473,7 @@
       }
 
       if (!deps.importer?.googleCsvProxyUrl) throw new Error("Google Sheet support is still loading.");
-      const response = await win.fetch(deps.importer.googleCsvProxyUrl(input), { cache: "no-store" });
+      const response = await deps.auth.fetch(deps.importer.googleCsvProxyUrl(input), { cache: "no-store" });
       const text = await response.text();
       if (!response.ok) {
         let message = `The Google Sheet could not be loaded (${response.status}).`;

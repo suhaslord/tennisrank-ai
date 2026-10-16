@@ -29,7 +29,7 @@ function dashboard() {
     ],
     playerSnapshots: [
       { id:'p1', name:'Aiden Brooks', teamGender:'boys', division:'varsity', gradeLevel:12, accountLinked:true, currentRank:1, previousRank:2, seasonStartRank:4, bestRank:1, movement:3, status:'available', officialChallengeRecord:{wins:2,losses:0}, officialForm:[{result:'W',opponent:'Ethan Cole',score:'6-3',verifiedAt:'2026-08-10T20:00:00Z'}], rankHistory:[{oldRank:4,newRank:2,reason:'import_sync',changedAt:'2026-08-01T20:00:00Z'},{oldRank:2,newRank:1,reason:'challenge_result',changedAt:'2026-08-10T20:00:00Z'}] },
-      { id:'p2', name:'Ethan Cole', teamGender:'boys', division:'jv', gradeLevel:9, accountLinked:false, currentRank:2, previousRank:1, seasonStartRank:1, bestRank:1, movement:-1, status:'available', officialChallengeRecord:{wins:0,losses:2}, officialForm:[{result:'L',opponent:'Aiden Brooks',score:'6-3',verifiedAt:'2026-08-10T20:00:00Z'}], rankHistory:[{oldRank:1,newRank:2,reason:'challenge_result',changedAt:'2026-08-10T20:00:00Z'}] },
+      { id:'p2', name:'Ethan Cole', teamGender:'boys', division:'jv', gradeLevel:9, accountLinked:false, currentRank:2, previousRank:1, seasonStartRank:1, bestRank:1, movement:-1, status:'injury_hold', officialChallengeRecord:{wins:0,losses:2}, officialForm:[{result:'L',opponent:'Aiden Brooks',score:'6-3',verifiedAt:'2026-08-10T20:00:00Z'}], rankHistory:[{oldRank:1,newRank:2,reason:'challenge_result',changedAt:'2026-08-10T20:00:00Z'}] },
     ],
     audit: [{ id: 1, action: 'publish_import', actor: 'Coach QA', createdAt: '2026-08-16T20:00:00Z', rankChanges: [] }],
     undoCandidates: [{ id: '11111111-1111-4111-8111-111111111111', teamGender: 'boys', reason: 'manual_move', createdAt: '2026-08-16T20:05:00Z' }],
@@ -91,6 +91,7 @@ test('coach preview, snapshots, sharing, account roster and undo work together',
   page.on('dialog', dialog => dialog.accept());
   await page.goto(APP_URL, { waitUntil: 'domcontentloaded' });
   await expect(page.locator('#appShell')).toBeVisible();
+  await expect(page.locator('[data-player-snapshot="p2"]')).toContainText('Injury hold');
   await expect(page.locator('#coachOpsDashboard')).toBeVisible();
   await expect(page.locator('#rankingShareControls')).toBeVisible();
   await expect(page.locator('#coachPlayerInsights')).toContainText('Aiden Brooks');
