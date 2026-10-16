@@ -44,3 +44,14 @@ test('provider failures safely return local rows',async()=>{
   assert.equal(result,rows); assert.equal(result.__analysis.ai.status,'unavailable');
  }
 });
+
+test('invalid AI mapping names the incomplete fields and keeps publishing blocked', async () => {
+ const ai = schema(.99, [
+  { inputKey: 'athlete', target: 'player1', confidence: .99 },
+  { inputKey: 'versus', target: 'opponent', confidence: .99 },
+  { inputKey: 'outcome', target: 'result', confidence: .99 },
+ ]);
+ await assert.rejects(fresh().enhanceRows([{ athlete: 'Test Alpha', versus: 'Test Beta', outcome: 'W' }], {
+  source: 'file', auth: auth(ai), importer: { validateInterpretation: require('../spreadsheet-ml').assessRows },
+ }), /Detected fields: player1, opponent, result.*Player\/Opponent\/Result.*Nothing was published/);
+});

@@ -138,7 +138,7 @@ async function confirmPreview(page) {
 async function openImport(page) {
   await page.goto(BASE, { waitUntil: 'domcontentloaded' });
   await expect(page.locator('#appShell')).toBeVisible();
-  await page.locator('#openSettings').click();
+  await page.locator('.topbar-links a[href="#settingsPanel"]').click();
   await expect(page.locator('#settingsPanel')).toBeVisible();
 }
 

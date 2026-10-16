@@ -304,7 +304,8 @@
           warnings: [...ai.warnings, "AI remapping did not pass TennisRank validation, so the existing verified interpretation was kept."],
         });
       }
-      throw new Error(`AI found a likely schema, but the remapped rows still failed TennisRank validation: ${after.reason || "ambiguous spreadsheet"}`);
+      const fields = [...new Set(remapped.flatMap(row => Object.keys(row).filter(key => !key.startsWith("__"))))].join(", ");
+      throw new Error(`AI found a likely schema, but the remapped rows still failed TennisRank validation: ${after.reason || "ambiguous spreadsheet"} Detected fields: ${fields || "none"}. Use Player/Opponent/Result or Player 1/Player 2/Result headers for match logs. Nothing was published.`);
     }
 
     if (before.valid && Number(after.confidence || 0) + 0.03 < Number(before.confidence || 0)) {
