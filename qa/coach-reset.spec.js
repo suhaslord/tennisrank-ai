@@ -44,6 +44,7 @@ async function installMocks(page) {
 
 for (const width of [390, 1440]) test(`recoverable reset confirms in-page and persists after reload at ${width}px`, async ({ page }) => {
   await page.setViewportSize({ width, height: 900 });
+  await page.emulateMedia({ reducedMotion: 'reduce' });
   const state = await installMocks(page);
   const remove = page.locator('#trEssentialBar').getByRole('button', { name: 'Remove data', exact: true });
   const dialog = page.getByRole('dialog', { name: 'Remove team data?' });
@@ -75,6 +76,16 @@ for (const width of [390, 1440]) test(`recoverable reset confirms in-page and pe
   expect(state.rows).toHaveLength(0);
   await expect(page.locator('#ladderList')).not.toContainText('Demo Alpha');
   await expect(page.locator('#accountMenu')).toBeVisible();
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await expect.poll(() => page.evaluate(() => {
+    const header = document.querySelector('.topbar').getBoundingClientRect();
+    const intro = document.querySelector('.ladder-kicker').getBoundingClientRect();
+    return intro.top >= header.bottom;
+  })).toBe(true);
+  for (const selector of ['#ladderExperience .ladder-empty', '#ladderExperience .ladder-kicker', '#ladderExperience .ladder-metric-label']) {
+    await expect(page.locator(selector).first()).toHaveCSS('color', 'rgb(103, 107, 99)');
+  }
+  await page.screenshot({ path: `qa-artifacts/launch-empty-${width}.png` });
 });
 
 test('reset failure keeps saved rows and allows retry', async ({ page }) => {
