@@ -1,4 +1,5 @@
 const crypto = require("node:crypto");
+const { playerRecords } = require("../lib/player-records");
 const { json, authenticatedContext, rest, rpc, allowApi, parseBody } = require("./_supabase");
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -93,7 +94,9 @@ module.exports = async function handler(req, res) {
       }
 
       const current = await currentRows(context);
-      return json(res, 200, current);
+      if (context.profile.role === "admin") return json(res, 200, current);
+      const visibleRows = playerRecords(current.rows);
+      return json(res, 200, { rows: visibleRows, count: visibleRows.length });
     }
 
     if (req.method === "POST") {

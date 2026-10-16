@@ -86,6 +86,7 @@ async function historyScenario({ role = 'player', linked = true, side = 'challen
     if (url.pathname === '/rest/v1/challenge_matches') {
       return reply(url.searchParams.get('challenge_id').includes(oldChallenge.id) ? [{ id: 'target-match', challenge_id: oldChallenge.id }] : []);
     }
+    if (url.pathname === '/rest/v1/rpc/expire_ladder_challenges') return reply(0);
     if (url.pathname === '/rest/v1/rpc/submit_ladder_match') { state.rpcCalls += 1; return reply('match-id'); }
     throw new Error(`Unexpected mock request: ${init.method || 'GET'} ${url.pathname}`);
   };

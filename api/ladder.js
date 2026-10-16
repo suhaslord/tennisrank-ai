@@ -1,3 +1,4 @@
+const { allRows } = require("../lib/paged-rest");
 const { json, authenticatedContext, rest, rpc, allowApi, parseBody } = require("./_supabase");
 const { findLinkedPlayer } = require("../lib/player-link");
 const { loadCoachData, buildPayload } = require("../lib/coach-dashboard");
@@ -8,8 +9,8 @@ async function standardLadder(context) {
     : { linkedPlayer: null, reason: "admin" };
 
   const [entriesResult, playersResult, settingsResult] = await Promise.all([
-    rest(context, "ladder_entries?select=player_id,team_gender,rank_position,previous_rank_position,status,updated_at&order=team_gender.asc,rank_position.asc"),
-    rest(context, "players?select=id,profile_id,display_name,team_gender,grade_level,division,active_status"),
+    allRows(context, rest, "ladder_entries?select=player_id,team_gender,rank_position,previous_rank_position,status,updated_at&order=team_gender.asc,rank_position.asc"),
+    allRows(context, rest, "players?select=id,profile_id,display_name,team_gender,grade_level,division,active_status&order=id.asc"),
     rest(context, "team_settings?select=team_gender,max_challenge_distance,cooldown_hours,response_deadline_hours,challenge_expiration_hours,injury_rank_protection"),
   ]);
 
@@ -32,14 +33,14 @@ async function standardLadder(context) {
   if (linkedPlayer?.id) {
     const historyResult = await rest(
       context,
-      `rank_history?select=id,old_rank,new_rank,reason,challenge_match_id,changed_at&player_id=eq.${encodeURIComponent(linkedPlayer.id)}&order=changed_at.asc&limit=100`,
+      `rank_history?select=id,old_rank,new_rank,reason,challenge_match_id,changed_at&player_id=eq.${encodeURIComponent(linkedPlayer.id)}&order=changed_at.desc,id.desc&limit=100`,
     );
     if (!historyResult.response.ok) {
       const error = new Error(historyResult.payload.message || "Player rank history could not be loaded.");
       error.status = historyResult.response.status;
       throw error;
     }
-    rankHistory = Array.isArray(historyResult.payload) ? historyResult.payload : [];
+    rankHistory = Array.isArray(historyResult.payload) ? [...historyResult.payload].reverse() : [];
   }
 
   return {
@@ -68,6 +69,8 @@ module.exports = async function handler(req, res) {
     const mode = String(req.query?.mode || "").trim().toLowerCase();
 
     if (req.method === "GET") {
+      const expired = await rpc(context, "expire_ladder_challenges", {});
+      if (!expired.response.ok) return json(res, expired.response.status, { error: expired.payload.message || "Challenge deadlines could not be checked." });
       if (mode === "coach") {
         if (context.profile.role !== "admin") return json(res, 403, { error: "Coach/admin access is required." });
         const data = await loadCoachData(context, rest);

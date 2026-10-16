@@ -721,7 +721,7 @@ async function fetchSheet() {
   const input = $("#sheetUrl").value.trim() || state.sourceUrl;
   if (!input) throw new Error("Paste a Google Sheet link first.");
   const url = googleCsvUrl(input);
-  const response = await fetch(url, { cache: "no-store" });
+  const response = await window.TennisRankAuth.fetch(url, { cache: "no-store" });
   if (!response.ok) throw new Error(`The sheet could not be loaded (${response.status}). Check sharing permissions.`);
   const text = await response.text();
   if (text.trim().startsWith("<!DOCTYPE html") || text.includes("Sign in to continue")) throw new Error("Google returned a webpage instead of CSV. Set the sheet to Anyone with the link - Viewer.");

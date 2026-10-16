@@ -182,7 +182,7 @@
     setBusy(button, true);
     setStatus('Loading every worksheet and detecting its tennis data structure...');
     try {
-      const response = await win.fetch(workbookProxyUrl(input), { cache: 'no-store' });
+      const response = await win.TennisRankAuth.fetch(workbookProxyUrl(input), { cache: 'no-store' });
       if (!response.ok) throw new Error(await errorMessage(response, 'The Google Sheet could not be loaded'));
       const buffer = await response.arrayBuffer();
       if (!buffer.byteLength) throw new Error('Google returned an empty workbook.');
