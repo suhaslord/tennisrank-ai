@@ -114,7 +114,7 @@ async function installAdminMocks(page, options = {}) {
           confidence: 0.99,
           globalGender: 'unknown',
           globalDivision: 'unknown',
-          mappings: inferMappings(body.rows || []),
+          mappings: inferMappings(body.rows || []).map(item => options.aiMode === 'mixed-aliases' && item.target === 'name' ? { ...item, target: 'player1' } : item),
           warnings: [],
         },
       }));
@@ -322,7 +322,7 @@ test('Google Sheet Connect uses the workbook proxy and publishes verified match 
 });
 
 test('single-row paste preserves the actual opponent through preview and publication', async ({ page }) => {
-  const state = await installAdminMocks(page);
+  const state = await installAdminMocks(page, { aiMode: 'mixed-aliases' });
   await openCsvImport(page);
   await page.locator('#csvText').fill('Opaque A,Opaque B,Opaque C,Opaque D,Opaque E,Opaque F\nRavi Patel,Noah Chen,W,6-2 6-4,Boys,Singles');
   await page.locator('#useCsv').click();

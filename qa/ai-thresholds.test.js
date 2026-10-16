@@ -45,13 +45,31 @@ test('provider failures safely return local rows',async()=>{
  }
 });
 
+test('mixed participant aliases preserve ordered identities and W/L meaning', async () => {
+ for (const targets of [['player1', 'opponent'], ['name', 'player2']]) {
+  for (const result of ['W', 'L']) {
+   const rows = await fresh().enhanceRows([{ athlete: 'Test Alpha', versus: 'Test Beta', outcome: result }], {
+    source: 'file', auth: auth(schema(.99, [
+     { inputKey: 'athlete', target: targets[0], confidence: .99 },
+     { inputKey: 'versus', target: targets[1], confidence: .99 },
+     { inputKey: 'outcome', target: 'result', confidence: .99 },
+    ])), importer: { validateInterpretation: require('../spreadsheet-ml').assessRows },
+   });
+   assert.equal(rows[0].name, 'Test Alpha');
+   assert.equal(rows[0].opponent, 'Test Beta');
+   assert.equal(rows[0].result, result);
+   assert.equal(rows.__analysis.ai.status, 'applied-and-validated');
+   assert.deepEqual(rows.__analysis.mapping.map(item => item.field), ['name', 'opponent', 'result']);
+  }
+ }
+});
+
 test('invalid AI mapping names the incomplete fields and keeps publishing blocked', async () => {
  const ai = schema(.99, [
   { inputKey: 'athlete', target: 'player1', confidence: .99 },
-  { inputKey: 'versus', target: 'opponent', confidence: .99 },
   { inputKey: 'outcome', target: 'result', confidence: .99 },
  ]);
  await assert.rejects(fresh().enhanceRows([{ athlete: 'Test Alpha', versus: 'Test Beta', outcome: 'W' }], {
   source: 'file', auth: auth(ai), importer: { validateInterpretation: require('../spreadsheet-ml').assessRows },
- }), /Detected fields: player1, opponent, result.*Player\/Opponent\/Result.*Nothing was published/);
+ }), /Detected fields: versus, player1, result.*Player\/Opponent\/Result.*Nothing was published/);
 });
