@@ -233,6 +233,8 @@ test('Coach Lokesh canonical roster and match rows survive even if AI is unavail
   });
   await expect(page.locator('#rankingTable')).toContainText('Aiden Brooks');
   await expect(page.locator('#rankingTable')).toContainText('Maya Shah');
+  await expect(page.locator('#rankingTable')).not.toContainText('Player A');
+  await expect(page.locator('#rankingTable').getByRole('row').filter({ hasText: 'Aiden Brooks' })).toContainText('1-0');
   await expect(page.locator('#statusMessage')).toContainText(/saved|local parser|AI temporarily unavailable/i);
 });
 

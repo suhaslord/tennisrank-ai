@@ -360,6 +360,10 @@ function readMatch(row, gender, division) {
     if (/^\s*(l|loss|lost|loser)\b/i.test(result)) { winner = opponent; loser = player; }
   }
 
+  // Imported winner fields can identify a side even when the loser is already named.
+  if (player1 && player2 && /^\s*(player\s*[1a]|side\s*[1a]|1|a)\s*$/i.test(winner)) winner = player1;
+  else if (player1 && player2 && /^\s*(player\s*[2b]|side\s*[2b]|2|b)\s*$/i.test(winner)) winner = player2;
+
   if ((!winner || !loser) && player1 && player2) {
     const resultText = `${winner} ${result}`.trim().toLowerCase();
     if (/\b(player\s*1|player\s*a|side\s*1|side\s*a|^1$|^a$)\b/.test(resultText) || isSamePerson(winner, player1)) {
