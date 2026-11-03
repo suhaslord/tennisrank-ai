@@ -60,6 +60,9 @@ body main#top > section.ladder-experience {
   border-bottom:1px solid var(--tr-layout-line)!important;
   box-shadow:none!important;
 }
+body main#top > section.ladder-experience {
+  grid-template-columns:minmax(0,1fr)!important;
+}
 body .ladder-stage { display:none!important; }
 body .ladder-intro {
   display:grid!important;
