@@ -7,10 +7,28 @@ const ml = require('../spreadsheet-ml.js');
 const importer = require('../import-v2.js');
 const fixes = require('../import-v2-fixes.js');
 const calibration = require('../spreadsheet-semantic-calibration.js');
+const universal = require('../spreadsheet-universal.js');
 const runtime = require('../import-runtime-fixes.js');
 
 fixes.patchImporter(importer);
 calibration.wrapImporter(importer, ml);
+universal.patchImporterObject(importer, ml);
+
+for (const [sheetName, expected] of [
+  ['BoysS', { gender: 'Boys', division: 'Singles' }],
+  ['GirlsS', { gender: 'Girls', division: 'Singles' }],
+  ['BoysSL', { gender: 'Boys', division: 'Singles' }],
+  ['GirlsSL', { gender: 'Girls', division: 'Singles' }],
+  ['BoysD', { gender: 'Boys', division: 'Doubles' }],
+  ['GirlsD', { gender: 'Girls', division: 'Doubles' }],
+  ['BSL', { gender: 'Boys', division: 'Singles' }],
+  ['G-D', { gender: 'Girls', division: 'Doubles' }],
+  ['Boys S Ladder', { gender: 'Boys', division: 'Singles' }],
+  ['Girls D Ladder', { gender: 'Girls', division: 'Doubles' }],
+  ['MD', { gender: 'Mixed', division: 'Doubles' }],
+]) {
+  assert.deepEqual(importer.sectionHints(sheetName), expected, `${sheetName}: infer team and division from the tab name`);
+}
 
 function loadLegacyCalculate() {
   const source = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
@@ -90,6 +108,22 @@ async function run() {
     assert.ok(maya, `${extension}: aggregate Girls record recognized`);
     assert.equal(maya.wins, 8, `${extension}: aggregate wins preserved`);
   }
+
+  const abbreviatedBook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(abbreviatedBook, XLSX.utils.aoa_to_sheet([
+    ['Date', 'Player', 'Opponent', 'Won?', 'Score'],
+    ['11/2/2026', 'QA Boy One', 'QA Boy Two', 'QA Boy Two', '6-4'],
+    ['11/2/2026', 'QA Boy Three', 'QA Boy Four', 'QA Boy Three', '4-3'],
+  ]), 'BoysS');
+  XLSX.utils.book_append_sheet(abbreviatedBook, XLSX.utils.aoa_to_sheet([
+    ['Date', 'Player', 'Opponent', 'Won?', 'Score'],
+    ['11/2/2026', 'QA Girl One', 'QA Girl Two', 'QA Girl One', '6-3'],
+  ]), 'GirlsS');
+  const abbreviatedBuffer = XLSX.write(abbreviatedBook, { type: 'buffer', bookType: 'xlsx' });
+  const abbreviatedRows = await runtime.workbookRows(fakeFile('rihs-tennis.xlsx', abbreviatedBuffer), XLSX, importer);
+  assert.ok(abbreviatedRows.filter(row => row.__sheetName === 'BoysS').every(row => row.gender === 'Boys' && row.division === 'Singles'), 'BoysS results receive Boys Singles metadata');
+  assert.ok(abbreviatedRows.filter(row => row.__sheetName === 'GirlsS').every(row => row.gender === 'Girls' && row.division === 'Singles'), 'GirlsS results receive Girls Singles metadata');
+  assert.equal(abbreviatedRows.length, 3, 'abbreviated boys/girls result tabs both import');
 
   const textFile = {
     name: 'Boys Singles.tsv',

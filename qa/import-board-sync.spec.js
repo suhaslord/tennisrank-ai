@@ -1,4 +1,7 @@
 const { test, expect } = require('@playwright/test');
+const fs = require('node:fs');
+const path = require('node:path');
+const XLSX = require('xlsx');
 
 const BASE = 'http://127.0.0.1:4173/qa-ai-index.html';
 
@@ -204,6 +207,44 @@ test('selected CSV file follows the same automatic official-board path', async (
   await expect(page.locator('#rankingTable')).toContainText('Cameron Shah');
   await expect(page.locator('#ladderBoardNote')).toContainText(/Official coach-managed singles ladder/i);
   await expect.poll(() => ladderNames(page)).toEqual(boysSeed.players.map(player => player.name));
+});
+
+test('abbreviated BoysS and GirlsS workbook tabs publish to their singles boards', async ({ page }) => {
+  const state = await installImportSyncMocks(page);
+  const sheetJsPath = path.join(path.dirname(require.resolve('xlsx')), 'dist', 'xlsx.full.min.js');
+  await page.route('https://cdn.sheetjs.com/**', route => route.fulfill({
+    status: 200,
+    contentType: 'application/javascript',
+    body: fs.readFileSync(sheetJsPath, 'utf8'),
+  }));
+  await openCsvImport(page);
+  await expect.poll(() => page.evaluate(() => Boolean(window.XLSX?.read))).toBe(true);
+
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet([
+    ['Date', 'Player', 'Opponent', 'Won?', 'Score'],
+    ['11/2/2026', 'QA Boy One', 'QA Boy Two', 'QA Boy Two', '6-4'],
+    ['11/2/2026', 'QA Boy Three', 'QA Boy Two', 'QA Boy Three', '6-3'],
+  ]), 'BoysS');
+  XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet([
+    ['Date', 'Player', 'Opponent', 'Won?', 'Score'],
+    ['11/2/2026', 'QA Girl One', 'QA Girl Two', 'QA Girl One', '6-3'],
+  ]), 'GirlsS');
+  await page.locator('#csvFile').setInputFiles({
+    name: 'rihs-tennis.xlsx',
+    mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    buffer: XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' }),
+  });
+
+  await expect(page.locator('#importPreviewModal')).toBeVisible();
+  await page.locator('[data-preview-confirm]').click();
+  await expect.poll(() => state.savedRows.length).toBe(3);
+  await expect.poll(() => state.seedBodies.length).toBe(2);
+  expect(state.savedRows.every(row => row.division === 'Singles' || row.division === 'singles')).toBe(true);
+  expect(state.savedRows.filter(row => /boys/i.test(row.gender))).toHaveLength(2);
+  expect(state.savedRows.filter(row => /girls/i.test(row.gender))).toHaveLength(1);
+  expect(state.seedBodies.find(body => body.teamGender === 'boys').players.map(player => player.name).sort()).toEqual(['QA Boy One', 'QA Boy Three', 'QA Boy Two']);
+  expect(state.seedBodies.find(body => body.teamGender === 'girls').players.map(player => player.name).sort()).toEqual(['QA Girl One', 'QA Girl Two']);
 });
 
 test('opaque coach columns are understood safely end to end', async ({ page }) => {
