@@ -234,12 +234,20 @@
 
   function sectionHints(name) {
     const text = String(name || "");
+    const withoutExtension = text.replace(/\.[a-z0-9]+$/i, "");
+    const compact = withoutExtension.toLowerCase().replace(/[^a-z0-9]/g, "");
+    const tokens = withoutExtension.toLowerCase().match(/[a-z]+/g) || [];
     let gender = "";
     let division = "";
-    if (/\b(girls?|women|female)\b/i.test(text)) gender = "Girls";
-    else if (/\b(boys?|men|male)\b/i.test(text)) gender = "Boys";
-    if (/\b(doubles?|pairs?|2v2)\b/i.test(text)) division = "Doubles";
-    else if (/\b(singles?)\b/i.test(text)) division = "Singles";
+    const abbreviated = compact.match(/^(boys?|girls?|b|g)(sl|dl|s|d)$/);
+    if (/\b(girls?|women|female)\b/i.test(text) || /^(?:girls?|gs|gd)$/.test(compact) || abbreviated?.[1].startsWith("girl") || abbreviated?.[1] === "g") gender = "Girls";
+    else if (/\b(boys?|men|male)\b/i.test(text) || /^(?:boys?|bs|bd)$/.test(compact) || abbreviated?.[1].startsWith("boy") || abbreviated?.[1] === "b") gender = "Boys";
+    else if (/\b(mixed|coed)\b/i.test(text) || compact === "md") gender = "Mixed";
+
+    const hasShortDoubles = tokens.some(token => token === "d" || token === "dl");
+    const hasShortSingles = tokens.some(token => token === "s" || token === "sl");
+    if (/\b(doubles?|pairs?|2v2)\b/i.test(text) || /^(?:bd|gd|md)$/.test(compact) || abbreviated?.[2] === "d" || abbreviated?.[2] === "dl" || (gender && hasShortDoubles)) division = "Doubles";
+    else if (/\b(singles?)\b/i.test(text) || /^(?:bs|gs)$/.test(compact) || abbreviated?.[2] === "s" || abbreviated?.[2] === "sl" || (gender && hasShortSingles)) division = "Singles";
     return { gender, division };
   }
 
