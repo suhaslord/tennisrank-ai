@@ -133,4 +133,72 @@ test('Google AI cannot force publication when the combined certainty stays below
   assert.equal(ai.calls, 1);
 });
 
-console.log('Certainty workbook tests passed: local >=85 skips AI, low certainty escalates, real XLSX is parsed, and sub-85 results are blocked.');
+test('a workbook imports valid score sheets while ignoring empty divisions and reference tabs', async () => {
+  const ai = { calls: 0 };
+  ai.client = {
+    async enhanceRows(rows, { sourceName }) {
+      ai.calls += 1;
+      const hints = importer.sectionHints(sourceName);
+      const mapped = rows.map(row => {
+        const player1 = String(row.Player || '').trim();
+        const player2 = String(row.Opponent || '').trim();
+        const winner = String(row['Won?'] || '').trim();
+        return {
+          player1,
+          player2,
+          winner,
+          loser: winner.toLowerCase() === player1.toLowerCase() ? player2 : player1,
+          score: String(row.Score || '').trim(),
+          ...hints,
+          __sourceRow: row.__sourceRow,
+          __sheetName: sourceName,
+        };
+      });
+      mapped.__analysis = { ai: { confidence: 0.96, model: 'QA', mappings: [{ target: 'winner', confidence: 0.96 }] } };
+      return mapped;
+    },
+  };
+  const results = [
+    ['Date', 'Player', 'Opponent', 'Won?', 'Score'],
+    ['2026-10-19', 'Player A', 'Player B', 'Player A', '6-3'],
+    ['2026-10-20', 'Player A', 'Player C', 'Player C', '6-4'],
+  ];
+  const buffer = workbookBuffer([
+    ['BoysS', results],
+    ['GirlsS', [
+      ['Date', 'Player', 'Opponent', 'Won?', 'Score'],
+      ['2026-10-19', 'Player C', 'Player D', 'Player C', '6-4'],
+      ['2026-10-20', 'Player C', 'Player A', 'Player A', '6-2'],
+    ]],
+    ['GirlsD', [['Date', 'Team 1', 'Team 2', 'Won?', 'Score']]],
+    ['MD', [['Date', 'Team 1', 'Team 2', 'Won?', 'Score']]],
+    ['Rules', [['Description', 'Win points'], ['Win without tiebreak', 1]]],
+    ['Enums', [['Boys', 'Player A', 'Player B'], ['Girls', 'Player C', 'Player D']]],
+  ]);
+
+  const rows = await certainty.interpretWorkbookBuffer(buffer, { XLSX, importer, runtime, ai: ai.client, source: 'file' });
+
+  assert.ok(ai.calls <= 2, 'empty and reference worksheets must not reach verification');
+  assert.equal(rows.length, 4);
+  assert.deepEqual(rows.__analysis.sheets, ['BoysS', 'GirlsS']);
+  assert.deepEqual(rows.__analysis.rejectedSheets.map(sheet => sheet.name), ['GirlsD', 'MD', 'Rules', 'Enums']);
+  assert.deepEqual(rows.slice(0, 2).map(row => [row.gender, row.division]), [
+    ['Boys', 'Singles'],
+    ['Boys', 'Singles'],
+  ]);
+  assert.deepEqual(rows.slice(2).map(row => [row.gender, row.division]), [
+    ['Girls', 'Singles'],
+    ['Girls', 'Singles'],
+  ]);
+
+  const emptyOnly = workbookBuffer([
+    ['GirlsD', [['Date', 'Team 1', 'Team 2', 'Won?', 'Score']]],
+    ['MD', [['Date', 'Team 1', 'Team 2', 'Won?', 'Score']]],
+  ]);
+  await assert.rejects(
+    certainty.interpretWorkbookBuffer(emptyOnly, { XLSX, importer, runtime, ai: ai.client, source: 'file' }),
+    error => error?.code === 'NO_VERIFIED_WORKSHEETS' && !/85% certainty threshold/.test(error.message),
+  );
+});
+
+console.log('Certainty workbook tests passed: clear sheets skip AI, ambiguous sheets are checked, and empty/reference tabs are safely ignored.');

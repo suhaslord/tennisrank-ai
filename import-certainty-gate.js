@@ -195,7 +195,13 @@
 
   function isProbablyUnsupported(error) {
     return error?.code === "UNSUPPORTED_SHEET"
+      || error?.code === "NO_USABLE_ROWS"
       || /does not look like usable tennis ranking data/i.test(String(error?.message || ""));
+  }
+
+  function isSupportWorksheet(name) {
+    const compact = String(name || "").trim().toLowerCase().replace(/[^a-z0-9]/g, "");
+    return /^(?:rules?|enums?|settings?|lookups?|reference|legend|validation)$/.test(compact);
   }
 
   function sheetToCsv(XLSX, sheet) {
@@ -217,6 +223,10 @@
       const sheet = workbook.Sheets?.[name];
       if (!sheet) continue;
       const csv = sheetToCsv(XLSX, sheet);
+      if (isSupportWorksheet(name)) {
+        ignoredSheets.push({ name, reason: "Reference or settings worksheet." });
+        continue;
+      }
       if (!String(csv || "").trim()) {
         ignoredSheets.push({ name, reason: "Empty worksheet." });
         continue;
